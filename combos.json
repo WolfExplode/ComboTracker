@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "last_active_combo": "Zani Starter",
+  "combos": {
+    "Zani Starter": [
+      "f",
+      "wait:0.200",
+      "e",
+      "wait:0.05",
+      "lmb",
+      "wait:0.05",
+      "2",
+      "hold(e, 0.35)",
+      "r"
+    ]
+  },
+  "combo_enders": {
+    "1": 1000,
+    "2": 1000,
+    "3": 1000,
+    "e": 1000,
+    "lmb": 200,
+    "q": 1000,
+    "r": 1000,
+    "space": 1000
+  },
+  "combo_stats": {
+    "Zani Starter": {
+      "success": 1,
+      "fail": 1,
+      "best_ms": 1120,
+      "total_success_ms": 1120,
+      "fail_by_step": {
+        "7": 1
+      },
+      "fail_by_expected": {
+        "hold(e,\u2265350ms)": 1
+      },
+      "fail_by_reason": {
+        "hold too short": 1
+      },
+      "fail_events": [
+        {
+          "ts": 1768893396,
+          "attempt": 1,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 334ms",
+          "reason": "hold too short",
+          "elapsed_ms": 1236
+        }
+      ]
+    }
+  },
+  "combo_expected_ms": {
+    "Zani Starter": 1300
+  }
+}
