@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Combo Trainer</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
     <div class="container">
@@ -25,6 +25,9 @@
 
                 <label>Expected time:</label>
                 <input type="text" id="comboExpectedTime" placeholder="e.g., 1.05s or 1050ms">
+
+                <label>Your difficulty:</label>
+                <input type="text" id="comboUserDifficulty" placeholder="0–10 (optional)">
 
                 <label>Combo Enders:</label>
                 <input type="text" id="comboEnders" placeholder="q:0.2, e:0.2, lmb, 1, 2, 3">
@@ -52,6 +55,7 @@
             <div id="statusDisplay" class="status-ready">Status: Select a combo to start</div>
             <div id="minTimeDisplay" class="time-display">Fastest possible: —</div>
             <div id="difficultyDisplay" class="time-display">Difficulty: —</div>
+            <div id="userDifficultyDisplay" class="time-display">Your difficulty: —</div>
             <div id="apmDisplay" class="time-display">Practical APM: —</div>
             <div id="apmMaxDisplay" class="time-display">Theoretical max APM: —</div>
             <div id="statsDisplay" class="stats-display">Stats: —</div>
@@ -92,6 +96,6 @@
 
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>

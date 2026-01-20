@@ -87,6 +87,7 @@ async def ws_handler(websocket, _path=None):
                     inputs=str(msg.get("inputs") or ""),
                     enders=str(msg.get("enders") or ""),
                     expected_time=str(msg.get("expected_time") or ""),
+                    user_difficulty=str(msg.get("user_difficulty") or ""),
                 )
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))

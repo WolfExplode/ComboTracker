@@ -4,7 +4,7 @@
   "combos": {
     "Zani Starter": [
       "f",
-      "wait:0.200",
+      "wait:0.2",
       "e",
       "wait:0.05",
       "lmb",
@@ -12,6 +12,11 @@
       "2",
       "hold(e, 0.35)",
       "r"
+    ],
+    "sss": [
+      "a",
+      "a",
+      "a"
     ]
   },
   "combo_enders": {
@@ -26,33 +31,143 @@
   },
   "combo_stats": {
     "Zani Starter": {
-      "success": 1,
-      "fail": 1,
-      "best_ms": 1120,
-      "total_success_ms": 1120,
+      "success": 5,
+      "fail": 11,
+      "best_ms": 988,
+      "total_success_ms": 7230,
       "fail_by_step": {
+        "4": 2,
+        "2": 8,
         "7": 1
       },
       "fail_by_expected": {
+        "lmb": 2,
+        "e": 8,
         "hold(e,\u2265350ms)": 1
       },
       "fail_by_reason": {
-        "hold too short": 1
+        "out of order": 1,
+        "pressed too fast": 8,
+        "hold too short": 1,
+        "missed input": 1
       },
       "fail_events": [
         {
-          "ts": 1768893396,
+          "ts": 1768924758,
           "attempt": 1,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "e",
+          "reason": "out of order",
+          "elapsed_ms": 1624
+        },
+        {
+          "ts": 1768924763,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "lmb",
+          "reason": "pressed too fast",
+          "elapsed_ms": 270
+        },
+        {
+          "ts": 1768924770,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 282
+        },
+        {
+          "ts": 1768924774,
+          "attempt": 7,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 324
+        },
+        {
+          "ts": 1768924775,
+          "attempt": 8,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "lmb",
+          "reason": "pressed too fast",
+          "elapsed_ms": 232
+        },
+        {
+          "ts": 1768924779,
+          "attempt": 9,
           "step_index": 7,
           "expected": "hold(e,\u2265350ms)",
-          "actual": "released @ 334ms",
+          "actual": "released @ 192ms",
           "reason": "hold too short",
-          "elapsed_ms": 1236
+          "elapsed_ms": 1704
+        },
+        {
+          "ts": 1768924780,
+          "attempt": 10,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 392
+        },
+        {
+          "ts": 1768924781,
+          "attempt": 11,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "lmb",
+          "reason": "pressed too fast",
+          "elapsed_ms": 267
+        },
+        {
+          "ts": 1768924783,
+          "attempt": 12,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "missed input",
+          "elapsed_ms": 1534
+        },
+        {
+          "ts": 1768924784,
+          "attempt": 13,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 294
+        },
+        {
+          "ts": 1768924785,
+          "attempt": 14,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 272
         }
       ]
+    },
+    "sss": {
+      "success": 0,
+      "fail": 0,
+      "best_ms": null,
+      "total_success_ms": 0,
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     }
   },
   "combo_expected_ms": {
     "Zani Starter": 1300
+  },
+  "combo_user_difficulty": {
+    "Zani Starter": 8.0
   }
 }

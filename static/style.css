@@ -170,6 +170,12 @@ select {
     text-align: center;
 }
 
+/* Difficulty color coding */
+.diff-easy { color: var(--accent-green); }
+.diff-med { color: var(--accent-yellow); }
+.diff-hard { color: #ff9a4a; }
+.diff-insane { color: var(--accent-red); }
+
 /* Timeline */
 .timeline {
     display: flex;
@@ -190,9 +196,38 @@ select {
     position: relative;
 }
 
+.hold-progress {
+    /* Make the hold indicator very obvious and avoid any positioning issues */
+    margin-top: 8px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.hold-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent-green);
+    transition: width 60ms linear;
+}
+
 .step.completed {
     border-color: var(--accent-green);
     background: rgba(74, 255, 136, 0.1);
+}
+
+.step.mark-ok {
+    border-color: var(--accent-green);
+    background: rgba(74, 255, 136, 0.12);
+}
+
+.step.mark-early,
+.step.mark-missed,
+.step.mark-wrong {
+    border-color: var(--accent-red);
+    background: rgba(255, 74, 74, 0.14);
 }
 
 .step.active {
@@ -208,6 +243,14 @@ select {
 .step.hold {
     border-color: var(--accent-blue);
     border-style: dashed;
+    --hold-pct: 0%;
+    background: linear-gradient(
+        to right,
+        rgba(74, 255, 136, 0.22) 0%,
+        rgba(74, 255, 136, 0.22) var(--hold-pct),
+        var(--bg-primary) var(--hold-pct),
+        var(--bg-primary) 100%
+    );
 }
 
 @keyframes pulse {

@@ -44,6 +44,13 @@ class ComboTrackerEngine:
 
         self.currently_pressed: set[str] = set()
 
+        # Per-attempt visual annotations for the timeline UI.
+        # step_index -> mark string (e.g. "ok", "early", "missed", "wrong")
+        self.step_marks: dict[int, str] = {}
+        # For soft waits: track if the *next expected input* was pressed during the wait window.
+        # wait_step_index -> set(inputs pressed too early for that gate)
+        self.wait_early_inputs: dict[int, set[str]] = {}
+
         # Combo enders: key -> grace_ms (0 means no grace; wrong press drops immediately)
         self.combo_enders: dict[str, int] = {}
         self.last_success_input: str | None = None
@@ -53,6 +60,8 @@ class ComboTrackerEngine:
         # Per-combo metadata (kept minimal on purpose)
         # - expected_ms: user-entered typical execution time (used for Practical APM / difficulty)
         self.combo_expected_ms: dict[str, int] = {}
+        # - user_difficulty: user-entered difficulty rating (0..10)
+        self.combo_user_difficulty: dict[str, float] = {}
 
         # Emission
         self._emit: Callable[[dict[str, Any]], None] | None = None
@@ -85,10 +94,33 @@ class ComboTrackerEngine:
     # -------------------------
 
     def normalize_key(self, key) -> str:
+        """
+        Normalize pynput keyboard events to our internal string tokens.
+
+        pynput uses a mix of types:
+        - KeyCode: usually has .char (may be None for non-character keys)
+        - Key: has .name (e.g. "space", "shift")
+        Some edge cases on Windows can produce KeyCode with char=None and no .name.
+        This function must never throw (listener callbacks should not crash).
+        """
         try:
-            return key.char.lower()
-        except AttributeError:
-            return key.name.lower()
+            ch = getattr(key, "char", None)
+            if isinstance(ch, str) and ch:
+                return ch.lower()
+
+            name = getattr(key, "name", None)
+            if isinstance(name, str) and name:
+                return name.lower()
+
+            # Fallback: stringify.
+            # Examples:
+            # - "Key.space" -> "space"
+            # - "'a'" -> "a"
+            s = str(key)
+            s = s.replace("Key.", "").strip().strip("'").strip('"')
+            return s.lower()
+        except Exception:
+            return ""
 
     def normalize_mouse(self, button) -> str:
         # Import here to keep module import light in non-mouse contexts
@@ -265,6 +297,84 @@ class ComboTrackerEngine:
         inp = str(step.get("input") or "").strip().lower()
         return inp or "—"
 
+    def _find_next_step_index_for_input(self, input_name: str, *, start_index: int) -> int | None:
+        """
+        Look ahead in the active combo for the next non-wait step that matches input_name.
+        Returns the absolute step index, or None if not found.
+        """
+        input_name = (input_name or "").strip().lower()
+        if not input_name:
+            return None
+        try:
+            for j in range(max(0, int(start_index)), len(self.active_combo_steps)):
+                s = self.active_combo_steps[j]
+                if not isinstance(s, dict):
+                    continue
+                if s.get("wait_ms") is not None:
+                    continue
+                if str(s.get("input") or "").strip().lower() == input_name:
+                    return j
+        except Exception:
+            return None
+        return None
+
+    def _find_prev_step_index_for_input(self, input_name: str, *, end_index: int) -> int | None:
+        """
+        Look backward in the active combo for the most recent non-wait step that matches input_name.
+        Searches indices < end_index.
+        Returns the absolute step index, or None if not found.
+        """
+        input_name = (input_name or "").strip().lower()
+        if not input_name:
+            return None
+        try:
+            end = max(0, int(end_index))
+        except Exception:
+            end = 0
+        try:
+            for j in range(min(end, len(self.active_combo_steps)) - 1, -1, -1):
+                s = self.active_combo_steps[j]
+                if not isinstance(s, dict):
+                    continue
+                if s.get("wait_ms") is not None:
+                    continue
+                if str(s.get("input") or "").strip().lower() == input_name:
+                    return j
+        except Exception:
+            return None
+        return None
+
+    def _mark_step(self, step_index: int, mark: str):
+        """
+        Set a per-attempt mark for a step (for UI coloring).
+        Later marks overwrite earlier ones (e.g. wait can go from "early" -> "ok").
+        """
+        try:
+            idx = int(step_index)
+        except Exception:
+            return
+        if idx < 0:
+            return
+        m = str(mark or "").strip().lower()
+        if not m:
+            return
+        self.step_marks[idx] = m
+
+    def _reset_attempt_marks(self):
+        self.step_marks = {}
+        self.wait_early_inputs = {}
+
+    def _next_non_wait_step_index(self, *, start_index: int) -> int | None:
+        """Return the next step index >= start_index that is not a wait step."""
+        try:
+            for j in range(max(0, int(start_index)), len(self.active_combo_steps)):
+                s = self.active_combo_steps[j]
+                if isinstance(s, dict) and s.get("wait_ms") is None:
+                    return j
+        except Exception:
+            return None
+        return None
+
     # -------------------------
     # Persistence
     # -------------------------
@@ -417,6 +527,22 @@ class ComboTrackerEngine:
                         expected_ms[name] = ms
             self.combo_expected_ms = expected_ms
 
+            # Optional: per-combo user difficulty (0..10)
+            ud = data.get("combo_user_difficulty", {})
+            user_diff: dict[str, float] = {}
+            if isinstance(ud, dict):
+                for k, v in ud.items():
+                    name = str(k).strip()
+                    if not name:
+                        continue
+                    try:
+                        d = float(v)
+                    except Exception:
+                        continue
+                    if 0.0 <= d <= 10.0:
+                        user_diff[name] = d
+            self.combo_user_difficulty = user_diff
+
             last_active = data.get("last_active_combo")
             if last_active in self.combos:
                 self.set_active_combo(str(last_active), emit=False)
@@ -425,6 +551,7 @@ class ComboTrackerEngine:
             self.combo_stats = {}
             self.combo_enders = {}
             self.combo_expected_ms = {}
+            self.combo_user_difficulty = {}
             self.active_combo_name = None
             self.active_combo_tokens = []
             self.active_combo_steps = []
@@ -439,6 +566,7 @@ class ComboTrackerEngine:
                 "combo_enders": dict(self.combo_enders),
                 "combo_stats": dict(self.combo_stats),
                 "combo_expected_ms": dict(self.combo_expected_ms),
+                "combo_user_difficulty": dict(self.combo_user_difficulty),
             }
             self.save_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         except Exception:
@@ -643,8 +771,9 @@ class ComboTrackerEngine:
     def _wait_triangle_score(self, wait_ms: int) -> float:
         """
         Triangle-shaped wait difficulty:
-        - peak at 350ms
-        - 0 at 0ms and >=600ms
+        - peak at 350ms: roughly "awkward" timing for many players (not instant, not long enough to relax/spam)
+        - 0 at 0ms: no minimum delay gate at all
+        - 0 at >=600ms: long enough that it’s effectively “free” (you can reposition/spam without losing time)
         """
         try:
             w = float(wait_ms)
@@ -652,11 +781,13 @@ class ComboTrackerEngine:
             return 0.0
         if w <= 0.0:
             return 0.0
+        # 600ms is treated as "free wait" in this model (see docstring above).
         if w >= 600.0:
             return 0.0
+        # Rising edge: 0..350ms ramps up to max difficulty.
         if w < 350.0:
             return self._clamp01(w / 350.0)
-        # 350..600
+        # Falling edge: 350..600ms ramps back down to 0.
         return self._clamp01((600.0 - w) / 250.0)
 
     def _hold_score(self, hold_ms: int) -> float:
@@ -669,7 +800,11 @@ class ComboTrackerEngine:
             return 0.0
         if h <= 0.0:
             return 0.0
-        # Saturates fairly quickly around ~1s; tune H to taste.
+        # H controls how quickly hold difficulty ramps up.
+        # With H=350ms:
+        # - ~350ms hold ≈ 63% difficulty
+        # - ~700ms hold ≈ 86% difficulty
+        # This matches the idea that long holds are meaningfully harder, but it saturates (they don't grow forever).
         H = 350.0
         return self._clamp01(1.0 - (2.718281828 ** (-h / H)))
 
@@ -680,6 +815,9 @@ class ComboTrackerEngine:
         - +1 per distinct hold duration
         - micro waits (<=60ms): +1 if they occur exactly once, else +0
         """
+        # micro_thresh: "micro waits" are treated as rhythm that you can standardize by
+        # adding extra tiny delays where missing (so they don't necessarily create variation difficulty).
+        # If a micro-wait occurs only once, we treat it as a "gotcha" (+1).
         micro_thresh = 60
         waits_micro_count = 0
         non_micro_waits: set[int] = set()
@@ -698,7 +836,8 @@ class ComboTrackerEngine:
                 if w_i <= 0:
                     continue
                 if w_i >= 600:
-                    # "free" wait: doesn't add variation or difficulty
+                    # Keep consistent with _wait_triangle_score(): >=600ms waits are considered "free"
+                    # and don't increase variation difficulty.
                     continue
                 if w_i <= micro_thresh:
                     waits_micro_count += 1
@@ -726,9 +865,17 @@ class ComboTrackerEngine:
         apm = self.practical_apm() or 0.0
         press_count, hold_count, actions = self._count_combo_actions(self.active_combo_steps)
 
-        apm_norm = self._clamp01(apm / 300.0)
-        actions_norm = self._clamp01(float(actions) / 12.0)
-        keys = (0.7 * apm_norm) + (0.3 * actions_norm)
+        # --- Normalization / scaling constants ---
+        # APM normalization: 200 APM maps to 1.0 (anything faster clamps).
+        # This is intentionally "tunable": change 200.0 if your game’s APM scale differs.
+        apm_norm = self._clamp01(apm / 200.0)
+
+        # Action normalization: 8 actions maps to 1.0.
+        # (actions = presses + holds; waits don't count as actions)
+        actions_norm = self._clamp01(float(actions) / 8.0)
+
+        # Keys weighting: prioritize speed (APM) over length, but keep length as a reliability tax.
+        keys = (0.6 * apm_norm) + (0.4 * actions_norm)
 
         # --- Timing camp (wait + hold + simple variation points) ---
         wait_scores: list[float] = []
@@ -752,17 +899,43 @@ class ComboTrackerEngine:
         wait_avg = (sum(wait_scores) / len(wait_scores)) if wait_scores else 0.0
         hold_avg = (sum(hold_scores) / len(hold_scores)) if hold_scores else 0.0
 
-        # Holds weighted higher than waits
+        # Holds weighted higher than waits because they "commit" a finger and restrict spamming.
+        # Increase hold_w to make holds matter more relative to waits.
         wait_w = 1.0
         hold_w = 1.5
         denom = (wait_w * has_wait) + (hold_w * has_hold)
         timing_base = 0.0 if denom <= 0 else ((wait_avg * wait_w * has_wait) + (hold_avg * hold_w * has_hold)) / denom
 
         var_points = self._timing_variation_points()
-        var_norm = self._clamp01(float(var_points) / 4.0)
-        timing = (0.8 * self._clamp01(timing_base)) + (0.2 * var_norm)
 
-        combined = (0.55 * keys) + (0.45 * timing)
+        # Variation scaling (diminishing returns):
+        # We want 1–2 distinct timings to be a big penalty (hard to adapt),
+        # but 3–4 to add less (at that point it starts feeling "random" anyway).
+        #
+        # This uses an exponential saturation curve:
+        #   var_norm = 1 - exp(-var_points / K)
+        # where K controls how fast it saturates.
+        #
+        # With K=1.0:
+        # - 0 -> 0.000
+        # - 1 -> 0.632
+        # - 2 -> 0.865
+        # - 3 -> 0.950
+        # - 4 -> 0.982
+        #
+        # Increase K to make variation matter less; decrease K to make it spike faster.
+        K = 1.0
+        var_norm = self._clamp01(1.0 - (2.718281828 ** (-float(var_points) / K)))
+
+        # Timing blend:
+        # - timing_base = "how hard are the raw waits/holds"
+        # - var_norm    = "how many distinct timing rules do I have to remember"
+        # Increase the var_norm weight if you want "one weird timing" to dominate difficulty.
+        timing = (0.3 * self._clamp01(timing_base)) + (0.7 * var_norm)
+
+        # Overall blend: slightly emphasize timing over raw key speed/length.
+        # Adjust these if you want APM to dominate or timing to dominate.
+        combined = (0.45 * keys) + (0.55 * timing)
         return round(10.0 * self._clamp01(combined), 1)
 
     def difficulty_text(self) -> str:
@@ -770,6 +943,27 @@ class ComboTrackerEngine:
         if d is None:
             return "Difficulty: —"
         return f"Difficulty: {d:.1f} / 10"
+
+    def user_difficulty_value(self) -> float | None:
+        name = self.active_combo_name
+        if not name:
+            return None
+        d = self.combo_user_difficulty.get(name)
+        if d is None:
+            return None
+        try:
+            d_f = float(d)
+        except Exception:
+            return None
+        if 0.0 <= d_f <= 10.0:
+            return d_f
+        return None
+
+    def user_difficulty_text(self) -> str:
+        d = self.user_difficulty_value()
+        if d is None:
+            return "Your difficulty: —"
+        return f"Your difficulty: {d:g} / 10"
 
     # -------------------------
     # UI state snapshots
@@ -795,7 +989,19 @@ class ComboTrackerEngine:
             ms = self.combo_expected_ms.get(name)
             if ms is not None:
                 expected = self._format_ms_brief(ms)
-        return {"name": name, "inputs": inputs, "enders": enders, "expected_time": expected}
+        user_diff = ""
+        if name:
+            d = self.combo_user_difficulty.get(name)
+            if d is not None:
+                # Keep it friendly for editing (no trailing .0)
+                user_diff = f"{d:g}"
+        return {
+            "name": name,
+            "inputs": inputs,
+            "enders": enders,
+            "expected_time": expected,
+            "user_difficulty": user_diff,
+        }
 
     def get_status(self) -> Status:
         if not self.active_combo_steps:
@@ -826,6 +1032,7 @@ class ComboTrackerEngine:
     def timeline_steps(self) -> list[dict[str, Any]]:
         steps = []
         for idx, s in enumerate(self.active_combo_steps or []):
+            mark = self.step_marks.get(idx)
             if s.get("wait_ms") is not None:
                 steps.append(
                     {
@@ -835,6 +1042,7 @@ class ComboTrackerEngine:
                         "mode": str(s.get("wait_mode") or "soft"),
                         "active": idx == self.current_index,
                         "completed": idx < self.current_index,
+                        "mark": mark,
                     }
                 )
             elif s.get("hold_ms") is not None:
@@ -845,6 +1053,7 @@ class ComboTrackerEngine:
                         "duration": int(s.get("hold_ms") or 0),
                         "active": idx == self.current_index,
                         "completed": idx < self.current_index,
+                        "mark": mark,
                     }
                 )
             else:
@@ -855,6 +1064,7 @@ class ComboTrackerEngine:
                         "duration": 0,
                         "active": idx == self.current_index,
                         "completed": idx < self.current_index,
+                        "mark": mark,
                     }
                 )
         return steps
@@ -869,6 +1079,9 @@ class ComboTrackerEngine:
             "stats": self.stats_text(),
             "min_time": self.min_time_text(),
             "difficulty": self.difficulty_text(),
+            "difficulty_value": self.difficulty_score_10(),
+            "user_difficulty": self.user_difficulty_text(),
+            "user_difficulty_value": self.user_difficulty_value(),
             "apm": self.apm_text(),
             "apm_max": self.apm_max_text(),
             "timeline": self.timeline_steps(),
@@ -938,7 +1151,13 @@ class ComboTrackerEngine:
         return True, None
 
     def save_or_update_combo(
-        self, *, name: str, inputs: str, enders: str, expected_time: str | None = None
+        self,
+        *,
+        name: str,
+        inputs: str,
+        enders: str,
+        expected_time: str | None = None,
+        user_difficulty: str | None = None,
     ) -> tuple[bool, str | None]:
         name = (name or "").strip()
         keys_str = (inputs or "").strip()
@@ -956,6 +1175,16 @@ class ComboTrackerEngine:
             if expected_ms is None:
                 return False, "Invalid Expected time. Examples: 1.05s or 1050ms"
 
+        user_diff_val = None
+        ud_raw = (user_difficulty or "").strip()
+        if ud_raw:
+            try:
+                user_diff_val = float(ud_raw)
+            except Exception:
+                return False, "Invalid Your difficulty. Use a number from 0 to 10."
+            if not (0.0 <= user_diff_val <= 10.0):
+                return False, "Invalid Your difficulty. Use a number from 0 to 10."
+
         input_list = [k.strip().lower() for k in self.split_inputs(keys_str) if k.strip()]
         if not input_list:
             return False, "Please provide at least one input."
@@ -970,6 +1199,8 @@ class ComboTrackerEngine:
             if old_name in self.combo_expected_ms:
                 # Drop old key; we'll re-apply below if the UI provided a new value.
                 del self.combo_expected_ms[old_name]
+            if old_name in self.combo_user_difficulty:
+                del self.combo_user_difficulty[old_name]
         else:
             self.combos[name] = input_list
 
@@ -978,6 +1209,11 @@ class ComboTrackerEngine:
             self.combo_expected_ms[name] = int(expected_ms)
         else:
             self.combo_expected_ms.pop(name, None)
+
+        if user_diff_val is not None:
+            self.combo_user_difficulty[name] = float(user_diff_val)
+        else:
+            self.combo_user_difficulty.pop(name, None)
 
         self._ensure_combo_stats(name)
         self.set_active_combo(name, emit=False)
@@ -997,6 +1233,8 @@ class ComboTrackerEngine:
             del self.combo_stats[name]
         if name in self.combo_expected_ms:
             del self.combo_expected_ms[name]
+        if name in self.combo_user_difficulty:
+            del self.combo_user_difficulty[name]
 
         if self.active_combo_name == name:
             self.active_combo_name = None
@@ -1063,7 +1301,20 @@ class ComboTrackerEngine:
             st = self.get_status()
             self._send({"type": "combo_data", **self.get_editor_payload()})
             self._send({"type": "min_time", "text": self.min_time_text()})
-            self._send({"type": "difficulty_update", "text": self.difficulty_text()})
+            self._send(
+                {
+                    "type": "difficulty_update",
+                    "text": self.difficulty_text(),
+                    "value": self.difficulty_score_10(),
+                }
+            )
+            self._send(
+                {
+                    "type": "user_difficulty_update",
+                    "text": self.user_difficulty_text(),
+                    "value": self.user_difficulty_value(),
+                }
+            )
             self._send({"type": "apm_update", "text": self.apm_text()})
             self._send({"type": "apm_max_update", "text": self.apm_max_text()})
             self._send({"type": "stat_update", "stats": self.stats_text()})
@@ -1082,6 +1333,7 @@ class ComboTrackerEngine:
         self.last_input_time = 0.0
         self.attempt_counter = 0
         self.last_success_input = None
+        self._reset_attempt_marks()
         self._reset_hold_state()
         self._reset_wait_state()
 
@@ -1093,6 +1345,8 @@ class ComboTrackerEngine:
     def _insert_attempt_separator(self):
         self.attempt_counter += 1
         name = self.active_combo_name or "Combo"
+        # New attempt → clear any per-step failure coloring from the previous attempt.
+        self._reset_attempt_marks()
         self._send({"type": "attempt_start", "name": name, "attempt": self.attempt_counter})
 
     def record_hit(self, label: str, split_ms: float | str, total_ms: float | str):
@@ -1108,6 +1362,9 @@ class ComboTrackerEngine:
         self._send({"type": "hit", "input": label, "split_ms": split, "total_ms": total})
 
     def _reset_hold_state(self):
+        # If we were showing a hold indicator in the UI, clear it.
+        if self.hold_in_progress:
+            self._send({"type": "hold_end"})
         self.hold_in_progress = False
         self.hold_expected_input = None
         self.hold_started_at = 0.0
@@ -1124,6 +1381,7 @@ class ComboTrackerEngine:
         self.hold_expected_input = input_name
         self.hold_started_at = now
         self.hold_required_ms = required_ms
+        self._send({"type": "hold_begin", "input": str(input_name or ""), "required_ms": int(required_ms)})
         st = self.get_status()
         self._send({"type": "status", "text": st.text, "color": st.color})
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
@@ -1211,6 +1469,13 @@ class ComboTrackerEngine:
             self.record_hit(label, split_ms, total_ms)
             self.last_input_time = now
             self.last_success_input = target_input
+
+            # If this hold was gated by a wait right before it, mark that wait green (timing satisfied).
+            if self.current_index > 0:
+                prev = self.active_combo_steps[self.current_index - 1]
+                if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                    self._mark_step(self.current_index - 1, "ok")
+
             self.current_index += 1
             self._maybe_start_wait_step()
 
@@ -1380,6 +1645,23 @@ class ComboTrackerEngine:
                 self._maybe_start_wait_step()
                 now = time.perf_counter()
                 if now < self.wait_until:
+                    # Soft-wait training hint:
+                    # If you press the *next expected input* during the wait gate, it won't count.
+                    # Mark the wait step red immediately so the UI shows the timing mistake.
+                    if target_wait_mode != "hard":
+                        next_idx = self._next_non_wait_step_index(start_index=self.current_index + 1)
+                        next_expected = None
+                        if next_idx is not None:
+                            try:
+                                next_expected = str(self.active_combo_steps[next_idx].get("input") or "").strip().lower()
+                            except Exception:
+                                next_expected = None
+                        if next_expected and input_name == next_expected:
+                            wi = int(self.current_index)
+                            self.wait_early_inputs.setdefault(wi, set()).add(input_name)
+                            self._mark_step(wi, "early")
+                            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
                     # Soft wait: ignore any early presses (even enders).
                     # Hard wait: early press can drop the combo (models games where early input consumes/cancels).
                     if target_wait_mode == "hard":
@@ -1442,6 +1724,13 @@ class ComboTrackerEngine:
                 self.record_hit(input_name, split_ms, total_ms)
                 self.last_input_time = current_time
                 self.last_success_input = input_name
+
+                # If this step was gated by a wait right before it, mark that wait green (timing satisfied).
+                if self.current_index > 0:
+                    prev = self.active_combo_steps[self.current_index - 1]
+                    if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                        self._mark_step(self.current_index - 1, "ok")
+
                 self.current_index += 1
                 self._maybe_start_wait_step()
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
@@ -1461,14 +1750,97 @@ class ComboTrackerEngine:
         if self._is_combo_ender(input_name):
             if self._should_ignore_ender_miss(input_name):
                 return
-            self.record_hit(f"{input_name} (Exp: {target_input})", "FAIL", "FAIL")
-            self._send({"type": "status", "text": "Combo Dropped (Wrong Input)", "color": "fail"})
+
+            # More helpful messaging: detect "out of order" presses (likely skipped an expected step).
+            expected = str(target_input or "").strip().lower()
+            actual = str(input_name or "").strip().lower()
+            skipped_idx = None
+            if expected and actual and expected != actual:
+                # If the actual input appears later in the combo, you likely hit a later step early.
+                skipped_idx = self._find_next_step_index_for_input(actual, start_index=self.current_index + 1)
+            passed_idx = None
+            if expected and actual and expected != actual:
+                # If the actual input appeared earlier than the current expected step,
+                # the player is likely repeating a key that the combo has already passed.
+                passed_idx = self._find_prev_step_index_for_input(actual, end_index=self.current_index)
+
+            # If the player pressed a later combo input, we can be more specific than "wrong input":
+            # - If they pressed the immediate "next action" after the expected one, they likely MISSED the expected input.
+            # - If the expected input was pressed during the wait gate right before it, call it "pressed too fast".
+            next_action_idx = self._next_non_wait_step_index(start_index=self.current_index + 1)
+            is_missed = (skipped_idx is not None) and (next_action_idx is not None) and (skipped_idx == next_action_idx)
+
+            # Detect "pressed too fast": expected was hit during the wait step directly before this expected input.
+            pressed_too_fast = False
+            if self.current_index > 0:
+                prev_idx = self.current_index - 1
+                prev = self.active_combo_steps[prev_idx]
+                if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                    if input_name and expected:
+                        if expected in self.wait_early_inputs.get(prev_idx, set()):
+                            pressed_too_fast = True
+
+            # Mark the expected step as missed/wrong for UI feedback.
+            self._mark_step(int(self.current_index), "missed")
+
+            # If the actual input exists later in the combo, mark that step red too (shows where you jumped to).
+            if skipped_idx is not None:
+                self._mark_step(int(skipped_idx), "wrong")
+
+            if pressed_too_fast:
+                # Example: expected 'E' after wait, but E was pressed during the wait gate, then player moved on.
+                self.record_hit(f"{actual} (Exp: {expected}) [pressed too fast]", "FAIL", "FAIL")
+                self._send(
+                    {
+                        "type": "status",
+                        "text": f"Combo Dropped (Pressed Too Fast): '{expected.upper()}' was pressed during the wait, so it didn't count.",
+                        "color": "fail",
+                    }
+                )
+                fail_reason = "pressed too fast"
+            elif is_missed:
+                self.record_hit(f"{actual} (Exp: {expected}) [missed input]", "FAIL", "FAIL")
+                self._send(
+                    {
+                        "type": "status",
+                        "text": f"Combo Dropped (Missed Input): expected '{expected.upper()}', but you went to '{actual.upper()}'.",
+                        "color": "fail",
+                    }
+                )
+                fail_reason = "missed input"
+            elif skipped_idx is not None:
+                # Out of order (jumped somewhere later than just the next action).
+                self.record_hit(f"{actual} (Exp: {expected}) [out of order]", "FAIL", "FAIL")
+                self._send(
+                    {
+                        "type": "status",
+                        "text": f"Combo Dropped (Out of Order): got '{actual.upper()}', expected '{expected.upper()}'.",
+                        "color": "fail",
+                    }
+                )
+                fail_reason = "out of order"
+            elif passed_idx is not None:
+                # The pressed key is part of the combo, but only earlier steps (no longer remaining).
+                self.record_hit(f"{actual} (Exp: {expected}) [already passed]", "FAIL", "FAIL")
+                self._send(
+                    {
+                        "type": "status",
+                        "text": f"Combo Dropped (Already Passed): '{actual.upper()}' already happened earlier. Expected '{expected.upper()}'.",
+                        "color": "fail",
+                    }
+                )
+                fail_reason = "already passed"
+            else:
+                self.record_hit(f"{actual} (Exp: {expected})", "FAIL", "FAIL")
+                self._send({"type": "status", "text": "Combo Dropped (Wrong Input)", "color": "fail"})
+                fail_reason = "wrong input"
+
             elapsed_ms = (current_time - self.start_time) * 1000.0 if self.start_time else None
             self.record_combo_fail(
                 actual=input_name,
                 expected_step_index=int(self.current_index),
                 expected_label=self._expected_label_for_step(self._active_step()),
-                reason="wrong input",
+                reason=fail_reason,
                 elapsed_ms=elapsed_ms,
             )
             self.current_index = 0
