@@ -270,12 +270,22 @@ class ComboTrackerEngine:
             inner = tl[1:-1].strip()
             parts = [p.strip() for p in self.split_inputs(inner) if p.strip()]
             if len(parts) >= 2:
-                press_inputs: list[str] = []
+                # press+wait items inside a group are keyed by signature so the same key can appear with different waits:
+                # e.g. [lmb, wait:0.1, ..., lmb, wait:0.5, ...]
+                pw_need_counts: dict[str, int] = {}  # sig -> count
+                pw_meta: dict[str, dict[str, Any]] = {}  # sig -> {input, wait_ms, wait_mode}
+                pw_order_sigs: list[str] = []  # preserve written order for resolving which sig is next
                 mandatory_wait: dict[str, Any] | None = None  # {"wait_for": "r", "wait_ms": 1500}
-                order: list[dict[str, Any]] = []  # preserves written order of group items
+                order: list[dict[str, Any]] = []  # preserves written order of group items (supports duplicates)
+                press_need_counts: dict[str, int] = {}  # key -> count (supports duplicates)
+                hold_need_counts: dict[str, int] = {}  # sig -> count (supports duplicates)
+                hold_meta: dict[str, dict[str, Any]] = {}  # sig -> {input, hold_ms}
+                hold_order_sigs: list[str] = []
                 ok = True
 
-                for p in parts:
+                j = 0
+                while j < len(parts):
+                    p = parts[j]
                     s = self.parse_step(p)
                     if not isinstance(s, dict):
                         ok = False
@@ -308,10 +318,27 @@ class ComboTrackerEngine:
                         mandatory_wait = {"wait_for": w_for, "wait_ms": int(w_ms)}
                         # Preserve written order (de-duped by the single-mandatory-wait rule).
                         order.append({"kind": "anim_wait", "wait_for": w_for, "wait_ms": int(w_ms)})
+                        j += 1
                         continue
 
-                    # Plain waits/holds inside a group are not supported yet (ambiguous semantics).
-                    if s.get("wait_ms") is not None or s.get("hold_ms") is not None:
+                    # Hold inside a group is supported as an atomic item.
+                    if s.get("hold_ms") is not None:
+                        hk = str(s.get("input") or "").strip().lower()
+                        hms = int(s.get("hold_ms") or 0)
+                        if not hk or hms <= 0:
+                            ok = False
+                            break
+                        sig = f"{hk}:{hms}"
+                        hold_need_counts[sig] = int(hold_need_counts.get(sig, 0)) + 1
+                        hold_meta[sig] = {"input": hk, "hold_ms": hms}
+                        if sig not in hold_order_sigs:
+                            hold_order_sigs.append(sig)
+                        order.append({"kind": "hold", "sig": sig, "input": hk, "hold_ms": hms})
+                        j += 1
+                        continue
+
+                    # If this token is a wait gate by itself, it's invalid unless it's paired after a press.
+                    if s.get("wait_ms") is not None:
                         ok = False
                         break
 
@@ -319,18 +346,31 @@ class ComboTrackerEngine:
                     if not inp:
                         ok = False
                         break
-                    press_inputs.append(inp)
-                    # Preserve written order, but de-dupe repeats to avoid "dangling" items.
-                    if not any(it.get("kind") == "press" and it.get("input") == inp for it in order):
-                        order.append({"kind": "press", "input": inp})
 
-                # De-dup press inputs while preserving order.
-                seen = set()
-                uniq_presses: list[str] = []
-                for k in press_inputs:
-                    if k not in seen:
-                        seen.add(k)
-                        uniq_presses.append(k)
+                    # Detect "press + wait" pairs inside the group:
+                    # [lmb, wait:0.1s, rmb, wait:0.5s] => two atomic items.
+                    if j + 1 < len(parts):
+                        nxt = self.parse_step(parts[j + 1])
+                        if isinstance(nxt, dict) and nxt.get("wait_ms") is not None:
+                            mode = str(nxt.get("wait_mode") or "soft").strip().lower()
+                            if mode in ("soft", "hard"):
+                                wms = int(nxt.get("wait_ms") or 0)
+                                if wms > 0:
+                                    sig = f"{inp}:{wms}:{mode}"
+                                    pw_need_counts[sig] = int(pw_need_counts.get(sig, 0)) + 1
+                                    pw_meta[sig] = {"input": inp, "wait_ms": wms, "wait_mode": mode}
+                                    if sig not in pw_order_sigs:
+                                        pw_order_sigs.append(sig)
+                                    order.append({"kind": "press_wait", "sig": sig, "input": inp, "wait_ms": wms, "wait_mode": mode})
+                                    j += 2
+                                    continue
+
+                    # Plain press item (can repeat; repeats become additional required presses)
+                    press_need_counts[inp] = int(press_need_counts.get(inp, 0)) + 1
+                    order.append({"kind": "press", "input": inp})
+                    j += 1
+
+                uniq_presses = [k for k in press_need_counts.keys()]
 
                 # Disallow listing the same key twice (e.g. [wait(r,1.5), r, q]) to avoid ambiguity.
                 if mandatory_wait is not None:
@@ -338,19 +378,44 @@ class ComboTrackerEngine:
                     if mw_for and mw_for in uniq_presses:
                         ok = False
 
-                if ok and (len(uniq_presses) + (1 if mandatory_wait is not None else 0)) >= 2:
+                # Group validity: count ALL required items, including duplicates and holds.
+                # Examples that must be valid:
+                # - [e, e] (2 required presses)
+                # - [hold(e,0.30), e] (hold + press)
+                required_press_count = sum(int(v or 0) for v in press_need_counts.values())
+                required_hold_count = sum(int(v or 0) for v in hold_need_counts.values())
+                required_pw_count = sum(int(v or 0) for v in pw_need_counts.values())
+                total_items = required_press_count + required_pw_count + required_hold_count + (1 if mandatory_wait is not None else 0)
+                if ok and total_items >= 2:
                     return {
                         "input": None,
                         "hold_ms": None,
                         "wait_ms": None,
                         "group_presses": uniq_presses,
-                        "group_done": set(),
+                        "group_press_need_counts": press_need_counts,
+                        "group_pw_need_counts": pw_need_counts,
+                        "group_pw_done_counts": {},
+                        "group_pw_meta": pw_meta,
+                        "group_pw_order_sigs": pw_order_sigs,
+                        "group_done_counts": {},
+                        "group_hold_need_counts": hold_need_counts,
+                        "group_hold_done_counts": {},
+                        "group_hold_meta": hold_meta,
+                        "group_hold_order_sigs": hold_order_sigs,
+                        "group_hold_active": False,
+                        "group_hold_sig": "",
+                        "group_hold_for": "",
+                        "group_hold_started_at": 0.0,
+                        "group_hold_required_ms": 0,
                         "group_mandatory_wait": mandatory_wait,  # or None
                         "group_order": order,
                         "group_wait_active": False,
                         "group_wait_done": False,
                         "group_wait_started_at": 0.0,
                         "group_wait_until": 0.0,
+                        "group_pw_active": False,
+                        "group_pw_sig": "",
+                        "group_pw_until": 0.0,
                     }
 
         # Wait steps:
@@ -437,6 +502,30 @@ class ComboTrackerEngine:
         if step.get("group_presses") is not None:
             opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
             opts = [o for o in opts if o]
+            # Include press+wait keys in the group label.
+            pw_meta = step.get("group_pw_meta")
+            if isinstance(pw_meta, dict) and pw_meta:
+                pw_keys = []
+                for _sig, meta in pw_meta.items():
+                    k = str((meta or {}).get("input") or "").strip().lower()
+                    if k:
+                        pw_keys.append(k)
+                if pw_keys:
+                    opts = pw_keys + opts
+            # Include holds in the group label (use the hold key name).
+            hold_meta = step.get("group_hold_meta")
+            hold_need = step.get("group_hold_need_counts")
+            if isinstance(hold_meta, dict) and isinstance(hold_need, dict) and hold_need:
+                hold_keys = []
+                for sig, cnt in hold_need.items():
+                    if int(cnt or 0) <= 0:
+                        continue
+                    meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
+                    hk = str((meta or {}).get("input") or "").strip().lower()
+                    if hk:
+                        hold_keys.append(hk)
+                if hold_keys:
+                    opts = hold_keys + opts
             mw = step.get("group_mandatory_wait")
             if isinstance(mw, dict):
                 mw_for = str(mw.get("wait_for") or "").strip().lower()
@@ -480,6 +569,22 @@ class ComboTrackerEngine:
                     continue
                 if s.get("group_presses") is not None:
                     opts = [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]
+                    pw_meta = s.get("group_pw_meta")
+                    if isinstance(pw_meta, dict):
+                        for _sig, meta in pw_meta.items():
+                            k = str((meta or {}).get("input") or "").strip().lower()
+                            if k:
+                                opts.append(k)
+                    hold_meta = s.get("group_hold_meta")
+                    hold_need = s.get("group_hold_need_counts")
+                    if isinstance(hold_meta, dict) and isinstance(hold_need, dict):
+                        for sig, cnt in hold_need.items():
+                            if int(cnt or 0) <= 0:
+                                continue
+                            meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
+                            hk = str((meta or {}).get("input") or "").strip().lower()
+                            if hk:
+                                opts.append(hk)
                     mw = s.get("group_mandatory_wait")
                     if isinstance(mw, dict):
                         mw_for = str(mw.get("wait_for") or "").strip().lower()
@@ -515,6 +620,22 @@ class ComboTrackerEngine:
                     continue
                 if s.get("group_presses") is not None:
                     opts = [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]
+                    pw_meta = s.get("group_pw_meta")
+                    if isinstance(pw_meta, dict):
+                        for _sig, meta in pw_meta.items():
+                            k = str((meta or {}).get("input") or "").strip().lower()
+                            if k:
+                                opts.append(k)
+                    hold_meta = s.get("group_hold_meta")
+                    hold_need = s.get("group_hold_need_counts")
+                    if isinstance(hold_meta, dict) and isinstance(hold_need, dict):
+                        for sig, cnt in hold_need.items():
+                            if int(cnt or 0) <= 0:
+                                continue
+                            meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
+                            hk = str((meta or {}).get("input") or "").strip().lower()
+                            if hk:
+                                opts.append(hk)
                     mw = s.get("group_mandatory_wait")
                     if isinstance(mw, dict):
                         mw_for = str(mw.get("wait_for") or "").strip().lower()
@@ -1476,6 +1597,15 @@ class ComboTrackerEngine:
             if step.get("group_presses") is not None:
                 opts = [str(x or "").strip().upper() for x in (step.get("group_presses") or [])]
                 opts = [o for o in opts if o]
+                pw_meta = step.get("group_pw_meta")
+                if isinstance(pw_meta, dict) and pw_meta:
+                    pw_keys = []
+                    for _sig, meta in pw_meta.items():
+                        k = str((meta or {}).get("input") or "").strip().upper()
+                        if k:
+                            pw_keys.append(k)
+                    if pw_keys:
+                        opts = pw_keys + opts
                 mw = step.get("group_mandatory_wait")
                 if isinstance(mw, dict):
                     mw_for = str(mw.get("wait_for") or "").strip().upper()
@@ -1534,8 +1664,24 @@ class ComboTrackerEngine:
             idx = i
             mark = self.step_marks.get(idx)
             if s.get("group_presses") is not None:
-                done = s.get("group_done")
-                done_set = done if isinstance(done, set) else set()
+                done_counts = s.get("group_done_counts")
+                done_counts = done_counts if isinstance(done_counts, dict) else {}
+                pw_done_counts = s.get("group_pw_done_counts")
+                pw_done_counts = pw_done_counts if isinstance(pw_done_counts, dict) else {}
+                pw_need_counts = s.get("group_pw_need_counts")
+                pw_need_counts = pw_need_counts if isinstance(pw_need_counts, dict) else {}
+                pw_meta = s.get("group_pw_meta")
+                pw_meta = pw_meta if isinstance(pw_meta, dict) else {}
+                pw_active = bool(s.get("group_pw_active"))
+                pw_sig_active = str(s.get("group_pw_sig") or "").strip()
+                hold_done_counts = s.get("group_hold_done_counts")
+                hold_done_counts = hold_done_counts if isinstance(hold_done_counts, dict) else {}
+                hold_need_counts = s.get("group_hold_need_counts")
+                hold_need_counts = hold_need_counts if isinstance(hold_need_counts, dict) else {}
+                hold_meta = s.get("group_hold_meta")
+                hold_meta = hold_meta if isinstance(hold_meta, dict) else {}
+                hold_active = bool(s.get("group_hold_active"))
+                hold_sig_active = str(s.get("group_hold_sig") or "").strip()
                 mw_done = bool(s.get("group_wait_done"))
                 mw_active = bool(s.get("group_wait_active"))
                 mw = s.get("group_mandatory_wait")
@@ -1551,6 +1697,9 @@ class ComboTrackerEngine:
                 items_payload: list[dict[str, Any]] = []
                 done_count = 0
                 total = 0
+                seen_press: dict[str, int] = {}      # key -> occurrences (for press duplicates)
+                seen_pw: dict[str, int] = {}         # sig -> occurrences (for press_wait duplicates)
+                seen_hold: dict[str, int] = {}       # sig -> occurrences (for hold duplicates)
 
                 # Build items in the exact order written in the combo.
                 for it in order_list:
@@ -1575,10 +1724,34 @@ class ComboTrackerEngine:
                                 "completed": comp,
                             }
                         )
+                    elif kind == "press_wait":
+                        total += 1
+                        sig = str(it.get("sig") or "").strip()
+                        meta = pw_meta.get(sig) if isinstance(pw_meta, dict) else None
+                        inp = str((meta or {}).get("input") or it.get("input") or "").strip().lower()
+                        dur = int((meta or {}).get("wait_ms") or it.get("wait_ms") or 0)
+                        # occurrence counting for duplicates of same sig:
+                        seen_pw[sig] = int(seen_pw.get(sig, 0)) + 1
+                        occ = int(seen_pw.get(sig, 1))
+                        comp = (int(pw_done_counts.get(sig, 0)) >= occ) or (idx < cur)
+                        act = (idx == cur) and pw_active and (pw_sig_active == sig)
+                        if comp:
+                            done_count += 1
+                        items_payload.append(
+                            {
+                                "type": "press_wait",
+                                "input": inp,
+                                "duration": dur,
+                                "active": act,
+                                "completed": comp,
+                            }
+                        )
                     elif kind == "press":
                         total += 1
                         inp = str(it.get("input") or "").strip().lower()
-                        comp = (inp in done_set) or (idx < cur)
+                        seen_press[inp] = int(seen_press.get(inp, 0)) + 1
+                        occ = int(seen_press.get(inp, 1))
+                        comp = (int(done_counts.get(inp, 0)) >= occ) or (idx < cur)
                         if comp:
                             done_count += 1
                         items_payload.append(
@@ -1587,6 +1760,26 @@ class ComboTrackerEngine:
                                 "input": inp,
                                 "duration": 0,
                                 "active": False,
+                                "completed": comp,
+                            }
+                        )
+                    elif kind == "hold":
+                        total += 1
+                        sig = str(it.get("sig") or "").strip()
+                        key = str(it.get("input") or "").strip().lower()
+                        dur = int(it.get("hold_ms") or 0)
+                        seen_hold[sig] = int(seen_hold.get(sig, 0)) + 1
+                        occ = int(seen_hold.get(sig, 1))
+                        comp = (int(hold_done_counts.get(sig, 0)) >= occ) or (idx < cur)
+                        act = (idx == cur) and hold_active and (hold_sig_active == sig)
+                        if comp:
+                            done_count += 1
+                        items_payload.append(
+                            {
+                                "type": "hold",
+                                "input": key,
+                                "duration": dur,
+                                "active": act,
                                 "completed": comp,
                             }
                         )
@@ -1610,16 +1803,70 @@ class ComboTrackerEngine:
                                 "completed": comp,
                             }
                         )
-                    for inp in [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]:
-                        if not inp:
+                    # Add press-wait items (if any) then plain presses.
+                    for sig, meta in (pw_meta or {}).items():
+                        try:
+                            need_n = int(pw_need_counts.get(sig, 0) or 0)
+                        except Exception:
+                            need_n = 0
+                        key = str((meta or {}).get("input") or "").strip().lower()
+                        dur = int((meta or {}).get("wait_ms") or 0)
+                        for occ in range(1, max(0, need_n) + 1):
+                            total += 1
+                            comp = (int(pw_done_counts.get(sig, 0)) >= occ) or (idx < cur)
+                            if comp:
+                                done_count += 1
+                            items_payload.append(
+                                {
+                                    "type": "press_wait",
+                                    "input": key,
+                                    "duration": dur,
+                                    "active": (idx == cur) and pw_active and (pw_sig_active == str(sig)),
+                                    "completed": comp,
+                                }
+                            )
+                    # Plain press counts fallback: if need_counts exist, represent repeats.
+                    need_counts = s.get("group_press_need_counts")
+                    need_counts = need_counts if isinstance(need_counts, dict) else {}
+                    for inp, cnt in need_counts.items():
+                        key = str(inp or "").strip().lower()
+                        if not key:
                             continue
-                        total += 1
-                        comp = (inp in done_set) or (idx < cur)
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {"type": "press", "input": inp, "duration": 0, "active": False, "completed": comp}
-                        )
+                        try:
+                            n = int(cnt or 0)
+                        except Exception:
+                            n = 0
+                        for occ in range(1, max(0, n) + 1):
+                            total += 1
+                            comp = (int(done_counts.get(key, 0)) >= occ) or (idx < cur)
+                            if comp:
+                                done_count += 1
+                            items_payload.append(
+                                {"type": "press", "input": key, "duration": 0, "active": False, "completed": comp}
+                            )
+                    # Hold fallback (if any)
+                    for sig, cnt in hold_need_counts.items():
+                        try:
+                            n = int(cnt or 0)
+                        except Exception:
+                            n = 0
+                        meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
+                        key = str((meta or {}).get("input") or "").strip().lower()
+                        dur = int((meta or {}).get("hold_ms") or 0)
+                        for occ in range(1, max(0, n) + 1):
+                            total += 1
+                            comp = (int(hold_done_counts.get(sig, 0)) >= occ) or (idx < cur)
+                            if comp:
+                                done_count += 1
+                            items_payload.append(
+                                {
+                                    "type": "hold",
+                                    "input": key,
+                                    "duration": dur,
+                                    "active": (idx == cur) and hold_active and (hold_sig_active == str(sig)),
+                                    "completed": comp,
+                                }
+                            )
 
                 steps.append(
                     {
@@ -2233,13 +2480,25 @@ class ComboTrackerEngine:
             for s in self.active_combo_steps or []:
                 if isinstance(s, dict) and s.get("group_presses") is not None:
                     # If a group had an internal animation wait running, stop the UI animation.
-                    if bool(s.get("group_wait_active")):
+                    if bool(s.get("group_wait_active")) or bool(s.get("group_pw_active")):
                         self._send({"type": "wait_end"})
-                    s["group_done"] = set()
+                    if bool(s.get("group_hold_active")):
+                        self._send({"type": "hold_end"})
+                    s["group_done_counts"] = {}
+                    s["group_pw_done_counts"] = {}
                     s["group_wait_active"] = False
                     s["group_wait_done"] = False
                     s["group_wait_started_at"] = 0.0
                     s["group_wait_until"] = 0.0
+                    s["group_pw_active"] = False
+                    s["group_pw_sig"] = ""
+                    s["group_pw_until"] = 0.0
+                    s["group_hold_done_counts"] = {}
+                    s["group_hold_active"] = False
+                    s["group_hold_sig"] = ""
+                    s["group_hold_for"] = ""
+                    s["group_hold_started_at"] = 0.0
+                    s["group_hold_required_ms"] = 0
         except Exception:
             pass
 
@@ -2628,10 +2887,43 @@ class ComboTrackerEngine:
         if isinstance(step, dict) and step.get("group_presses") is not None:
             opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
             opts = [o for o in opts if o]
-            done = step.get("group_done")
-            if not isinstance(done, set):
-                done = set()
-                step["group_done"] = done
+            need_counts = step.get("group_press_need_counts")
+            if not isinstance(need_counts, dict) or not need_counts:
+                need_counts = {k: 1 for k in opts}
+                step["group_press_need_counts"] = need_counts
+
+            done_counts = step.get("group_done_counts")
+            if not isinstance(done_counts, dict):
+                done_counts = {}
+                step["group_done_counts"] = done_counts
+
+            pw_need_counts = step.get("group_pw_need_counts")
+            pw_need_counts = pw_need_counts if isinstance(pw_need_counts, dict) else {}
+            pw_done_counts = step.get("group_pw_done_counts")
+            if not isinstance(pw_done_counts, dict):
+                pw_done_counts = {}
+                step["group_pw_done_counts"] = pw_done_counts
+            pw_meta = step.get("group_pw_meta")
+            pw_meta = pw_meta if isinstance(pw_meta, dict) else {}
+            pw_order_sigs = step.get("group_pw_order_sigs")
+            pw_order_sigs = pw_order_sigs if isinstance(pw_order_sigs, list) else []
+
+            pw_keys = set()
+            for _sig, meta in pw_meta.items():
+                k = str((meta or {}).get("input") or "").strip().lower()
+                if k:
+                    pw_keys.add(k)
+
+            hold_need_counts = step.get("group_hold_need_counts")
+            hold_need_counts = hold_need_counts if isinstance(hold_need_counts, dict) else {}
+            hold_done_counts = step.get("group_hold_done_counts")
+            if not isinstance(hold_done_counts, dict):
+                hold_done_counts = {}
+                step["group_hold_done_counts"] = hold_done_counts
+            hold_meta = step.get("group_hold_meta")
+            hold_meta = hold_meta if isinstance(hold_meta, dict) else {}
+            hold_order_sigs = step.get("group_hold_order_sigs")
+            hold_order_sigs = hold_order_sigs if isinstance(hold_order_sigs, list) else []
 
             mw = step.get("group_mandatory_wait")
             mw_for = ""
@@ -2640,6 +2932,33 @@ class ComboTrackerEngine:
                 mw_for = str(mw.get("wait_for") or "").strip().lower()
                 mw_ms = mw.get("wait_ms")
             has_mw = (mw_ms is not None and mw_for)
+
+            # If we're currently inside a hold item inside the group, treat it like a "mini hold step":
+            # - other inputs are ignored until the requirement is met (or until it can auto-complete)
+            if bool(step.get("group_hold_active")):
+                now = time.perf_counter()
+                hold_for = str(step.get("group_hold_for") or "").strip().lower()
+                sig = str(step.get("group_hold_sig") or "").strip()
+                req = int(step.get("group_hold_required_ms") or 0)
+                started = float(step.get("group_hold_started_at") or 0.0)
+
+                if input_name == hold_for:
+                    return
+
+                held_ms = (now - started) * 1000.0 if started else 0.0
+                if req > 0 and held_ms >= float(req):
+                    # Auto-complete the hold and then continue processing this press.
+                    self._send({"type": "hold_end"})
+                    step["group_hold_active"] = False
+                    step["group_hold_for"] = ""
+                    step["group_hold_sig"] = ""
+                    step["group_hold_started_at"] = 0.0
+                    step["group_hold_required_ms"] = 0
+                    hold_done_counts[sig] = int(hold_done_counts.get(sig, 0)) + 1
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                else:
+                    # Not held long enough; ignore other presses while holding.
+                    return
 
             # If we're currently inside the group's animation lock, ignore all inputs until it ends.
             if has_mw and bool(step.get("group_wait_active")):
@@ -2655,9 +2974,9 @@ class ComboTrackerEngine:
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
                 # If all required presses are already done, the group completes immediately.
-                needed_presses = set(opts)
-                presses_done = needed_presses.issubset(done)
-                if presses_done:
+                presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
+                pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
+                if presses_done and pw_done_ok:
                     self._mark_step(int(self.current_index), "ok")
                     self.current_index += 1
                     total_ms = (now - self.start_time) * 1000 if self.start_time else 0
@@ -2669,9 +2988,207 @@ class ComboTrackerEngine:
                     # Re-process this same input against the next expected step.
                     return self.process_press(input_name)
 
-            # Duplicate hits of already-completed options are ignored.
-            if input_name in done:
+            # If we're currently inside a press+wait item, ignore all inputs until it ends.
+            if bool(step.get("group_pw_active")):
+                now = time.perf_counter()
+                until = float(step.get("group_pw_until") or 0.0)
+                if now < until:
+                    return  # inputs ignored during the post-press animation time
+                # The post-press wait finished; mark that press+wait signature complete.
+                sig = str(step.get("group_pw_sig") or "").strip()
+                if sig:
+                    pw_done_counts[sig] = int(pw_done_counts.get(sig, 0)) + 1
+                step["group_pw_active"] = False
+                step["group_pw_sig"] = ""
+                step["group_pw_until"] = 0.0
+                self._send({"type": "wait_end"})
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+                # If the group is complete after finishing this wait, advance and re-process current input.
+                presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
+                pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
+                mw_done2 = (not has_mw) or bool(step.get("group_wait_done"))
+                if presses_done and pw_done_ok and mw_done2:
+                    self._mark_step(int(self.current_index), "ok")
+                    self.current_index += 1
+                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
+                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
+                        return
+                    self._maybe_start_wait_step()
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    return self.process_press(input_name)
+
+            # If this input's requirements are already fully satisfied, treat repeats as enders if applicable.
+            # NOTE: keys not present in need_counts should NOT be treated as "already done" (0/0),
+            # otherwise hold-only keys would get misclassified as enders.
+            already_plain_done = (input_name in need_counts) and (
+                int(done_counts.get(input_name, 0)) >= int(need_counts.get(input_name, 0))
+            )
+            # Consider press+wait requirements for this key satisfied only if all sigs for this key are done.
+            if input_name not in pw_keys:
+                already_pw_done = True
+            else:
+                already_pw_done = True
+                for sig, meta in (pw_meta or {}).items():
+                    k = str((meta or {}).get("input") or "").strip().lower()
+                    if k != input_name:
+                        continue
+                    if int(pw_done_counts.get(sig, 0)) < int(pw_need_counts.get(sig, 0)):
+                        already_pw_done = False
+                        break
+            already_hold_done = True
+            if hold_need_counts:
+                relevant = [
+                    sig
+                    for sig in hold_order_sigs
+                    if str((hold_meta.get(sig) or {}).get("input") or "").strip().lower() == input_name
+                ]
+                if relevant:
+                    already_hold_done = all(
+                        int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in relevant
+                    )
+            if already_plain_done and already_pw_done and already_hold_done:
+                # If the key is a combo ender, pressing it again at the wrong time should still drop the combo.
+                # (Except when we intentionally ignore immediate re-presses due to grace windows.)
+                if self._is_combo_ender(input_name) and not self._should_ignore_ender_miss(input_name):
+                    expected = str(self._expected_label_for_step(step) or "").strip().lower()
+                    actual = str(input_name or "").strip().lower()
+                    self._mark_step(int(self.current_index), "missed")
+                    self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
+                    self._send({"type": "status", "text": "Combo Dropped (Combo Ender)", "color": "fail"})
+                    now = time.perf_counter()
+                    elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
+                    self.record_combo_fail(
+                        actual=input_name,
+                        expected_step_index=int(self.current_index),
+                        expected_label=self._expected_label_for_step(step),
+                        reason="wrong input",
+                        elapsed_ms=elapsed_ms,
+                    )
+                    self.current_index = 0
+                    self._reset_hold_state()
+                    self._reset_wait_state()
+                    self._reset_group_state()
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    return
                 return
+
+            # Press+wait group item (e.g. lmb, wait:0.1s) is accepted as one atomic item:
+            # press starts the timer; other inputs are ignored until it finishes; only then the item counts as done.
+            #
+            # IMPORTANT: a key may appear both as a press+wait item *and* as a plain press requirement
+            # (e.g. [lmb, wait:0.1s, rmb, wait:0.5s, rmb]). In that case:
+            # - the first rmb triggers the press+wait item
+            # - after that wait is complete, subsequent rmb presses should count toward the plain press requirement
+            if input_name in pw_keys and not bool(step.get("group_pw_active")):
+                # Pick the first not-yet-completed press_wait signature for this key (in written order).
+                pick_sig = None
+                for sig in pw_order_sigs:
+                    meta = pw_meta.get(sig) if isinstance(pw_meta, dict) else None
+                    k = str((meta or {}).get("input") or "").strip().lower()
+                    if k != input_name:
+                        continue
+                    if int(pw_done_counts.get(sig, 0)) < int(pw_need_counts.get(sig, 0)):
+                        pick_sig = str(sig)
+                        break
+                if not pick_sig:
+                    # No remaining press+wait requirement for this key; let it fall through to plain press logic.
+                    pick_sig = None
+                if pick_sig:
+                    meta = pw_meta.get(pick_sig) if isinstance(pw_meta, dict) else None
+                    wms = int((meta or {}).get("wait_ms") or 0)
+                    if wms <= 0:
+                        return
+
+                    now = time.perf_counter()
+
+                    # Start attempt on first accepted press (group can be the first step).
+                    if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
+                        self._insert_attempt_separator()
+                        self.start_time = now
+                        self.last_input_time = now
+                        self._send({"type": "status", "text": "Recording...", "color": "recording"})
+
+                    # Timing row
+                    if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
+                        split_ms = 0
+                        total_ms = 0
+                    else:
+                        split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
+                        total_ms = (now - self.start_time) * 1000 if self.start_time else 0
+
+                    # If this group was gated by a wait right before it, mark that wait green once a valid option counts.
+                    if self.current_index > 0:
+                        prev = self.active_combo_steps[self.current_index - 1]
+                        if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                            self._mark_step(self.current_index - 1, "ok")
+
+                    self.record_hit(input_name, split_ms, total_ms)
+                    self.last_input_time = now
+                    self.last_success_input = input_name
+
+                    step["group_pw_active"] = True
+                    step["group_pw_sig"] = pick_sig
+                    step["group_pw_until"] = now + (wms / 1000.0)
+
+                    # Animate the wait fill on the active key+wait tile.
+                    self._send({"type": "wait_begin", "required_ms": int(wms), "mode": "soft", "wait_for": input_name})
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    return
+
+            # Hold group item: pressing the hold key starts the hold timer.
+            # We pick the first not-yet-completed hold signature for this key in the order it was written.
+            hold_key = input_name
+            if hold_need_counts and not bool(step.get("group_hold_active")):
+                pick_sig = None
+                for sig in hold_order_sigs:
+                    meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
+                    k = str((meta or {}).get("input") or "").strip().lower()
+                    if k != hold_key:
+                        continue
+                    need_n = int(hold_need_counts.get(sig, 0) or 0)
+                    done_n = int(hold_done_counts.get(sig, 0) or 0)
+                    if done_n < need_n:
+                        pick_sig = str(sig)
+                        break
+                if pick_sig:
+                    meta = hold_meta.get(pick_sig) if isinstance(hold_meta, dict) else None
+                    req_ms = int((meta or {}).get("hold_ms") or 0)
+                    if req_ms > 0:
+                        now = time.perf_counter()
+
+                        # Start attempt on first accepted press (group can be the first step).
+                        if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
+                            self._insert_attempt_separator()
+                            self.start_time = now
+                            self.last_input_time = now
+                            self._send({"type": "status", "text": "Recording...", "color": "recording"})
+
+                        # Record the press event itself (consistent with other group items)
+                        if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
+                            split_ms = 0
+                            total_ms = 0
+                        else:
+                            split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
+                            total_ms = (now - self.start_time) * 1000 if self.start_time else 0
+
+                        if self.current_index > 0:
+                            prev = self.active_combo_steps[self.current_index - 1]
+                            if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                                self._mark_step(self.current_index - 1, "ok")
+
+                        self.record_hit(input_name, split_ms, total_ms)
+                        self.last_input_time = now
+                        self.last_success_input = input_name
+
+                        step["group_hold_active"] = True
+                        step["group_hold_sig"] = pick_sig
+                        step["group_hold_for"] = hold_key
+                        step["group_hold_started_at"] = now
+                        step["group_hold_required_ms"] = req_ms
+                        self._send({"type": "hold_begin", "input": str(hold_key or ""), "required_ms": int(req_ms)})
+                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                        return
 
             # Mandatory-wait key press (e.g. r in wait(r,1.5)) is accepted as part of the group,
             # but it only "counts" once the animation lock finishes.
@@ -2682,14 +3199,14 @@ class ComboTrackerEngine:
 
                 now = time.perf_counter()
                 # Start attempt on first accepted press (group can be the first step).
-                if self.current_index == 0 and self.attempt_counter == 0 and len(done) == 0:
+                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
                     self._insert_attempt_separator()
                     self.start_time = now
                     self.last_input_time = now
                     self._send({"type": "status", "text": "Recording...", "color": "recording"})
 
                 # Timing row
-                if self.current_index == 0 and len(done) == 0:
+                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
                     split_ms = 0
                     total_ms = 0
                 else:
@@ -2714,18 +3231,18 @@ class ComboTrackerEngine:
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 return
 
-            if input_name in opts:
+            if input_name in need_counts:
                 now = time.perf_counter()
 
                 # Start of combo (group can be the first step)
-                if self.current_index == 0 and self.attempt_counter == 0 and len(done) == 0:
+                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
                     self._insert_attempt_separator()
                     self.start_time = now
                     self.last_input_time = now
                     self._send({"type": "status", "text": "Recording...", "color": "recording"})
 
                 # Compute timings for hit rows
-                if self.current_index == 0 and len(done) == 0:
+                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
                     split_ms = 0
                     total_ms = 0
                 else:
@@ -2741,13 +3258,17 @@ class ComboTrackerEngine:
                 self.record_hit(input_name, split_ms, total_ms)
                 self.last_input_time = now
                 self.last_success_input = input_name
-                done.add(input_name)
+                cur_n = int(done_counts.get(input_name, 0))
+                need_n = int(need_counts.get(input_name, 0))
+                if cur_n < need_n:
+                    done_counts[input_name] = cur_n + 1
 
                 # Group completes when all presses are hit, and (if present) the mandatory wait is satisfied.
-                needed_presses = set(opts)
-                presses_done = needed_presses.issubset(done)
+                presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
+                pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
+                holds_done = all(int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in hold_need_counts.keys())
                 mw_done = (not has_mw) or bool(step.get("group_wait_done"))
-                if presses_done and mw_done:
+                if presses_done and pw_done_ok and holds_done and mw_done:
                     self._mark_step(int(self.current_index), "ok")
                     self.current_index += 1
                     if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
@@ -2770,6 +3291,32 @@ class ComboTrackerEngine:
                 # Partial progress: keep current_index on this group.
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 return
+
+            # If the combo has already started (group is the first step so current_index can still be 0),
+            # then combo enders should still be able to drop the combo while you're "inside" the group
+            # (except during the group's ignore-wait windows handled above).
+            if self.start_time and self.last_input_time:
+                if self._is_combo_ender(input_name) and not self._should_ignore_ender_miss(input_name):
+                    expected = str(self._expected_label_for_step(step) or "").strip().lower()
+                    actual = str(input_name or "").strip().lower()
+                    self._mark_step(int(self.current_index), "missed")
+                    self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
+                    self._send({"type": "status", "text": "Combo Dropped (Combo Ender)", "color": "fail"})
+                    now = time.perf_counter()
+                    elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
+                    self.record_combo_fail(
+                        actual=input_name,
+                        expected_step_index=int(self.current_index),
+                        expected_label=self._expected_label_for_step(step),
+                        reason="wrong input",
+                        elapsed_ms=elapsed_ms,
+                    )
+                    self.current_index = 0
+                    self._reset_hold_state()
+                    self._reset_wait_state()
+                    self._reset_group_state()
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    return
 
         # Start of combo
         if self.current_index == 0:
@@ -2934,7 +3481,54 @@ class ComboTrackerEngine:
         if not input_name:
             return
 
+        # Always update pressed-state on release (even if the release is consumed by group-hold logic).
         self.currently_pressed.discard(input_name)
+
+        # Group hold handling (hold items inside []):
+        step = self._active_step()
+        if isinstance(step, dict) and step.get("group_presses") is not None and bool(step.get("group_hold_active")):
+            hold_for = str(step.get("group_hold_for") or "").strip().lower()
+            if input_name == hold_for:
+                now = time.perf_counter()
+                sig = str(step.get("group_hold_sig") or "").strip()
+                req = int(step.get("group_hold_required_ms") or 0)
+                started = float(step.get("group_hold_started_at") or 0.0)
+                held_ms = (now - started) * 1000.0 if started else 0.0
+
+                if req > 0 and held_ms >= float(req):
+                    # Complete hold
+                    hold_done_counts = step.get("group_hold_done_counts")
+                    if not isinstance(hold_done_counts, dict):
+                        hold_done_counts = {}
+                        step["group_hold_done_counts"] = hold_done_counts
+                    hold_done_counts[sig] = int(hold_done_counts.get(sig, 0)) + 1
+
+                    step["group_hold_active"] = False
+                    step["group_hold_for"] = ""
+                    step["group_hold_sig"] = ""
+                    step["group_hold_started_at"] = 0.0
+                    step["group_hold_required_ms"] = 0
+                    self._send({"type": "hold_end"})
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                else:
+                    # Released too early: drop combo (hold too short)
+                    self.record_hit(f"{input_name} (hold ≥ {req}ms, {held_ms:.0f}ms)", "FAIL", "FAIL")
+                    self._send({"type": "status", "text": "Combo Dropped (Hold Too Short)", "color": "fail"})
+                    elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
+                    self.record_combo_fail(
+                        actual=f"released @ {held_ms:.0f}ms",
+                        expected_step_index=int(self.current_index),
+                        expected_label=self._expected_label_for_step(step),
+                        reason="hold too short",
+                        elapsed_ms=elapsed_ms,
+                    )
+                    self.current_index = 0
+                    self._reset_hold_state()
+                    self._reset_wait_state()
+                    self._reset_group_state()
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                return
+
         if not self.active_combo_steps:
             return
 
@@ -2955,3 +3549,124 @@ class ComboTrackerEngine:
         now = time.perf_counter()
         self._complete_hold(now, auto=False)
 
+    def tick(self):
+        """
+        Advance time-based steps (waits / group internal waits) without requiring another input event.
+        This allows wait tiles to complete/turn green automatically when the timer elapses.
+        """
+        try:
+            if not self.active_combo_steps:
+                return
+            if not self.start_time or not self.last_input_time:
+                # Don't auto-advance anything before an attempt has started.
+                return
+
+            now = time.perf_counter()
+
+            # 1) Normal wait steps
+            step = self._active_step()
+            if isinstance(step, dict) and step.get("wait_ms") is not None:
+                # Ensure the wait timer has started
+                self._maybe_start_wait_step()
+                if self.wait_in_progress and now >= float(self.wait_until or 0.0):
+                    self._complete_wait(now, fail=False)
+                    st = self.get_status()
+                    self._send({"type": "status", "text": st.text, "color": st.color})
+
+                    # If we just advanced past the end, finish combo.
+                    if self.current_index >= len(self.active_combo_steps):
+                        total_ms = (now - self.start_time) * 1000 if self.start_time else 0.0
+                        self._send(
+                            {"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"}
+                        )
+                        self.record_combo_success(total_ms)
+                        self.current_index = 0
+                        self._reset_hold_state()
+                        self._reset_wait_state()
+                        self._reset_group_state()
+                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    return
+
+            # 2) Group internal waits (mandatory wait(...) and press+wait items inside [])
+            step = self._active_step()
+            if not (isinstance(step, dict) and step.get("group_presses") is not None):
+                return
+
+            opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
+            opts = [o for o in opts if o]
+            need_counts = step.get("group_press_need_counts")
+            if not isinstance(need_counts, dict) or not need_counts:
+                need_counts = {k: 1 for k in opts}
+                step["group_press_need_counts"] = need_counts
+
+            done_counts = step.get("group_done_counts")
+            if not isinstance(done_counts, dict):
+                done_counts = {}
+                step["group_done_counts"] = done_counts
+
+            pw_need_counts = step.get("group_pw_need_counts")
+            pw_need_counts = pw_need_counts if isinstance(pw_need_counts, dict) else {}
+            pw_done_counts = step.get("group_pw_done_counts")
+            if not isinstance(pw_done_counts, dict):
+                pw_done_counts = {}
+                step["group_pw_done_counts"] = pw_done_counts
+            pw_meta = step.get("group_pw_meta")
+            pw_meta = pw_meta if isinstance(pw_meta, dict) else {}
+            pw_order_sigs = step.get("group_pw_order_sigs")
+            pw_order_sigs = pw_order_sigs if isinstance(pw_order_sigs, list) else []
+
+            pw_keys = set()
+            for _sig, meta in pw_meta.items():
+                k = str((meta or {}).get("input") or "").strip().lower()
+                if k:
+                    pw_keys.add(k)
+
+            mw = step.get("group_mandatory_wait")
+            mw_for = ""
+            mw_ms = None
+            if isinstance(mw, dict):
+                mw_for = str(mw.get("wait_for") or "").strip().lower()
+                mw_ms = mw.get("wait_ms")
+            has_mw = (mw_ms is not None and mw_for)
+
+            changed = False
+
+            # 2a) Mandatory animation lock inside group
+            if has_mw and bool(step.get("group_wait_active")) and now >= float(step.get("group_wait_until") or 0.0):
+                step["group_wait_active"] = False
+                step["group_wait_done"] = True
+                self._send({"type": "wait_end"})
+                changed = True
+
+            # 2b) Press+wait item inside group
+            if bool(step.get("group_pw_active")) and now >= float(step.get("group_pw_until") or 0.0):
+                sig = str(step.get("group_pw_sig") or "").strip()
+                if sig:
+                    pw_done_counts[sig] = int(pw_done_counts.get(sig, 0)) + 1
+                step["group_pw_active"] = False
+                step["group_pw_sig"] = ""
+                step["group_pw_until"] = 0.0
+                self._send({"type": "wait_end"})
+                changed = True
+
+            if changed:
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                st = self.get_status()
+                self._send({"type": "status", "text": st.text, "color": st.color})
+
+            # If the group is now complete, advance immediately.
+            presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
+            pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
+            mw_done = (not has_mw) or bool(step.get("group_wait_done"))
+            if presses_done and pw_done_ok and mw_done:
+                self._mark_step(int(self.current_index), "ok")
+                self.current_index += 1
+                total_ms = (now - self.start_time) * 1000 if self.start_time else 0.0
+                if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
+                    return
+                self._maybe_start_wait_step()
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                st = self.get_status()
+                self._send({"type": "status", "text": st.text, "color": st.color})
+        except Exception:
+            return

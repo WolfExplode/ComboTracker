@@ -177,6 +177,19 @@ def main():
     # Input listeners
     kl, ml = start_input_listeners()
 
+    # Tick loop: advance time-based steps (waits / group waits) without requiring another input event.
+    # This makes wait tiles complete/turn green automatically when their timer elapses.
+    def tick_loop():
+        while True:
+            try:
+                engine.tick()
+            except Exception:
+                pass
+            time.sleep(0.02)  # ~50Hz
+
+    tick_thread = threading.Thread(target=tick_loop, daemon=True)
+    tick_thread.start()
+
     print("Press Ctrl+C to exit")
     try:
         while True:

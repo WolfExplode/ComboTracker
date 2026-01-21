@@ -1398,23 +1398,23 @@
     },
     "Zani Pheobe Rover Rotation": {
       "success": 0,
-      "fail": 11,
+      "fail": 10,
       "best_ms": null,
       "total_success_ms": 0,
       "fail_by_step": {
         "16": 1,
         "2": 6,
-        "4": 3,
+        "4": 2,
         "6": 1
       },
       "fail_by_expected": {
         "rmb": 1,
         "e": 6,
-        "lmb": 3,
+        "lmb": 2,
         "2": 1
       },
       "fail_by_reason": {
-        "out of order": 8,
+        "out of order": 7,
         "wrong input": 3
       },
       "fail_events": [
@@ -1507,15 +1507,6 @@
           "actual": "space",
           "reason": "wrong input",
           "elapsed_ms": 380
-        },
-        {
-          "ts": 1769032611,
-          "attempt": 1,
-          "step_index": 4,
-          "expected": "lmb",
-          "actual": "r",
-          "reason": "out of order",
-          "elapsed_ms": 119598
         }
       ]
     }
@@ -1533,7 +1524,7 @@
     "Zani 3": "images",
     "Zani 2": "images",
     "Zani 1": "images",
-    "Zani Pheobe Rover Rotation": "images"
+    "Zani Pheobe Rover Rotation": "icons"
   },
   "combo_key_images": {},
   "combo_target_game": {
@@ -1547,36 +1538,20 @@
       "name": "Zani",
       "dash_image": "\ud83d\udca8",
       "swap_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_38_UI.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_45_UI.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_5.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_38_UI.png"
       },
       "lmb_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorFist.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorMagic.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorKnife.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorFist.png"
       },
       "ability_images": {
         "1": {
           "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZanniB1.png",
           "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_32033_UI.png",
           "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZanniC1.png"
-        },
-        "2": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconFeibiB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_995_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconFeibiC1.png"
-        },
-        "3": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZhujueB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_350_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZhujueC1.png"
         }
       }
     }
   },
   "ww_active_team_id": "986f16f581",
-  "combo_ww_team": {
-    "Zani Pheobe Rover Rotation": "986f16f581"
-  }
+  "combo_ww_team": {}
 }

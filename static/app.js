@@ -49,6 +49,9 @@ let lastTimelineSteps = null;
 
 // Per-combo game config
 let currentTargetGame = 'generic'; // "generic" | "wuthering_waves"
+let targetGameDirty = false;
+let targetGameDirtyComboName = '';
+let targetGameDirtyValue = 'generic';
 let currentWwAbilityImages = { "1": {}, "2": {}, "3": {} }; // char -> {e/q/r -> url}
 let currentWwSwapImages = { "1": "", "2": "", "3": "" }; // swap key images for 1/2/3 (from team)
 let currentWwLmbImages = { "1": "", "2": "", "3": "" }; // per-character LMB images (from team)
@@ -597,7 +600,7 @@ function tickWaitAnimation() {
         waitRafId = null;
         return;
     }
-    const stepEl = document.querySelector('.step.wait.active');
+    const stepEl = document.querySelector('.step.wait.active, .step.press-wait.active');
     if (!stepEl) {
         // Timeline might be re-rendering; try again next frame.
         waitRafId = requestAnimationFrame(tickWaitAnimation);
@@ -689,7 +692,18 @@ function setEditorFields(editor) {
     renderKeyImagesEditor();
 
     // New: target game
-    currentTargetGame = normalizeTargetGame(editor.target_game || 'generic');
+    const backendTargetGame = normalizeTargetGame(editor.target_game || 'generic');
+    const editorName = (editor.name || '').toString();
+    // If the user changed target game locally but hasn't saved yet, don't let a backend refresh
+    // (e.g. selecting a WW team) snap the UI back to generic.
+    if (targetGameDirty && targetGameDirtyComboName === editorName) {
+        currentTargetGame = normalizeTargetGame(targetGameDirtyValue);
+    } else {
+        currentTargetGame = backendTargetGame;
+        targetGameDirty = false;
+        targetGameDirtyComboName = '';
+        targetGameDirtyValue = 'generic';
+    }
     const gameEl = document.getElementById('targetGameSelect');
     if (gameEl) gameEl.value = currentTargetGame;
 
@@ -719,6 +733,35 @@ function setEditorFields(editor) {
     currentWwAbilityImages = ensureWwAbilityShape(editor.ww_team_ability_images || {});
     renderWwAbilityEditor({ preserveEdits: false });
     syncGameUIVisibility();
+}
+
+function attachTwoClickConfirm(btn, {
+    confirmText = 'Click again to confirm',
+    timeoutMs = 2500,
+    onConfirm
+} = {}) {
+    if (!btn) return;
+    let timer = null;
+    const originalText = btn.textContent;
+    const reset = () => {
+        if (timer) clearTimeout(timer);
+        timer = null;
+        btn.dataset.confirming = '';
+        btn.textContent = originalText;
+    };
+    btn.addEventListener('click', (e) => {
+        // If another handler called stopPropagation, don't do anything weird.
+        if (btn.disabled) return;
+        if (btn.dataset.confirming === '1') {
+            reset();
+            if (typeof onConfirm === 'function') onConfirm();
+            return;
+        }
+        // First click: arm confirmation
+        btn.dataset.confirming = '1';
+        btn.textContent = confirmText;
+        timer = setTimeout(reset, timeoutMs);
+    });
 }
 
 // Timeline visualization
@@ -896,6 +939,19 @@ function updateTimeline(steps) {
                         child.innerHTML = `${primaryHtml(label)}${secondaryHtml(`≥${item.duration}ms`)}`;
                     }
                     child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
+                } else if (item.type === 'press_wait') {
+                    child.classList.add('press-wait');
+                    const k = (item.input || '').toString().trim().toLowerCase();
+                    child.innerHTML = `${primaryHtml(k)}${secondaryHtml(`${item.duration}ms`)}${cornerKeyHtml(k)}`;
+                    child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
+                    maybeSwapChar(k);
+                } else if (item.type === 'hold') {
+                    child.classList.add('hold');
+                    const k = (item.input || '').toString().trim().toLowerCase();
+                    child.innerHTML = `${primaryHtml(k)}${secondaryHtml(`hold ${item.duration}ms`)}${cornerKeyHtml(k)}`;
+                    applyHoldWidth(child, item.duration);
+                    child.style.setProperty('--hold-pct', item.completed ? '100%' : '0%');
+                    maybeSwapChar(k);
                 } else {
                     const k = (item.input || '').toString().trim().toLowerCase();
                     child.innerHTML = `${primaryHtml(k)}${cornerKeyHtml(k)}`;
@@ -1062,10 +1118,14 @@ document.getElementById('newBtn').onclick = () => {
     ws.send(JSON.stringify({type: 'new_combo'}));
 };
 
-document.getElementById('deleteBtn').onclick = () => {
-    const name = document.getElementById('comboSelector').value;
-    if (name) ws.send(JSON.stringify({type: 'delete_combo', name}));
-};
+// Delete combo (two-click confirm)
+attachTwoClickConfirm(document.getElementById('deleteBtn'), {
+    confirmText: 'Confirm delete',
+    onConfirm: () => {
+        const name = document.getElementById('comboSelector')?.value;
+        if (name) ws.send(JSON.stringify({type: 'delete_combo', name}));
+    }
+});
 
 document.getElementById('clearBtn').onclick = () => {
     ws.send(JSON.stringify({type: 'clear_history'}));
@@ -1121,6 +1181,9 @@ const targetGameEl = document.getElementById('targetGameSelect');
 if (targetGameEl) {
     targetGameEl.addEventListener('change', () => {
         currentTargetGame = normalizeTargetGame(targetGameEl.value);
+        targetGameDirty = true;
+        targetGameDirtyComboName = (document.getElementById('comboName')?.value || '').toString();
+        targetGameDirtyValue = currentTargetGame;
         syncGameUIVisibility();
         renderWwAbilityEditor({ preserveEdits: true });
         if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
@@ -1173,9 +1236,12 @@ if (newTeamBtn) {
 
 const deleteTeamBtn = document.getElementById('deleteTeamBtn');
 if (deleteTeamBtn) {
-    deleteTeamBtn.addEventListener('click', () => {
-        if (!currentWwTeamId) return;
-        ws.send(JSON.stringify({ type: 'delete_team', team_id: currentWwTeamId }));
+    attachTwoClickConfirm(deleteTeamBtn, {
+        confirmText: 'Confirm delete',
+        onConfirm: () => {
+            if (!currentWwTeamId) return;
+            ws.send(JSON.stringify({ type: 'delete_team', team_id: currentWwTeamId }));
+        }
     });
 }
 
