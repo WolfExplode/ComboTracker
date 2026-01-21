@@ -181,19 +181,49 @@ select {
     display: flex;
     gap: 10px;
     padding: 10px 0;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    overflow-x: hidden; /* no horizontal scroll wheel */
+    overflow-y: visible;
 }
 
 .step {
     min-width: 80px;
-    padding: 10px;
+    padding: 5px 10px;
     background: var(--bg-primary);
     border: 2px solid #444;
     border-radius: 4px;
-    text-align: center;
     font-family: 'Fira Code', monospace;
     font-size: 12px;
     position: relative;
+    white-space: pre-line; /* allow \n in wait/hold labels to render as line breaks */
+    min-height: 58px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* center-center */
+    line-height: 1.2;
+}
+
+.step-primary {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.step-primary-small {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
+}
+
+.step-secondary {
+    margin-top: 1px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-align: center;
 }
 
 .hold-progress {
@@ -236,8 +266,52 @@ select {
     animation: pulse 1s infinite;
 }
 
+.step-group {
+    border: 2px dashed rgba(74, 158, 255, 0.55);
+    border-radius: 6px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.step-group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.step.group-item {
+    min-width: 80px;
+}
+
+.mouse-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    color: var(--text-primary);
+}
+
+.mouse-icon svg {
+    width: 36px;
+    height: 36px;
+}
+
+.hold-label { margin-top: 4px; }
+
 .step.wait {
     border-color: var(--accent-yellow);
+    --wait-pct: 0%;
+    background: linear-gradient(
+        to right,
+        rgba(255, 221, 74, 0.22) 0%,
+        rgba(255, 221, 74, 0.22) var(--wait-pct),
+        var(--bg-primary) var(--wait-pct),
+        var(--bg-primary) 100%
+    );
 }
 
 .step.hold {

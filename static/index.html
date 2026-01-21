@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Combo Trainer</title>
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
     <div class="container">
@@ -21,6 +21,9 @@
                 
                 <div class="help-text">
                     LMB, RMB, MMB for mouse. Hold: hold(space,0.2) or space{200ms}. Wait (soft): wait:0.5 (or wait_soft:0.5). Hard wait: wait_hard:0.5 (early press drops combo).
+                    Any-order group: [q, e] means press BOTH q and e in any order.
+                    Animation lock: wait(r, 1.5) means press r, then mandatory wait ≥ 1.5s (inputs ignored).
+                    Combined: [wait(r, 1.5), q, e] means press r/q/e in any order; r triggers the animation lock inside the group.
                 </div>
 
                 <label>Expected time:</label>
@@ -96,6 +99,6 @@
 
     </div>
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=17"></script>
 </body>
 </html>

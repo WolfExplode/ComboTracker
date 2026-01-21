@@ -50,6 +50,14 @@ let holdAnim = {
 };
 let holdRafId = null;
 
+// Wait progress (client-side animation)
+let waitAnim = {
+    active: false,
+    requiredMs: 0,
+    startedAt: 0
+};
+let waitRafId = null;
+
 function stopHoldAnimation() {
     holdAnim.active = false;
     if (holdRafId !== null) {
@@ -90,6 +98,49 @@ function startHoldAnimation(requiredMs) {
     holdAnim.startedAt = performance.now();
     if (holdRafId === null) {
         holdRafId = requestAnimationFrame(tickHoldAnimation);
+    }
+}
+
+function stopWaitAnimation() {
+    waitAnim.active = false;
+    if (waitRafId !== null) {
+        cancelAnimationFrame(waitRafId);
+        waitRafId = null;
+    }
+}
+
+function tickWaitAnimation() {
+    if (!waitAnim.active) {
+        waitRafId = null;
+        return;
+    }
+    const stepEl = document.querySelector('.step.wait.active');
+    if (!stepEl) {
+        // Timeline might be re-rendering; try again next frame.
+        waitRafId = requestAnimationFrame(tickWaitAnimation);
+        return;
+    }
+
+    const elapsed = performance.now() - waitAnim.startedAt;
+    const req = Math.max(1, Number(waitAnim.requiredMs) || 1);
+    const pct = Math.max(0, Math.min(100, (elapsed / req) * 100));
+    stepEl.style.setProperty('--wait-pct', `${pct}%`);
+
+    if (pct >= 100) {
+        // Time's up; stop animating to save cycles (bar stays full).
+        waitRafId = null;
+        return;
+    }
+
+    waitRafId = requestAnimationFrame(tickWaitAnimation);
+}
+
+function startWaitAnimation(requiredMs) {
+    waitAnim.active = true;
+    waitAnim.requiredMs = Math.max(1, Number(requiredMs) || 1);
+    waitAnim.startedAt = performance.now();
+    if (waitRafId === null) {
+        waitRafId = requestAnimationFrame(tickWaitAnimation);
     }
 }
 
@@ -151,6 +202,107 @@ function updateTimeline(steps) {
     timeline.innerHTML = '';
     
     steps.forEach((step, idx) => {
+        const BASE_STEP_WIDTH_PX = 80; // 100ms hold == 1x base width
+
+        const mouseIconHtml = (key) => {
+            const k = (key || '').toString().trim().toLowerCase();
+            if (k !== 'lmb' && k !== 'rmb' && k !== 'mmb') return null;
+            const isLeft = k === 'lmb';
+            const isRight = k === 'rmb';
+            const isMid = k === 'mmb';
+            const label = isLeft ? 'LMB' : (isRight ? 'RMB' : 'MMB');
+            // Inline SVG so this works offline with no external assets.
+            // We highlight the clicked button area.
+            return `
+                <span class="mouse-icon" aria-label="${label}" title="${label}">
+                    <svg viewBox="0 0 64 64" role="img" focusable="false">
+                        <rect x="18" y="6" width="28" height="52" rx="14" ry="14" fill="none" stroke="currentColor" stroke-width="3"/>
+                        <line x1="32" y1="6" x2="32" y2="26" stroke="currentColor" stroke-width="3" opacity="0.55"/>
+                        ${isLeft ? `<path d="M18 20 C18 12, 24 6, 32 6 L32 26 L18 26 Z" fill="currentColor" opacity="0.35"/>` : ``}
+                        ${isRight ? `<path d="M46 20 C46 12, 40 6, 32 6 L32 26 L46 26 Z" fill="currentColor" opacity="0.35"/>` : ``}
+                        ${isMid ? `<rect x="29" y="12" width="6" height="10" rx="3" fill="currentColor" opacity="0.4"/>` : ``}
+                    </svg>
+                </span>
+            `;
+        };
+
+        const primaryHtml = (raw) => {
+            const t = (raw || '').toString().trim();
+            const icon = mouseIconHtml(t);
+            if (icon) return icon;
+            // Single-character keys (letters/numbers) get a larger glyph.
+            if (t.length === 1) return `<span class="step-primary">${escapeHtml(t.toUpperCase())}</span>`;
+            // Fallback: normal text.
+            return `<span class="step-primary step-primary-small">${escapeHtml(t)}</span>`;
+        };
+
+        const secondaryHtml = (raw) => {
+            const t = (raw || '').toString();
+            if (!t) return '';
+            return `<span class="step-secondary">${escapeHtml(t)}</span>`;
+        };
+
+        const applyHoldWidth = (el, durationMs) => {
+            const ms = Number(durationMs);
+            const mult = (Number.isFinite(ms) && ms > 0) ? (ms / 100.0) : 1;
+            const w = Math.max(BASE_STEP_WIDTH_PX, BASE_STEP_WIDTH_PX * mult);
+            el.style.width = `${w}px`;
+        };
+
+        // Group container (renders multiple step tiles inside one grouped block)
+        if (step.type === 'group') {
+            const group = document.createElement('div');
+            group.className = 'step-group';
+
+            // Per-step performance coloring (sent by backend as step.mark)
+            if (step.mark) {
+                const m = String(step.mark).toLowerCase();
+                if (m === 'ok') group.classList.add('mark-ok');
+                if (m === 'early') group.classList.add('mark-early');
+                if (m === 'missed') group.classList.add('mark-missed');
+                if (m === 'wrong') group.classList.add('mark-wrong');
+            }
+            if (step.active) group.classList.add('active');
+            if (step.completed) group.classList.add('completed');
+
+            const itemsWrap = document.createElement('div');
+            itemsWrap.className = 'step-group-items';
+
+            (step.items || []).forEach(item => {
+                const child = document.createElement('div');
+                child.className = 'step group-item';
+
+                // Reuse existing step classes/labels
+                if (item.type === 'wait') {
+                    child.classList.add('wait');
+                    const mode = (item.mode || 'soft').toLowerCase();
+                    if (mode === 'mandatory') {
+                        const k = (item.wait_for || '').toString().trim();
+                        // Display as:
+                        // R
+                        // animation time 1500ms
+                        child.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${item.duration}ms`)}`;
+                    } else {
+                        let label = 'wait';
+                        if (mode === 'hard') label = 'wait hard';
+                        child.innerHTML = `${primaryHtml(label)}${secondaryHtml(`≥${item.duration}ms`)}`;
+                    }
+                    child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
+                } else {
+                    child.innerHTML = primaryHtml(item.input);
+                }
+
+                if (item.active) child.classList.add('active');
+                if (item.completed) child.classList.add('completed');
+
+                itemsWrap.appendChild(child);
+            });
+
+            group.appendChild(itemsWrap);
+            timeline.appendChild(group);
+            return;
+        }
+
         const div = document.createElement('div');
         div.className = 'step';
 
@@ -166,15 +318,24 @@ function updateTimeline(steps) {
         if (step.type === 'wait') {
             div.classList.add('wait');
             const mode = (step.mode || 'soft').toLowerCase();
-            const label = (mode === 'hard') ? 'wait hard' : 'wait';
-            div.textContent = `${label}\n≥${step.duration}ms`;
+            if (mode === 'mandatory') {
+                const k = (step.wait_for || '').toString().trim();
+                div.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${step.duration}ms`)}`;
+            } else {
+                let label = 'wait';
+                if (mode === 'hard') label = 'wait hard';
+                div.innerHTML = `${primaryHtml(label)}${secondaryHtml(`≥${step.duration}ms`)}`;
+            }
+            // Whole-tile fill progress (default 0%, completed = 100%)
+            div.style.setProperty('--wait-pct', step.completed ? '100%' : '0%');
         } else if (step.type === 'hold') {
             div.classList.add('hold');
-            div.textContent = `${step.input}\nhold ${step.duration}ms`;
+            div.innerHTML = `${primaryHtml(step.input)}${secondaryHtml(`hold ${step.duration}ms`)}`;
+            applyHoldWidth(div, step.duration);
             // Whole-tile fill progress (default 0%, completed = 100%)
             div.style.setProperty('--hold-pct', step.completed ? '100%' : '0%');
         } else {
-            div.textContent = step.input;
+            div.innerHTML = primaryHtml(step.input);
         }
         
         if (step.active) div.classList.add('active');
@@ -335,6 +496,12 @@ function handleMessage(msg) {
             break;
         case 'hold_end':
             stopHoldAnimation();
+            break;
+        case 'wait_begin':
+            startWaitAnimation(msg.required_ms);
+            break;
+        case 'wait_end':
+            stopWaitAnimation();
             break;
         case 'hit':
             addResultRow(msg);

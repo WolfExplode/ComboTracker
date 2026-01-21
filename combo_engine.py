@@ -141,13 +141,14 @@ class ComboTrackerEngine:
     def split_inputs(self, keys_str: str):
         """
         Split the Inputs field into tokens by commas, but do NOT split commas that are
-        inside hold(...) parentheses or inside {...} braces.
+        inside hold(...) parentheses, inside {...} braces, or inside [...] any-order groups.
         """
         s = keys_str or ""
         out: list[str] = []
         buf: list[str] = []
         paren = 0
         brace = 0
+        bracket = 0
 
         for ch in s:
             if ch == "(":
@@ -158,8 +159,12 @@ class ComboTrackerEngine:
                 brace += 1
             elif ch == "}":
                 brace = max(0, brace - 1)
+            elif ch == "[":
+                bracket += 1
+            elif ch == "]":
+                bracket = max(0, bracket - 1)
 
-            if ch == "," and paren == 0 and brace == 0:
+            if ch == "," and paren == 0 and brace == 0 and bracket == 0:
                 token = "".join(buf).strip()
                 if token:
                     out.append(token)
@@ -202,6 +207,122 @@ class ComboTrackerEngine:
             return None
 
         tl = t.lower()
+
+        # Animation-locked (mandatory) wait:
+        # Syntax: wait(r, 1.5)  -> press r, then a mandatory minimum wait of 1.5s.
+        # Rationale: some abilities have an animation lock where extra inputs have no effect in-game.
+        # During this mandatory wait, key presses are ignored by the game and therefore should NOT drop the combo.
+        if tl.startswith("wait(") and tl.endswith(")") and len(tl) >= 6:
+            inner = tl[len("wait(") : -1].strip()
+            parts = [p.strip() for p in self.split_inputs(inner) if p.strip()]
+            if len(parts) == 2:
+                key = parts[0].strip().lower()
+                wait_ms = self._parse_duration(parts[1])
+                if key and wait_ms is not None:
+                    press_step = {"input": key, "hold_ms": None, "wait_ms": None}
+                    wait_step = {
+                        "input": None,
+                        "hold_ms": None,
+                        "wait_ms": int(wait_ms),
+                        "wait_mode": "mandatory",  # mandatory wait due to animation lock (see comment above)
+                        "wait_for": key,
+                    }
+                    return {"composite_steps": [press_step, wait_step]}
+
+        # Any-order group step:
+        # Examples:
+        # - [q, e]                 -> press BOTH q and e, in any order
+        # - [wait(r, 1.5), q, e]   -> press r/q/e in any order; r triggers a mandatory animation wait before the group can finish
+        #
+        # Notes:
+        # - Inside the group we currently support press items and wait(r, t) (mandatory animation wait).
+        # - During the mandatory wait, key presses are ignored (no fail, and they do not count).
+        if tl.startswith("[") and tl.endswith("]") and len(tl) >= 3:
+            inner = tl[1:-1].strip()
+            parts = [p.strip() for p in self.split_inputs(inner) if p.strip()]
+            if len(parts) >= 2:
+                press_inputs: list[str] = []
+                mandatory_wait: dict[str, Any] | None = None  # {"wait_for": "r", "wait_ms": 1500}
+                order: list[dict[str, Any]] = []  # preserves written order of group items
+                ok = True
+
+                for p in parts:
+                    s = self.parse_step(p)
+                    if not isinstance(s, dict):
+                        ok = False
+                        break
+
+                    # Composite (wait(r, t)) expands into [press r, mandatory wait] via composite_steps.
+                    if s.get("composite_steps") is not None:
+                        sub = [x for x in (s.get("composite_steps") or []) if isinstance(x, dict)]
+                        if len(sub) != 2:
+                            ok = False
+                            break
+                        press = sub[0]
+                        w = sub[1]
+                        inp = str(press.get("input") or "").strip().lower()
+                        if not inp or press.get("wait_ms") is not None or press.get("hold_ms") is not None:
+                            ok = False
+                            break
+                        w_ms = w.get("wait_ms")
+                        w_mode = str(w.get("wait_mode") or "").strip().lower()
+                        w_for = str(w.get("wait_for") or "").strip().lower()
+                        if w_ms is None or w_mode != "mandatory" or not w_for:
+                            ok = False
+                            break
+                        if mandatory_wait is not None:
+                            # Keep it simple for now: only one mandatory wait per group.
+                            ok = False
+                            break
+                        # Treat wait(r, t) as ONE group item (not "r" plus "wait").
+                        # We'll still accept the press of r at runtime via group_mandatory_wait.wait_for.
+                        mandatory_wait = {"wait_for": w_for, "wait_ms": int(w_ms)}
+                        # Preserve written order (de-duped by the single-mandatory-wait rule).
+                        order.append({"kind": "anim_wait", "wait_for": w_for, "wait_ms": int(w_ms)})
+                        continue
+
+                    # Plain waits/holds inside a group are not supported yet (ambiguous semantics).
+                    if s.get("wait_ms") is not None or s.get("hold_ms") is not None:
+                        ok = False
+                        break
+
+                    inp = str(s.get("input") or "").strip().lower()
+                    if not inp:
+                        ok = False
+                        break
+                    press_inputs.append(inp)
+                    # Preserve written order, but de-dupe repeats to avoid "dangling" items.
+                    if not any(it.get("kind") == "press" and it.get("input") == inp for it in order):
+                        order.append({"kind": "press", "input": inp})
+
+                # De-dup press inputs while preserving order.
+                seen = set()
+                uniq_presses: list[str] = []
+                for k in press_inputs:
+                    if k not in seen:
+                        seen.add(k)
+                        uniq_presses.append(k)
+
+                # Disallow listing the same key twice (e.g. [wait(r,1.5), r, q]) to avoid ambiguity.
+                if mandatory_wait is not None:
+                    mw_for = str(mandatory_wait.get("wait_for") or "").strip().lower()
+                    if mw_for and mw_for in uniq_presses:
+                        ok = False
+
+                if ok and (len(uniq_presses) + (1 if mandatory_wait is not None else 0)) >= 2:
+                    return {
+                        "input": None,
+                        "hold_ms": None,
+                        "wait_ms": None,
+                        "group_presses": uniq_presses,
+                        "group_done": set(),
+                        "group_mandatory_wait": mandatory_wait,  # or None
+                        "group_order": order,
+                        "group_wait_active": False,
+                        "group_wait_done": False,
+                        "group_wait_started_at": 0.0,
+                        "group_wait_until": 0.0,
+                    }
 
         # Wait steps:
         # - wait:0.2        -> soft wait (minimum delay gate; early presses are ignored)
@@ -284,11 +405,27 @@ class ComboTrackerEngine:
     def _expected_label_for_step(self, step: dict):
         if not isinstance(step, dict):
             return "—"
+        if step.get("group_presses") is not None:
+            opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
+            opts = [o for o in opts if o]
+            mw = step.get("group_mandatory_wait")
+            if isinstance(mw, dict):
+                mw_for = str(mw.get("wait_for") or "").strip().lower()
+                if mw_for:
+                    opts = [mw_for] + opts
+            if opts:
+                return f"any-order({ '|'.join(opts) })"
+            return "any-order(—)"
         if step.get("wait_ms") is not None:
             w = int(step.get("wait_ms") or 0)
             mode = str(step.get("wait_mode") or "soft").strip().lower()
             if mode == "hard":
                 return f"wait-hard(≥{w}ms)"
+            if mode == "mandatory":
+                k = str(step.get("wait_for") or "").strip().lower()
+                if k:
+                    return f"anim-wait({k},≥{w}ms)"
+                return f"anim-wait(≥{w}ms)"
             return f"wait(≥{w}ms)"
         if step.get("hold_ms") is not None:
             h = int(step.get("hold_ms") or 0)
@@ -312,6 +449,15 @@ class ComboTrackerEngine:
                     continue
                 if s.get("wait_ms") is not None:
                     continue
+                if s.get("group_presses") is not None:
+                    opts = [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]
+                    mw = s.get("group_mandatory_wait")
+                    if isinstance(mw, dict):
+                        mw_for = str(mw.get("wait_for") or "").strip().lower()
+                        if mw_for:
+                            opts = [mw_for] + opts
+                    if input_name in opts:
+                        return j
                 if str(s.get("input") or "").strip().lower() == input_name:
                     return j
         except Exception:
@@ -338,6 +484,15 @@ class ComboTrackerEngine:
                     continue
                 if s.get("wait_ms") is not None:
                     continue
+                if s.get("group_presses") is not None:
+                    opts = [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]
+                    mw = s.get("group_mandatory_wait")
+                    if isinstance(mw, dict):
+                        mw_for = str(mw.get("wait_for") or "").strip().lower()
+                        if mw_for:
+                            opts = [mw_for] + opts
+                    if input_name in opts:
+                        return j
                 if str(s.get("input") or "").strip().lower() == input_name:
                     return j
         except Exception:
@@ -1012,6 +1167,20 @@ class ComboTrackerEngine:
             return Status("Status: Select a combo to start", "neutral")
 
         if self.current_index == 0:
+            # Any-order group can start with any option.
+            if step.get("group_presses") is not None:
+                opts = [str(x or "").strip().upper() for x in (step.get("group_presses") or [])]
+                opts = [o for o in opts if o]
+                mw = step.get("group_mandatory_wait")
+                if isinstance(mw, dict):
+                    mw_for = str(mw.get("wait_for") or "").strip().upper()
+                    if mw_for:
+                        opts = [mw_for] + opts
+                if opts:
+                    quoted = ", ".join([f"'{o}'" for o in opts])
+                    return Status(f"Ready! Press {quoted} to start.", "ready")
+                return Status("Ready! Press the first input to start.", "ready")
+
             start_key = str(step.get("input") or "").upper()
             if step.get("hold_ms") is None:
                 return Status(f"Ready! Press '{start_key}' to start.", "ready")
@@ -1022,6 +1191,16 @@ class ComboTrackerEngine:
 
         if self.wait_in_progress:
             req = self._format_hold_requirement(int(self.wait_required_ms or 0))
+            # If this is a mandatory animation lock, make it explicit.
+            mode = "soft"
+            try:
+                s = self._active_step()
+                if isinstance(s, dict) and s.get("wait_ms") is not None:
+                    mode = str(s.get("wait_mode") or "soft").strip().lower() or "soft"
+            except Exception:
+                mode = "soft"
+            if mode == "mandatory":
+                return Status(f"Animation lock ≥ {req} (inputs ignored)...", "wait")
             return Status(f"Waiting ≥ {req}...", "wait")
         if self.hold_in_progress:
             req = self._format_hold_requirement(int(self.hold_required_ms or 0))
@@ -1031,8 +1210,146 @@ class ComboTrackerEngine:
 
     def timeline_steps(self) -> list[dict[str, Any]]:
         steps = []
-        for idx, s in enumerate(self.active_combo_steps or []):
+        i = 0
+        arr = self.active_combo_steps or []
+        while i < len(arr):
+            s = arr[i]
+            idx = i
             mark = self.step_marks.get(idx)
+            if s.get("group_presses") is not None:
+                done = s.get("group_done")
+                done_set = done if isinstance(done, set) else set()
+                mw_done = bool(s.get("group_wait_done"))
+                mw_active = bool(s.get("group_wait_active"))
+                mw = s.get("group_mandatory_wait")
+                mw_for = ""
+                mw_ms = None
+                if isinstance(mw, dict):
+                    mw_for = str(mw.get("wait_for") or "").strip().lower()
+                    mw_ms = mw.get("wait_ms")
+
+                order = s.get("group_order")
+                order_list = order if isinstance(order, list) else []
+
+                items_payload: list[dict[str, Any]] = []
+                done_count = 0
+                total = 0
+
+                # Build items in the exact order written in the combo.
+                for it in order_list:
+                    if not isinstance(it, dict):
+                        continue
+                    kind = str(it.get("kind") or "")
+                    if kind == "anim_wait":
+                        total += 1
+                        dur = int(it.get("wait_ms") or 0)
+                        wf = str(it.get("wait_for") or "").strip().lower()
+                        comp = mw_done or (idx < self.current_index)
+                        act = (idx == self.current_index) and mw_active
+                        if comp:
+                            done_count += 1
+                        items_payload.append(
+                            {
+                                "type": "wait",
+                                "mode": "mandatory",
+                                "wait_for": wf,
+                                "duration": dur,
+                                "active": act,
+                                "completed": comp,
+                            }
+                        )
+                    elif kind == "press":
+                        total += 1
+                        inp = str(it.get("input") or "").strip().lower()
+                        comp = (inp in done_set) or (idx < self.current_index)
+                        if comp:
+                            done_count += 1
+                        items_payload.append(
+                            {
+                                "type": "press",
+                                "input": inp,
+                                "duration": 0,
+                                "active": False,
+                                "completed": comp,
+                            }
+                        )
+
+                # Fallback (shouldn't happen): derive a stable order.
+                if not items_payload:
+                    total = 0
+                    done_count = 0
+                    if mw_ms is not None:
+                        total += 1
+                        comp = mw_done or (idx < self.current_index)
+                        if comp:
+                            done_count += 1
+                        items_payload.append(
+                            {
+                                "type": "wait",
+                                "mode": "mandatory",
+                                "wait_for": mw_for,
+                                "duration": int(mw_ms),
+                                "active": (idx == self.current_index) and mw_active,
+                                "completed": comp,
+                            }
+                        )
+                    for inp in [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]:
+                        if not inp:
+                            continue
+                        total += 1
+                        comp = (inp in done_set) or (idx < self.current_index)
+                        if comp:
+                            done_count += 1
+                        items_payload.append(
+                            {"type": "press", "input": inp, "duration": 0, "active": False, "completed": comp}
+                        )
+
+                steps.append(
+                    {
+                        "type": "group",
+                        "active": idx == self.current_index,
+                        "completed": idx < self.current_index,
+                        "mark": mark,
+                        "items": items_payload,
+                        "progress": {"done": int(done_count), "total": int(total)},
+                    }
+                )
+                i += 1
+                continue
+
+            # Collapse "press X" followed by "mandatory wait for X" into a single displayed tile,
+            # so wait(1, 0.5) doesn't show as "1" then "1 (animation time ...)".
+            try:
+                if (
+                    i + 1 < len(arr)
+                    and isinstance(s, dict)
+                    and s.get("wait_ms") is None
+                    and s.get("hold_ms") is None
+                    and arr[i + 1].get("wait_ms") is not None
+                    and str(arr[i + 1].get("wait_mode") or "").strip().lower() == "mandatory"
+                    and str(arr[i + 1].get("wait_for") or "").strip().lower()
+                    == str(s.get("input") or "").strip().lower()
+                ):
+                    wait_step = arr[i + 1]
+                    wait_idx = i + 1
+                    wait_mark = self.step_marks.get(wait_idx) or mark
+                    steps.append(
+                        {
+                            "type": "wait",
+                            "input": None,
+                            "duration": int(wait_step.get("wait_ms") or 0),
+                            "mode": "mandatory",
+                            "wait_for": str(wait_step.get("wait_for") or ""),
+                            "active": (self.current_index == idx) or (self.current_index == wait_idx),
+                            "completed": self.current_index > wait_idx,
+                            "mark": wait_mark,
+                        }
+                    )
+                    i += 2
+                    continue
+            except Exception:
+                pass
+
             if s.get("wait_ms") is not None:
                 steps.append(
                     {
@@ -1040,6 +1357,7 @@ class ComboTrackerEngine:
                         "input": None,
                         "duration": int(s.get("wait_ms") or 0),
                         "mode": str(s.get("wait_mode") or "soft"),
+                        "wait_for": str(s.get("wait_for") or ""),
                         "active": idx == self.current_index,
                         "completed": idx < self.current_index,
                         "mark": mark,
@@ -1067,6 +1385,7 @@ class ComboTrackerEngine:
                         "mark": mark,
                     }
                 )
+            i += 1
         return steps
 
     def init_payload(self) -> dict[str, Any]:
@@ -1289,7 +1608,17 @@ class ComboTrackerEngine:
         steps: list[dict[str, Any]] = []
         for t in self.active_combo_tokens:
             s = self.parse_step(t)
-            if s:
+            if not s:
+                continue
+            # Support composite tokens like wait(r, 1.5) -> [press r, mandatory wait]
+            if isinstance(s, dict) and s.get("composite_steps") is not None:
+                try:
+                    for sub in (s.get("composite_steps") or []):
+                        if isinstance(sub, dict) and sub:
+                            steps.append(sub)
+                except Exception:
+                    pass
+            else:
                 steps.append(s)
         self.active_combo_steps = steps
         self._ensure_combo_stats(name)
@@ -1336,6 +1665,7 @@ class ComboTrackerEngine:
         self._reset_attempt_marks()
         self._reset_hold_state()
         self._reset_wait_state()
+        self._reset_group_state()
 
     def _active_step(self):
         if 0 <= self.current_index < len(self.active_combo_steps):
@@ -1371,10 +1701,31 @@ class ComboTrackerEngine:
         self.hold_required_ms = None
 
     def _reset_wait_state(self):
+        # If we were showing a wait indicator in the UI, clear it.
+        if self.wait_in_progress:
+            self._send({"type": "wait_end"})
         self.wait_in_progress = False
         self.wait_started_at = 0.0
         self.wait_until = 0.0
         self.wait_required_ms = None
+
+    def _reset_group_state(self):
+        """
+        Clear per-attempt progress for any-order groups ([a, b, c]).
+        """
+        try:
+            for s in self.active_combo_steps or []:
+                if isinstance(s, dict) and s.get("group_presses") is not None:
+                    # If a group had an internal animation wait running, stop the UI animation.
+                    if bool(s.get("group_wait_active")):
+                        self._send({"type": "wait_end"})
+                    s["group_done"] = set()
+                    s["group_wait_active"] = False
+                    s["group_wait_done"] = False
+                    s["group_wait_started_at"] = 0.0
+                    s["group_wait_until"] = 0.0
+        except Exception:
+            pass
 
     def _start_hold(self, input_name: str, required_ms: int, now: float):
         self.hold_in_progress = True
@@ -1391,6 +1742,18 @@ class ComboTrackerEngine:
         self.wait_started_at = float(self.last_input_time or time.perf_counter())
         self.wait_required_ms = required_ms
         self.wait_until = self.wait_started_at + (required_ms / 1000.0)
+        # Tell the UI to animate a visible wait progress bar (similar to holds).
+        # Mode may be soft|hard|mandatory (mandatory = animation lock; inputs ignored).
+        try:
+            step = self._active_step()
+            mode = "soft"
+            wait_for = ""
+            if isinstance(step, dict) and step.get("wait_ms") is not None:
+                mode = str(step.get("wait_mode") or "soft").strip().lower() or "soft"
+                wait_for = str(step.get("wait_for") or "")
+            self._send({"type": "wait_begin", "required_ms": int(required_ms), "mode": mode, "wait_for": wait_for})
+        except Exception:
+            self._send({"type": "wait_begin", "required_ms": int(required_ms), "mode": "soft", "wait_for": ""})
         st = self.get_status()
         self._send({"type": "status", "text": st.text, "color": st.color})
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
@@ -1408,6 +1771,8 @@ class ComboTrackerEngine:
         except Exception:
             mode = "soft"
         prefix = "wait-hard" if mode == "hard" else "wait"
+        if mode == "mandatory":
+            prefix = "anim-wait"
         label = f"{prefix} (≥ {req_s}, {waited_ms:.0f}ms)"
         total_ms = (now - self.start_time) * 1000 if self.start_time else 0.0
 
@@ -1427,6 +1792,7 @@ class ComboTrackerEngine:
             self.current_index = 0
             self._reset_hold_state()
             self._reset_wait_state()
+            self._reset_group_state()
             self._send({"type": "timeline_update", "steps": self.timeline_steps()})
             return False
 
@@ -1483,6 +1849,7 @@ class ComboTrackerEngine:
                 self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
                 self.record_combo_success(total_ms)
                 self.current_index = 0
+                self._reset_group_state()
         else:
             self.record_hit(label, "FAIL", "FAIL")
             self._send({"type": "status", "text": "Combo Dropped (Hold Too Short)", "color": "fail"})
@@ -1495,6 +1862,7 @@ class ComboTrackerEngine:
                 elapsed_ms=elapsed_ms,
             )
             self.current_index = 0
+            self._reset_group_state()
 
         self._reset_hold_state()
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
@@ -1636,6 +2004,7 @@ class ComboTrackerEngine:
             if not step:
                 return
 
+            group_presses = step.get("group_presses")
             target_input = step.get("input")
             target_hold_ms = step.get("hold_ms")
             target_wait_ms = step.get("wait_ms")
@@ -1648,15 +2017,27 @@ class ComboTrackerEngine:
                     # Soft-wait training hint:
                     # If you press the *next expected input* during the wait gate, it won't count.
                     # Mark the wait step red immediately so the UI shows the timing mistake.
-                    if target_wait_mode != "hard":
+                    # NOTE: For mandatory waits (animation locks), inputs have no effect in-game.
+                    # We intentionally do NOT mark timing mistakes and we do NOT drop the combo during the lock.
+                    if target_wait_mode == "soft":
                         next_idx = self._next_non_wait_step_index(start_index=self.current_index + 1)
                         next_expected = None
+                        next_expected_set: set[str] | None = None
                         if next_idx is not None:
                             try:
-                                next_expected = str(self.active_combo_steps[next_idx].get("input") or "").strip().lower()
+                                nxt = self.active_combo_steps[next_idx]
+                                if isinstance(nxt, dict) and nxt.get("group_presses") is not None:
+                                    next_expected_set = {
+                                        str(x or "").strip().lower() for x in (nxt.get("group_presses") or [])
+                                    }
+                                else:
+                                    next_expected = str(self.active_combo_steps[next_idx].get("input") or "").strip().lower()
                             except Exception:
                                 next_expected = None
-                        if next_expected and input_name == next_expected:
+                                next_expected_set = None
+                        if (next_expected and input_name == next_expected) or (
+                            next_expected_set and input_name in next_expected_set
+                        ):
                             wi = int(self.current_index)
                             self.wait_early_inputs.setdefault(wi, set()).add(input_name)
                             self._mark_step(wi, "early")
@@ -1667,16 +2048,25 @@ class ComboTrackerEngine:
                     if target_wait_mode == "hard":
                         # Fail on enders, and also fail if the pressed input matches the next expected non-wait input.
                         next_expected = None
+                        next_expected_set: set[str] | None = None
                         try:
                             for j in range(self.current_index + 1, len(self.active_combo_steps)):
                                 st = self.active_combo_steps[j]
                                 if isinstance(st, dict) and st.get("wait_ms") is None:
-                                    next_expected = str(st.get("input") or "").strip().lower() or None
+                                    if st.get("group_presses") is not None:
+                                        next_expected_set = {
+                                            str(x or "").strip().lower() for x in (st.get("group_presses") or [])
+                                        }
+                                    else:
+                                        next_expected = str(st.get("input") or "").strip().lower() or None
                                     break
                         except Exception:
                             next_expected = None
+                            next_expected_set = None
 
-                        if self._is_combo_ender(input_name) or (next_expected and input_name == next_expected):
+                        if self._is_combo_ender(input_name) or (next_expected and input_name == next_expected) or (
+                            next_expected_set and input_name in next_expected_set
+                        ):
                             self._complete_wait(now, fail=True, reason=f"{input_name} too early")
                     return
                 self._complete_wait(now, fail=False)
@@ -1695,6 +2085,149 @@ class ComboTrackerEngine:
                     self._complete_hold(now, auto=True)
                     continue
             break
+
+        # Any-order group step: accepts remaining options in any order.
+        # Can optionally include a mandatory animation wait (from wait(r, t)).
+        if isinstance(step, dict) and step.get("group_presses") is not None:
+            opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
+            opts = [o for o in opts if o]
+            done = step.get("group_done")
+            if not isinstance(done, set):
+                done = set()
+                step["group_done"] = done
+
+            mw = step.get("group_mandatory_wait")
+            mw_for = ""
+            mw_ms = None
+            if isinstance(mw, dict):
+                mw_for = str(mw.get("wait_for") or "").strip().lower()
+                mw_ms = mw.get("wait_ms")
+            has_mw = (mw_ms is not None and mw_for)
+
+            # If we're currently inside the group's animation lock, ignore all inputs until it ends.
+            if has_mw and bool(step.get("group_wait_active")):
+                now = time.perf_counter()
+                until = float(step.get("group_wait_until") or 0.0)
+                if now < until:
+                    return  # inputs ignored during animation lock (can't fail, can't count)
+                # Lock expired; finalize. If the rest of the group is already complete, auto-advance
+                # so the current key (often the next step, e.g. '2') is evaluated correctly.
+                step["group_wait_active"] = False
+                step["group_wait_done"] = True
+                self._send({"type": "wait_end"})
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+                # If all required presses are already done, the group completes immediately.
+                needed_presses = set(opts)
+                presses_done = needed_presses.issubset(done)
+                if presses_done:
+                    self._mark_step(int(self.current_index), "ok")
+                    self.current_index += 1
+                    self._maybe_start_wait_step()
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+                    # Re-process this same input against the next expected step.
+                    return self.process_press(input_name)
+
+            # Duplicate hits of already-completed options are ignored.
+            if input_name in done:
+                return
+
+            # Mandatory-wait key press (e.g. r in wait(r,1.5)) is accepted as part of the group,
+            # but it only "counts" once the animation lock finishes.
+            if has_mw and input_name == mw_for:
+                # If already satisfied, ignore duplicates.
+                if bool(step.get("group_wait_done")):
+                    return
+
+                now = time.perf_counter()
+                # Start attempt on first accepted press (group can be the first step).
+                if self.current_index == 0 and self.attempt_counter == 0 and len(done) == 0:
+                    self._insert_attempt_separator()
+                    self.start_time = now
+                    self.last_input_time = now
+                    self._send({"type": "status", "text": "Recording...", "color": "recording"})
+
+                # Timing row
+                if self.current_index == 0 and len(done) == 0:
+                    split_ms = 0
+                    total_ms = 0
+                else:
+                    split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
+                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
+
+                # If this group was gated by a wait right before it, mark that wait green once a valid option counts.
+                if self.current_index > 0:
+                    prev = self.active_combo_steps[self.current_index - 1]
+                    if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                        self._mark_step(self.current_index - 1, "ok")
+
+                self.record_hit(input_name, split_ms, total_ms)
+                self.last_input_time = now
+                self.last_success_input = input_name
+
+                # Start the internal animation lock now.
+                step["group_wait_active"] = True
+                step["group_wait_started_at"] = now
+                step["group_wait_until"] = now + (int(mw_ms) / 1000.0)
+                self._send({"type": "wait_begin", "required_ms": int(mw_ms), "mode": "mandatory", "wait_for": mw_for})
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                return
+
+            if input_name in opts:
+                now = time.perf_counter()
+
+                # Start of combo (group can be the first step)
+                if self.current_index == 0 and self.attempt_counter == 0 and len(done) == 0:
+                    self._insert_attempt_separator()
+                    self.start_time = now
+                    self.last_input_time = now
+                    self._send({"type": "status", "text": "Recording...", "color": "recording"})
+
+                # Compute timings for hit rows
+                if self.current_index == 0 and len(done) == 0:
+                    split_ms = 0
+                    total_ms = 0
+                else:
+                    split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
+                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
+
+                # If this group was gated by a wait right before it, mark that wait green once a valid option counts.
+                if self.current_index > 0:
+                    prev = self.active_combo_steps[self.current_index - 1]
+                    if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                        self._mark_step(self.current_index - 1, "ok")
+
+                self.record_hit(input_name, split_ms, total_ms)
+                self.last_input_time = now
+                self.last_success_input = input_name
+                done.add(input_name)
+
+                # Group completes when all presses are hit, and (if present) the mandatory wait is satisfied.
+                needed_presses = set(opts)
+                presses_done = needed_presses.issubset(done)
+                mw_done = (not has_mw) or bool(step.get("group_wait_done"))
+                if presses_done and mw_done:
+                    self._mark_step(int(self.current_index), "ok")
+                    self.current_index += 1
+                    self._maybe_start_wait_step()
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+                    if self.current_index >= len(self.active_combo_steps):
+                        self._send(
+                            {"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"}
+                        )
+                        self.record_combo_success(total_ms)
+                        self.current_index = 0
+                        self._reset_hold_state()
+                        self._reset_wait_state()
+                        self._reset_group_state()
+                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    return
+
+                # Partial progress: keep current_index on this group.
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                return
 
         # Start of combo
         if self.current_index == 0:
@@ -1741,6 +2274,7 @@ class ComboTrackerEngine:
                     )
                     self.record_combo_success(total_ms)
                     self.current_index = 0
+                    self._reset_group_state()
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
             else:
                 self._start_hold(input_name, int(target_hold_ms), current_time)
@@ -1752,7 +2286,7 @@ class ComboTrackerEngine:
                 return
 
             # More helpful messaging: detect "out of order" presses (likely skipped an expected step).
-            expected = str(target_input or "").strip().lower()
+            expected = str(self._expected_label_for_step(step) or "").strip().lower()
             actual = str(input_name or "").strip().lower()
             skipped_idx = None
             if expected and actual and expected != actual:
@@ -1846,6 +2380,7 @@ class ComboTrackerEngine:
             self.current_index = 0
             self._reset_hold_state()
             self._reset_wait_state()
+            self._reset_group_state()
             self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
     def process_release(self, input_name: str):

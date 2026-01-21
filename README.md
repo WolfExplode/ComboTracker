@@ -57,6 +57,18 @@ Combos are written as comma-separated tokens, for example:
   - `rmb` = right mouse button
   - `mmb` = middle mouse button
 
+### Any-order groups (order interchangeable)
+Use brackets to indicate that multiple inputs can be pressed in **any order**, but all must be completed before the combo continues:
+
+- Example: `3, r, wait:1.5, [q, e], 2, lmb, rmb`
+
+This means after the wait gate you must press **both** `q` and `e`, in either order (`q` then `e` OR `e` then `q`).
+
+You can also include an animation lock inside the group:
+- Example: `e, 3, [wait(r, 1.5), q, e], 2`
+
+This means press `r`, `q`, and `e` in any order — and if/when you press `r`, an animation lock of ≥ 1.5s is enforced before the group can finish (inputs during the lock are ignored).
+
 ### Hold steps
 Two equivalent syntaxes:
 - `hold(e, 0.35)` (seconds)
@@ -71,6 +83,15 @@ Wait steps are “minimum delay gates”:
   - `wait_soft:0.2`
 - **Hard wait**: pressing too early can drop the combo (useful for games where early input consumes/cancels and desyncs you).
   - `wait_hard:0.2`
+
+### Mandatory animation waits (inputs ignored)
+Some abilities have an animation lock where **extra inputs do nothing in-game** (and should not end the combo).
+
+Use:
+- `wait(r, 1.5)` to mean: press `r`, then **mandatory** wait ≥ 1.5s (inputs during the lock are ignored).
+
+Example:
+`e, 3, wait(r, 1.5), [q, e], 2`
 
 Durations accept:
 - Seconds: `0.2`, `0.2s`
