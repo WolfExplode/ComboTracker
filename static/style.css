@@ -454,6 +454,19 @@ select {
     line-height: 1.2;
 }
 
+.corner-key {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+    opacity: 0.85;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
 .step-primary {
     font-size: 30px;
     font-weight: 700;
@@ -564,6 +577,12 @@ select {
     height: 36px;
 }
 
+.key-step-emoji {
+    font-size: 26px;
+    line-height: 1;
+    display: inline-block;
+}
+
 .hold-label { margin-top: 4px; }
 
 .step.wait {
@@ -573,6 +592,19 @@ select {
         to right,
         rgba(255, 221, 74, 0.22) 0%,
         rgba(255, 221, 74, 0.22) var(--wait-pct),
+        var(--bg-primary) var(--wait-pct),
+        var(--bg-primary) 100%
+    );
+}
+
+/* If the combo completes successfully, completed should always win (green), even for wait tiles. */
+.step.wait.completed,
+.step.press-wait.completed {
+    border-color: var(--accent-green);
+    background: linear-gradient(
+        to right,
+        rgba(74, 255, 136, 0.22) 0%,
+        rgba(74, 255, 136, 0.22) var(--wait-pct),
         var(--bg-primary) var(--wait-pct),
         var(--bg-primary) 100%
     );

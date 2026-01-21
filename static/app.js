@@ -51,6 +51,8 @@ let lastTimelineSteps = null;
 let currentTargetGame = 'generic'; // "generic" | "wuthering_waves"
 let currentWwAbilityImages = { "1": {}, "2": {}, "3": {} }; // char -> {e/q/r -> url}
 let currentWwSwapImages = { "1": "", "2": "", "3": "" }; // swap key images for 1/2/3 (from team)
+let currentWwLmbImages = { "1": "", "2": "", "3": "" }; // per-character LMB images (from team)
+let currentWwDashImage = ""; // shared RMB/dash image (from team)
 let currentWwTeams = []; // [{id,name}]
 let currentWwTeamId = ''; // selected team id (combo assignment / active team)
 
@@ -75,6 +77,16 @@ function ensureWwAbilityShape(obj) {
 }
 
 function ensureWwSwapShape(obj) {
+    const out = { "1": "", "2": "", "3": "" };
+    if (!obj || typeof obj !== 'object') return out;
+    ['1','2','3'].forEach(k => {
+        const url = (obj[k] || '').toString().trim();
+        if (url) out[k] = url;
+    });
+    return out;
+}
+
+function ensureWwLmbShape(obj) {
     const out = { "1": "", "2": "", "3": "" };
     if (!obj || typeof obj !== 'object') return out;
     ['1','2','3'].forEach(k => {
@@ -136,11 +148,87 @@ function readWwSwapFromUI() {
     currentWwSwapImages = next;
 }
 
-function renderWwAbilityEditor() {
-    readWwAbilityFromUI();
+function readWwLmbFromUI() {
+    const container = document.getElementById('wwAbilityEditor');
+    if (!container) return;
+    const inputs = container.querySelectorAll('input[data-lmb]');
+    const next = { "1": "", "2": "", "3": "" };
+    inputs.forEach(inp => {
+        const c = (inp.getAttribute('data-lmb') || '').trim();
+        if (!['1','2','3'].includes(c)) return;
+        next[c] = (inp.value || '').toString().trim();
+    });
+    currentWwLmbImages = next;
+}
+
+function readWwDashFromUI() {
+    const el = document.getElementById('wwDashImageInput');
+    if (!el) return;
+    currentWwDashImage = (el.value || '').toString().trim();
+}
+
+function renderWwAbilityEditor({ preserveEdits = true } = {}) {
+    // In most re-renders we want to preserve in-progress edits by reading from the UI first.
+    // But when selecting a team (loading from JSON), we must NOT overwrite loaded state with old DOM values.
+    if (preserveEdits) {
+        readWwAbilityFromUI();
+        readWwSwapFromUI();
+        readWwLmbFromUI();
+        readWwDashFromUI();
+    }
     const container = document.getElementById('wwAbilityEditor');
     if (!container) return;
     container.innerHTML = '';
+
+    const setPreview = (imgEl, val) => {
+        const v = (val || '').toString().trim();
+        if (!v) {
+            imgEl.innerHTML = '';
+            imgEl.style.display = 'none';
+            return;
+        }
+        imgEl.style.display = 'flex';
+        imgEl.style.alignItems = 'center';
+        imgEl.style.justifyContent = 'center';
+        if (/^https?:\/\//i.test(v)) {
+            imgEl.innerHTML = `<img class="key-step-image" src="${escapeHtml(v)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:32px;height:32px;object-fit:contain;" />`;
+        } else {
+            imgEl.innerHTML = `<span class="key-step-emoji">${escapeHtml(v)}</span>`;
+        }
+    };
+
+    // Dash (RMB) icon (shared)
+    const dashBox = document.createElement('div');
+    dashBox.className = 'ww-ability-char';
+
+    const dashTitle = document.createElement('div');
+    dashTitle.className = 'ww-ability-key';
+    dashTitle.textContent = 'Dash';
+
+    const dashControls = document.createElement('div');
+    dashControls.className = 'ww-ability-controls';
+
+    const dashInput = document.createElement('input');
+    dashInput.type = 'text';
+    dashInput.placeholder = 'https://... or 💨';
+    dashInput.id = 'wwDashImageInput';
+    dashInput.value = (currentWwDashImage || '').toString();
+
+    const dashPreview = document.createElement('div');
+    dashPreview.className = 'ww-ability-preview';
+    setPreview(dashPreview, dashInput.value);
+
+    dashInput.addEventListener('input', () => {
+        currentWwDashImage = (dashInput.value || '').toString().trim();
+        setPreview(dashPreview, currentWwDashImage);
+        if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+    });
+
+    dashControls.appendChild(dashInput);
+    dashControls.appendChild(dashPreview);
+    dashBox.appendChild(dashTitle);
+    dashBox.appendChild(dashControls);
+    container.appendChild(dashBox);
 
     const abilities = ['e','q','r'];
     ['1','2','3'].forEach(c => {
@@ -160,31 +248,18 @@ function renderWwAbilityEditor() {
 
         const swapInput = document.createElement('input');
         swapInput.type = 'text';
-        swapInput.placeholder = 'https://...';
+        swapInput.placeholder = 'https://... or 😀';
         swapInput.setAttribute('data-swap', c);
         swapInput.value = (currentWwSwapImages && currentWwSwapImages[c]) ? String(currentWwSwapImages[c]) : '';
 
-        const swapPreview = document.createElement('img');
+        const swapPreview = document.createElement('div');
         swapPreview.className = 'ww-ability-preview';
-        swapPreview.alt = `swap:${c}`;
-        swapPreview.referrerPolicy = 'no-referrer';
-
-        const updateSwapPreview = () => {
-            const val = (swapInput.value || '').toString().trim();
-            if (val) {
-                swapPreview.src = val;
-                swapPreview.style.display = 'block';
-            } else {
-                swapPreview.removeAttribute('src');
-                swapPreview.style.display = 'none';
-            }
-        };
-        updateSwapPreview();
+        setPreview(swapPreview, swapInput.value);
 
         swapInput.addEventListener('input', () => {
             const val = (swapInput.value || '').toString().trim();
             currentWwSwapImages[c] = val;
-            updateSwapPreview();
+            setPreview(swapPreview, val);
             if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
         });
 
@@ -192,6 +267,38 @@ function renderWwAbilityEditor() {
         swapControls.appendChild(swapPreview);
         swapRow.appendChild(swapKey);
         swapRow.appendChild(swapControls);
+
+        // LMB (normal attack) image (per character)
+        const lmbRow = document.createElement('div');
+        lmbRow.className = 'ww-ability-row';
+
+        const lmbKey = document.createElement('div');
+        lmbKey.className = 'ww-ability-key';
+        lmbKey.textContent = 'LMB';
+
+        const lmbControls = document.createElement('div');
+        lmbControls.className = 'ww-ability-controls';
+
+        const lmbInput = document.createElement('input');
+        lmbInput.type = 'text';
+        lmbInput.placeholder = 'https://... or 😀';
+        lmbInput.setAttribute('data-lmb', c);
+        lmbInput.value = (currentWwLmbImages && currentWwLmbImages[c]) ? String(currentWwLmbImages[c]) : '';
+
+        const lmbPreview = document.createElement('div');
+        lmbPreview.className = 'ww-ability-preview';
+        setPreview(lmbPreview, lmbInput.value);
+
+        lmbInput.addEventListener('input', () => {
+            currentWwLmbImages[c] = (lmbInput.value || '').toString().trim();
+            setPreview(lmbPreview, currentWwLmbImages[c]);
+            if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+        });
+
+        lmbControls.appendChild(lmbInput);
+        lmbControls.appendChild(lmbPreview);
+        lmbRow.appendChild(lmbKey);
+        lmbRow.appendChild(lmbControls);
 
         abilities.forEach(a => {
             const row = document.createElement('div');
@@ -206,34 +313,21 @@ function renderWwAbilityEditor() {
 
             const input = document.createElement('input');
             input.type = 'text';
-            input.placeholder = 'https://...';
+            input.placeholder = 'https://... or 😀';
             input.setAttribute('data-char', c);
             input.setAttribute('data-ability', a);
             input.value = (currentWwAbilityImages?.[c]?.[a]) ? String(currentWwAbilityImages[c][a]) : '';
 
-            const preview = document.createElement('img');
+            const preview = document.createElement('div');
             preview.className = 'ww-ability-preview';
-            preview.alt = `${c}:${a}`;
-            preview.referrerPolicy = 'no-referrer';
-
-            const updatePreview = () => {
-                const val = (input.value || '').toString().trim();
-                if (val) {
-                    preview.src = val;
-                    preview.style.display = 'block';
-                } else {
-                    preview.removeAttribute('src');
-                    preview.style.display = 'none';
-                }
-            };
-            updatePreview();
+            setPreview(preview, input.value);
 
             input.addEventListener('input', () => {
                 const val = (input.value || '').toString().trim();
                 if (!currentWwAbilityImages[c]) currentWwAbilityImages[c] = {};
                 if (val) currentWwAbilityImages[c][a] = val;
                 else if (currentWwAbilityImages[c]) delete currentWwAbilityImages[c][a];
-                updatePreview();
+                setPreview(preview, val);
                 if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
             });
 
@@ -245,6 +339,7 @@ function renderWwAbilityEditor() {
         });
 
         box.appendChild(swapRow);
+        box.appendChild(lmbRow);
         container.appendChild(box);
     });
 }
@@ -394,18 +489,22 @@ function renderKeyImagesEditor() {
         input.placeholder = 'https://...';
         input.value = (currentKeyImages && currentKeyImages[key]) ? String(currentKeyImages[key]) : '';
 
-        const preview = document.createElement('img');
+        const preview = document.createElement('div');
         preview.className = 'key-image-preview';
-        preview.alt = key;
-        preview.referrerPolicy = 'no-referrer';
 
         const updatePreview = () => {
             const val = (input.value || '').toString().trim();
             if (val) {
-                preview.src = val;
-                preview.style.display = 'block';
+                if (/^https?:\/\//i.test(val)) {
+                    preview.innerHTML = `<img class="key-image-preview" alt="${escapeHtml(key)}" referrerpolicy="no-referrer" src="${escapeHtml(val)}" style="display:block; width:32px; height:32px; object-fit:contain; border:0; background:transparent;" />`;
+                } else {
+                    preview.innerHTML = `<span class="key-step-emoji">${escapeHtml(val)}</span>`;
+                }
+                preview.style.display = 'flex';
+                preview.style.alignItems = 'center';
+                preview.style.justifyContent = 'center';
             } else {
-                preview.removeAttribute('src');
+                preview.innerHTML = '';
                 preview.style.display = 'none';
             }
         };
@@ -615,8 +714,10 @@ function setEditorFields(editor) {
     if (teamNameEl) teamNameEl.value = (editor.ww_team_name || '').toString();
 
     currentWwSwapImages = ensureWwSwapShape(editor.ww_team_swap_images || {});
+    currentWwLmbImages = ensureWwLmbShape(editor.ww_team_lmb_images || {});
+    currentWwDashImage = (editor.ww_team_dash_image || '').toString();
     currentWwAbilityImages = ensureWwAbilityShape(editor.ww_team_ability_images || {});
-    renderWwAbilityEditor();
+    renderWwAbilityEditor({ preserveEdits: false });
     syncGameUIVisibility();
 }
 
@@ -646,7 +747,12 @@ function updateTimeline(steps) {
             .replace(/>/g, '&gt;');
     };
 
-    const resolveImageUrl = (key) => {
+    const isProbablyUrl = (val) => {
+        const s = (val || '').toString().trim();
+        return /^https?:\/\//i.test(s);
+    };
+
+    const resolveIconValue = (key) => {
         if (currentStepDisplayMode !== 'images') return null;
         const k = (key || '').toString().trim().toLowerCase();
         if (!k) return null;
@@ -664,6 +770,19 @@ function updateTimeline(steps) {
             if (url) return url;
         }
 
+        // WW: LMB (normal attack) is per character
+        if (ctx.game === 'wuthering_waves' && k === 'lmb') {
+            const c = (ctx.char || '1').toString();
+            const url = (currentWwLmbImages && currentWwLmbImages[c]) ? currentWwLmbImages[c] : '';
+            if (url) return url;
+        }
+
+        // WW: RMB is always dash icon (shared)
+        if (ctx.game === 'wuthering_waves' && k === 'rmb') {
+            const url = (currentWwDashImage || '').toString().trim();
+            if (url) return url;
+        }
+
         // Fallback: generic per-key mapping
         const url = currentKeyImages ? currentKeyImages[k] : null;
         return url || null;
@@ -671,9 +790,21 @@ function updateTimeline(steps) {
 
     const keyImageHtml = (key) => {
         const k = (key || '').toString().trim().toLowerCase();
-        const url = resolveImageUrl(k);
-        if (!url) return null;
-        return `<span class="key-img-wrap" aria-label="${escapeHtml(k)}" title="${escapeHtml(k)}"><img class="key-step-image" src="${escapeAttr(url)}" alt="${escapeAttr(k)}" loading="lazy" referrerpolicy="no-referrer"/></span>`;
+        const val = resolveIconValue(k);
+        if (!val) return null;
+        if (isProbablyUrl(val)) {
+            return `<span class="key-img-wrap" aria-label="${escapeHtml(k)}" title="${escapeHtml(k)}"><img class="key-step-image" src="${escapeAttr(val)}" alt="${escapeAttr(k)}" loading="lazy" referrerpolicy="no-referrer"/></span>`;
+        }
+        // Emoji / text icon
+        return `<span class="key-img-wrap" aria-label="${escapeHtml(k)}" title="${escapeHtml(k)}"><span class="key-step-emoji">${escapeHtml(val)}</span></span>`;
+    };
+
+    const cornerKeyHtml = (key) => {
+        // Only show the corner key label in image mode (helps identify what the icon represents).
+        if (currentStepDisplayMode !== 'images') return '';
+        const k = (key || '').toString().trim();
+        if (!k) return '';
+        return `<span class="corner-key">${escapeHtml(k)}</span>`;
     };
 
     const mouseIconHtml = (key) => {
@@ -757,7 +888,7 @@ function updateTimeline(steps) {
                         // Display as:
                         // R
                         // animation time 1500ms
-                        child.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${item.duration}ms`)}`;
+                        child.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${item.duration}ms`)}${cornerKeyHtml(k)}`;
                         maybeSwapChar((k || '').toString().trim().toLowerCase());
                     } else {
                         let label = 'wait';
@@ -767,7 +898,7 @@ function updateTimeline(steps) {
                     child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
                 } else {
                     const k = (item.input || '').toString().trim().toLowerCase();
-                    child.innerHTML = primaryHtml(k);
+                    child.innerHTML = `${primaryHtml(k)}${cornerKeyHtml(k)}`;
                     maybeSwapChar(k);
                 }
 
@@ -799,7 +930,7 @@ function updateTimeline(steps) {
             // key (big) + "100ms" (small) + wait progress fill.
             div.classList.add('press-wait');
             const k = (step.input || '').toString().trim().toLowerCase();
-            div.innerHTML = `${primaryHtml(k)}${secondaryHtml(`${step.duration}ms`)}`;
+            div.innerHTML = `${primaryHtml(k)}${secondaryHtml(`${step.duration}ms`)}${cornerKeyHtml(k)}`;
             div.style.setProperty('--wait-pct', step.completed ? '100%' : '0%');
             maybeSwapChar(k);
         } else if (step.type === 'wait') {
@@ -807,7 +938,7 @@ function updateTimeline(steps) {
             const mode = (step.mode || 'soft').toLowerCase();
             if (mode === 'mandatory') {
                 const k = (step.wait_for || '').toString().trim();
-                div.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${step.duration}ms`)}`;
+                div.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${step.duration}ms`)}${cornerKeyHtml(k)}`;
                 maybeSwapChar((k || '').toString().trim().toLowerCase());
             } else {
                 let label = 'wait';
@@ -819,14 +950,14 @@ function updateTimeline(steps) {
         } else if (step.type === 'hold') {
             div.classList.add('hold');
             const k = (step.input || '').toString().trim().toLowerCase();
-            div.innerHTML = `${primaryHtml(k)}${secondaryHtml(`hold ${step.duration}ms`)}`;
+            div.innerHTML = `${primaryHtml(k)}${secondaryHtml(`hold ${step.duration}ms`)}${cornerKeyHtml(k)}`;
             applyHoldWidth(div, step.duration);
             // Whole-tile fill progress (default 0%, completed = 100%)
             div.style.setProperty('--hold-pct', step.completed ? '100%' : '0%');
             maybeSwapChar(k);
         } else {
             const k = (step.input || '').toString().trim().toLowerCase();
-            div.innerHTML = primaryHtml(k);
+            div.innerHTML = `${primaryHtml(k)}${cornerKeyHtml(k)}`;
             maybeSwapChar(k);
         }
         
@@ -866,6 +997,13 @@ function addResultRow(data) {
     
     body.appendChild(row);
     scrollToBottom('resultsTable');
+}
+
+function clearAttemptLog() {
+    const body = document.getElementById('resultsBody');
+    if (body) {
+        body.innerHTML = '';
+    }
 }
 
 // Failure analysis
@@ -984,7 +1122,7 @@ if (targetGameEl) {
     targetGameEl.addEventListener('change', () => {
         currentTargetGame = normalizeTargetGame(targetGameEl.value);
         syncGameUIVisibility();
-        renderWwAbilityEditor();
+        renderWwAbilityEditor({ preserveEdits: true });
         if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
     });
 }
@@ -1002,12 +1140,16 @@ if (saveTeamBtn) {
     saveTeamBtn.addEventListener('click', () => {
         readWwAbilityFromUI();
         readWwSwapFromUI();
+        readWwLmbFromUI();
+        readWwDashFromUI();
         const name = (document.getElementById('wwTeamName')?.value || '').toString();
         ws.send(JSON.stringify({
             type: 'save_team',
             team_id: currentWwTeamId || '',
             team_name: name,
+            dash_image: currentWwDashImage || '',
             swap_images: currentWwSwapImages || {},
+            lmb_images: currentWwLmbImages || {},
             ability_images: currentWwAbilityImages || {}
         }));
     });
@@ -1022,8 +1164,10 @@ if (newTeamBtn) {
         const nameEl = document.getElementById('wwTeamName');
         if (nameEl) nameEl.value = '';
         currentWwSwapImages = { "1": "", "2": "", "3": "" };
+        currentWwLmbImages = { "1": "", "2": "", "3": "" };
+        currentWwDashImage = "";
         currentWwAbilityImages = { "1": {}, "2": {}, "3": {} };
-        renderWwAbilityEditor();
+        renderWwAbilityEditor({ preserveEdits: false });
     });
 }
 
@@ -1038,7 +1182,7 @@ if (deleteTeamBtn) {
 const wwDetails = document.getElementById('wwAbilityDetails');
 if (wwDetails) {
     wwDetails.addEventListener('toggle', () => {
-        renderWwAbilityEditor();
+        renderWwAbilityEditor({ preserveEdits: true });
     });
 }
 
@@ -1098,6 +1242,9 @@ function handleMessage(msg) {
             break;
         case 'hit':
             addResultRow(msg);
+            break;
+        case 'clear_results':
+            clearAttemptLog();
             break;
         case 'status':
             updateStatus(msg.text, msg.color);

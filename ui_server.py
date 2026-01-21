@@ -99,7 +99,9 @@ async def ws_handler(websocket, _path=None):
                 ok, err = engine.save_or_update_ww_team(
                     team_id=str(msg.get("team_id") or ""),
                     team_name=str(msg.get("team_name") or ""),
+                    dash_image=str(msg.get("dash_image") or ""),
                     swap_images=msg.get("swap_images"),
+                    lmb_images=msg.get("lmb_images"),
                     ability_images=msg.get("ability_images"),
                 )
                 if not ok and err:

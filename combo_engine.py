@@ -56,6 +56,11 @@ class ComboTrackerEngine:
         self.combo_enders: dict[str, int] = {}
         self.last_success_input: str | None = None
 
+        # UI helper: after a successful completion we reset current_index back to 0 (ready for next attempt),
+        # but we still want the timeline to stay fully "completed" (green) until the next attempt begins.
+        self._ui_last_success_combo: str | None = None
+        self._ui_last_success_steps_len: int = 0
+
         # Stats
         self.combo_stats: dict[str, dict[str, Any]] = {}
         # Per-combo metadata (kept minimal on purpose)
@@ -75,7 +80,13 @@ class ComboTrackerEngine:
         self.combo_target_game: dict[str, str] = {}
 
         # Optional: Wuthering Waves teams (presets)
-        # ww_teams: team_id -> {"name": str, "swap_images": {"1":url,"2":url,"3":url}, "ability_images": {"1":{"e":..,"q":..,"r":..}, ...}}
+        # ww_teams: team_id -> {
+        #   "name": str,
+        #   "dash_image": str,  # RMB / dash (shared)
+        #   "swap_images": {"1":url,"2":url,"3":url},
+        #   "lmb_images": {"1":url,"2":url,"3":url},  # normal attack (per character)
+        #   "ability_images": {"1":{"e":..,"q":..,"r":..}, ...}
+        # }
         self.ww_teams: dict[str, dict[str, Any]] = {}
         self.ww_active_team_id: str | None = None
         # Per-combo assigned team (when target_game = wuthering_waves)
@@ -548,6 +559,33 @@ class ComboTrackerEngine:
             return None
         return None
 
+    def _maybe_complete_combo_if_trailing_wait(self, *, now: float, total_ms: float) -> bool:
+        """
+        If the next expected step is a wait gate *and there are no further non-wait steps after it*,
+        then the wait is effectively a no-op. In that case, complete the combo immediately.
+
+        This avoids "hanging" on a trailing wait like: e, q, wait(r, 3.65s)
+        (there's nothing left to time-gate).
+        """
+        try:
+            step = self._active_step()
+            if not isinstance(step, dict) or step.get("wait_ms") is None:
+                return False
+            # If there is any real action after this wait, it is not trailing.
+            if self._next_non_wait_step_index(start_index=int(self.current_index) + 1) is not None:
+                return False
+        except Exception:
+            return False
+
+        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
+        self.record_combo_success(total_ms)
+        self.current_index = 0
+        self._reset_hold_state()
+        self._reset_wait_state()
+        self._reset_group_state()
+        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        return True
+
     # -------------------------
     # Persistence
     # -------------------------
@@ -770,6 +808,7 @@ class ComboTrackerEngine:
                     if not team_id or not isinstance(tv, dict):
                         continue
                     name = str(tv.get("name", "") or "").strip() or "Team"
+                    dash_image = str(tv.get("dash_image", "") or "").strip()
                     swap_raw = tv.get("swap_images", {})
                     swap_images: dict[str, str] = {}
                     if isinstance(swap_raw, dict):
@@ -780,6 +819,16 @@ class ComboTrackerEngine:
                             url = str(vv or "").strip()
                             if url:
                                 swap_images[k] = url
+                    lmb_raw = tv.get("lmb_images", {})
+                    lmb_images: dict[str, str] = {}
+                    if isinstance(lmb_raw, dict):
+                        for kk, vv in lmb_raw.items():
+                            k = str(kk or "").strip()
+                            if k not in ("1", "2", "3"):
+                                continue
+                            url = str(vv or "").strip()
+                            if url:
+                                lmb_images[k] = url
                     abil_raw = tv.get("ability_images", {})
                     ability_images: dict[str, dict[str, str]] = {}
                     if isinstance(abil_raw, dict):
@@ -797,7 +846,13 @@ class ComboTrackerEngine:
                                     m[a] = url
                             if m:
                                 ability_images[c] = m
-                    ww_teams[team_id] = {"name": name, "swap_images": swap_images, "ability_images": ability_images}
+                    ww_teams[team_id] = {
+                        "name": name,
+                        "dash_image": dash_image,
+                        "swap_images": swap_images,
+                        "lmb_images": lmb_images,
+                        "ability_images": ability_images,
+                    }
             self.ww_teams = ww_teams
 
             active_team = str(data.get("ww_active_team_id") or "").strip()
@@ -842,6 +897,8 @@ class ComboTrackerEngine:
 
                     team_id = uuid4().hex[:10]
                     swap_images: dict[str, str] = {}
+                    lmb_images: dict[str, str] = {}
+                    dash_image = ""
                     try:
                         km = (key_images.get(cname) or {})
                         if isinstance(km, dict):
@@ -849,12 +906,21 @@ class ComboTrackerEngine:
                                 url = str(km.get(sk, "") or "").strip()
                                 if url:
                                     swap_images[sk] = url
+                            # Optional legacy convenience: allow lmb/rmb to migrate if present
+                            dash_image = str(km.get("rmb", "") or "").strip()
+                            lmb_any = str(km.get("lmb", "") or "").strip()
+                            if lmb_any:
+                                # No way to infer per-character; apply to all as a default.
+                                for sk in ("1", "2", "3"):
+                                    lmb_images[sk] = lmb_any
                     except Exception:
                         pass
 
                     self.ww_teams[team_id] = {
                         "name": f"Imported: {cname}",
+                        "dash_image": dash_image,
                         "swap_images": swap_images,
+                        "lmb_images": lmb_images,
                         "ability_images": per_char,
                     }
                     self.combo_ww_team[cname] = team_id
@@ -1361,13 +1427,19 @@ class ComboTrackerEngine:
 
         team_name = ""
         team_swap_images: dict[str, str] = {}
+        team_lmb_images: dict[str, str] = {}
+        team_dash_image = ""
         team_ability_images: dict[str, dict[str, str]] = {}
         if sel_team_id and sel_team_id in self.ww_teams:
             tv = self.ww_teams.get(sel_team_id) or {}
             team_name = str(tv.get("name", "") or "")
+            team_dash_image = str(tv.get("dash_image", "") or "")
             si = tv.get("swap_images", {})
             if isinstance(si, dict):
                 team_swap_images = {k: str(v) for k, v in si.items() if k in ("1", "2", "3") and str(v).strip()}
+            li = tv.get("lmb_images", {})
+            if isinstance(li, dict):
+                team_lmb_images = {k: str(v) for k, v in li.items() if k in ("1", "2", "3") and str(v).strip()}
             ai = tv.get("ability_images", {})
             if isinstance(ai, dict):
                 for ck, vv in ai.items():
@@ -1385,7 +1457,9 @@ class ComboTrackerEngine:
             "ww_teams": ww_teams,
             "ww_team_id": sel_team_id,
             "ww_team_name": team_name,
+            "ww_team_dash_image": team_dash_image,
             "ww_team_swap_images": team_swap_images,
+            "ww_team_lmb_images": team_lmb_images,
             "ww_team_ability_images": team_ability_images,
         }
 
@@ -1443,6 +1517,18 @@ class ComboTrackerEngine:
         steps = []
         i = 0
         arr = self.active_combo_steps or []
+        # When idle after a success, keep the timeline fully completed/green until a new attempt starts.
+        cur = self.current_index
+        try:
+            if (
+                int(cur) == 0
+                and self._ui_last_success_combo
+                and self._ui_last_success_combo == self.active_combo_name
+                and int(self._ui_last_success_steps_len or 0) == len(arr)
+            ):
+                cur = len(arr)
+        except Exception:
+            cur = self.current_index
         while i < len(arr):
             s = arr[i]
             idx = i
@@ -1475,8 +1561,8 @@ class ComboTrackerEngine:
                         total += 1
                         dur = int(it.get("wait_ms") or 0)
                         wf = str(it.get("wait_for") or "").strip().lower()
-                        comp = mw_done or (idx < self.current_index)
-                        act = (idx == self.current_index) and mw_active
+                        comp = mw_done or (idx < cur)
+                        act = (idx == cur) and mw_active
                         if comp:
                             done_count += 1
                         items_payload.append(
@@ -1492,7 +1578,7 @@ class ComboTrackerEngine:
                     elif kind == "press":
                         total += 1
                         inp = str(it.get("input") or "").strip().lower()
-                        comp = (inp in done_set) or (idx < self.current_index)
+                        comp = (inp in done_set) or (idx < cur)
                         if comp:
                             done_count += 1
                         items_payload.append(
@@ -1511,7 +1597,7 @@ class ComboTrackerEngine:
                     done_count = 0
                     if mw_ms is not None:
                         total += 1
-                        comp = mw_done or (idx < self.current_index)
+                        comp = mw_done or (idx < cur)
                         if comp:
                             done_count += 1
                         items_payload.append(
@@ -1528,7 +1614,7 @@ class ComboTrackerEngine:
                         if not inp:
                             continue
                         total += 1
-                        comp = (inp in done_set) or (idx < self.current_index)
+                        comp = (inp in done_set) or (idx < cur)
                         if comp:
                             done_count += 1
                         items_payload.append(
@@ -1538,8 +1624,8 @@ class ComboTrackerEngine:
                 steps.append(
                     {
                         "type": "group",
-                        "active": idx == self.current_index,
-                        "completed": idx < self.current_index,
+                        "active": idx == cur,
+                        "completed": idx < cur,
                         "mark": mark,
                         "items": items_payload,
                         "progress": {"done": int(done_count), "total": int(total)},
@@ -1571,8 +1657,8 @@ class ComboTrackerEngine:
                             "duration": int(wait_step.get("wait_ms") or 0),
                             "mode": "mandatory",
                             "wait_for": str(wait_step.get("wait_for") or ""),
-                            "active": (self.current_index == idx) or (self.current_index == wait_idx),
-                            "completed": self.current_index > wait_idx,
+                            "active": (cur == idx) or (cur == wait_idx),
+                            "completed": cur > wait_idx,
                             "mark": wait_mark,
                         }
                     )
@@ -1605,8 +1691,8 @@ class ComboTrackerEngine:
                             "input": press_inp,
                             "duration": int(w.get("wait_ms") or 0),
                             "mode": str(w.get("wait_mode") or "soft"),
-                            "active": (self.current_index == idx) or (self.current_index == wait_idx),
-                            "completed": self.current_index > wait_idx,
+                            "active": (cur == idx) or (cur == wait_idx),
+                            "completed": cur > wait_idx,
                             "mark": w_mark,
                         }
                     )
@@ -1623,8 +1709,8 @@ class ComboTrackerEngine:
                         "duration": int(s.get("wait_ms") or 0),
                         "mode": str(s.get("wait_mode") or "soft"),
                         "wait_for": str(s.get("wait_for") or ""),
-                        "active": idx == self.current_index,
-                        "completed": idx < self.current_index,
+                        "active": idx == cur,
+                        "completed": idx < cur,
                         "mark": mark,
                     }
                 )
@@ -1634,8 +1720,8 @@ class ComboTrackerEngine:
                         "type": "hold",
                         "input": str(s.get("input") or ""),
                         "duration": int(s.get("hold_ms") or 0),
-                        "active": idx == self.current_index,
-                        "completed": idx < self.current_index,
+                        "active": idx == cur,
+                        "completed": idx < cur,
                         "mark": mark,
                     }
                 )
@@ -1645,8 +1731,8 @@ class ComboTrackerEngine:
                         "type": "press",
                         "input": str(s.get("input") or ""),
                         "duration": 0,
-                        "active": idx == self.current_index,
-                        "completed": idx < self.current_index,
+                        "active": idx == cur,
+                        "completed": idx < cur,
                         "mark": mark,
                     }
                 )
@@ -1909,7 +1995,9 @@ class ComboTrackerEngine:
         *,
         team_id: str | None,
         team_name: str | None,
+        dash_image: str | None,
         swap_images: Any | None,
+        lmb_images: Any | None,
         ability_images: Any | None,
     ) -> tuple[bool, str | None]:
         name = str(team_name or "").strip()
@@ -1931,6 +2019,20 @@ class ComboTrackerEngine:
                 if url:
                     swap[kk] = url
 
+        # Dash (RMB) image (shared)
+        dash = str(dash_image or "").strip()
+
+        # LMB images (per character)
+        lmb: dict[str, str] = {}
+        if isinstance(lmb_images, dict):
+            for k, v in lmb_images.items():
+                kk = str(k or "").strip()
+                if kk not in ("1", "2", "3"):
+                    continue
+                url = str(v or "").strip()
+                if url:
+                    lmb[kk] = url
+
         # Clean ability images
         abil: dict[str, dict[str, str]] = {}
         if isinstance(ability_images, dict):
@@ -1949,7 +2051,7 @@ class ComboTrackerEngine:
                 if m:
                     abil[c] = m
 
-        self.ww_teams[tid] = {"name": name, "swap_images": swap, "ability_images": abil}
+        self.ww_teams[tid] = {"name": name, "dash_image": dash, "swap_images": swap, "lmb_images": lmb, "ability_images": abil}
         self.ww_active_team_id = tid
         self.save_combos()
 
@@ -1994,6 +2096,7 @@ class ComboTrackerEngine:
                 "fail_events": [],
             }
             self.save_combos()
+        self._send({"type": "clear_results"})
         self._send({"type": "stat_update", "stats": self.stats_text()})
         self._send({"type": "fail_update", "failures": self.failures_by_reason()})
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
@@ -2070,6 +2173,8 @@ class ComboTrackerEngine:
         self.last_input_time = 0.0
         self.attempt_counter = 0
         self.last_success_input = None
+        self._ui_last_success_combo = None
+        self._ui_last_success_steps_len = 0
         self._reset_attempt_marks()
         self._reset_hold_state()
         self._reset_wait_state()
@@ -2085,6 +2190,9 @@ class ComboTrackerEngine:
         name = self.active_combo_name or "Combo"
         # New attempt → clear any per-step failure coloring from the previous attempt.
         self._reset_attempt_marks()
+        # New attempt → stop showing the previous "success snapshot" (fully green timeline).
+        self._ui_last_success_combo = None
+        self._ui_last_success_steps_len = 0
         self._send({"type": "attempt_start", "name": name, "attempt": self.attempt_counter})
 
     def record_hit(self, label: str, split_ms: float | str, total_ms: float | str):
@@ -2210,6 +2318,16 @@ class ComboTrackerEngine:
         self.current_index += 1
         self._reset_wait_state()
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+        # If a wait step was (accidentally) the last step, don't get stuck past the end.
+        if self.current_index >= len(self.active_combo_steps):
+            self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
+            self.record_combo_success(total_ms)
+            self.current_index = 0
+            self._reset_hold_state()
+            self._reset_wait_state()
+            self._reset_group_state()
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
         return True
 
     def _maybe_start_wait_step(self):
@@ -2251,6 +2369,10 @@ class ComboTrackerEngine:
                     self._mark_step(self.current_index - 1, "ok")
 
             self.current_index += 1
+            if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
+                self._reset_hold_state()
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                return True
             self._maybe_start_wait_step()
 
             if self.current_index >= len(self.active_combo_steps):
@@ -2331,6 +2453,9 @@ class ComboTrackerEngine:
     def record_combo_success(self, completion_ms: float | int | None = None):
         if not self.active_combo_name:
             return
+        # Snapshot for UI: keep the timeline fully green until the next attempt begins.
+        self._ui_last_success_combo = self.active_combo_name
+        self._ui_last_success_steps_len = len(self.active_combo_steps or [])
         self._ensure_combo_stats(self.active_combo_name)
         self.combo_stats[self.active_combo_name]["success"] += 1
 
@@ -2368,6 +2493,10 @@ class ComboTrackerEngine:
             return
         if self.attempt_counter <= 0:
             return
+
+        # Failure should clear any previous "success snapshot" so we don't show a fully green timeline at idle.
+        self._ui_last_success_combo = None
+        self._ui_last_success_steps_len = 0
 
         self._ensure_combo_stats(self.active_combo_name)
         self.combo_stats[self.active_combo_name]["fail"] += 1
@@ -2531,6 +2660,9 @@ class ComboTrackerEngine:
                 if presses_done:
                     self._mark_step(int(self.current_index), "ok")
                     self.current_index += 1
+                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
+                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
+                        return
                     self._maybe_start_wait_step()
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
@@ -2618,6 +2750,8 @@ class ComboTrackerEngine:
                 if presses_done and mw_done:
                     self._mark_step(int(self.current_index), "ok")
                     self.current_index += 1
+                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
+                        return
                     self._maybe_start_wait_step()
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
@@ -2648,6 +2782,8 @@ class ComboTrackerEngine:
                 if target_hold_ms is None:
                     self.record_hit(input_name, 0, 0)
                     self.current_index += 1
+                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=0):
+                        return
                     self._maybe_start_wait_step()
                     self.last_success_input = input_name
                     self._send({"type": "status", "text": "Recording...", "color": "recording"})
@@ -2673,6 +2809,8 @@ class ComboTrackerEngine:
                         self._mark_step(self.current_index - 1, "ok")
 
                 self.current_index += 1
+                if self._maybe_complete_combo_if_trailing_wait(now=current_time, total_ms=total_ms):
+                    return
                 self._maybe_start_wait_step()
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
