@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+from uuid import uuid4
 
 
 @dataclass
@@ -62,6 +63,23 @@ class ComboTrackerEngine:
         self.combo_expected_ms: dict[str, int] = {}
         # - user_difficulty: user-entered difficulty rating (0..10)
         self.combo_user_difficulty: dict[str, float] = {}
+
+        # Optional: per-combo step display configuration
+        # - combo_step_display_mode: "icons" (default) or "images"
+        self.combo_step_display_mode: dict[str, str] = {}
+        # - combo_key_images: combo_name -> { key -> image_url }
+        self.combo_key_images: dict[str, dict[str, str]] = {}
+
+        # Optional: per-combo target game mode
+        # - combo_target_game: "generic" (default) or "wuthering_waves"
+        self.combo_target_game: dict[str, str] = {}
+
+        # Optional: Wuthering Waves teams (presets)
+        # ww_teams: team_id -> {"name": str, "swap_images": {"1":url,"2":url,"3":url}, "ability_images": {"1":{"e":..,"q":..,"r":..}, ...}}
+        self.ww_teams: dict[str, dict[str, Any]] = {}
+        self.ww_active_team_id: str | None = None
+        # Per-combo assigned team (when target_game = wuthering_waves)
+        self.combo_ww_team: dict[str, str] = {}
 
         # Emission
         self._emit: Callable[[dict[str, Any]], None] | None = None
@@ -698,6 +716,151 @@ class ComboTrackerEngine:
                         user_diff[name] = d
             self.combo_user_difficulty = user_diff
 
+            # Optional: per-combo step display mode ("icons" | "images")
+            dm = data.get("combo_step_display_mode", {})
+            display_mode: dict[str, str] = {}
+            if isinstance(dm, dict):
+                for k, v in dm.items():
+                    name = str(k).strip()
+                    if not name:
+                        continue
+                    mode = str(v or "").strip().lower()
+                    if mode in ("icons", "images"):
+                        display_mode[name] = mode
+            self.combo_step_display_mode = display_mode
+
+            # Optional: per-combo key images mapping
+            ki = data.get("combo_key_images", {})
+            key_images: dict[str, dict[str, str]] = {}
+            if isinstance(ki, dict):
+                for k, v in ki.items():
+                    name = str(k).strip()
+                    if not name or not isinstance(v, dict):
+                        continue
+                    m: dict[str, str] = {}
+                    for kk, vv in v.items():
+                        key = str(kk).strip().lower()
+                        url = str(vv).strip()
+                        if not key or not url:
+                            continue
+                        m[key] = url
+                    if m:
+                        key_images[name] = m
+            self.combo_key_images = key_images
+
+            # Optional: per-combo target game mode
+            tg = data.get("combo_target_game", {})
+            target_game: dict[str, str] = {}
+            if isinstance(tg, dict):
+                for k, v in tg.items():
+                    name = str(k).strip()
+                    if not name:
+                        continue
+                    g = str(v or "").strip().lower()
+                    if g in ("generic", "wuthering_waves"):
+                        target_game[name] = g
+            self.combo_target_game = target_game
+
+            # Optional: Wuthering Waves teams (presets)
+            teams = data.get("ww_teams", {})
+            ww_teams: dict[str, dict[str, Any]] = {}
+            if isinstance(teams, dict):
+                for tid, tv in teams.items():
+                    team_id = str(tid).strip()
+                    if not team_id or not isinstance(tv, dict):
+                        continue
+                    name = str(tv.get("name", "") or "").strip() or "Team"
+                    swap_raw = tv.get("swap_images", {})
+                    swap_images: dict[str, str] = {}
+                    if isinstance(swap_raw, dict):
+                        for kk, vv in swap_raw.items():
+                            k = str(kk or "").strip()
+                            if k not in ("1", "2", "3"):
+                                continue
+                            url = str(vv or "").strip()
+                            if url:
+                                swap_images[k] = url
+                    abil_raw = tv.get("ability_images", {})
+                    ability_images: dict[str, dict[str, str]] = {}
+                    if isinstance(abil_raw, dict):
+                        for ck, mapping in abil_raw.items():
+                            c = str(ck or "").strip()
+                            if c not in ("1", "2", "3") or not isinstance(mapping, dict):
+                                continue
+                            m: dict[str, str] = {}
+                            for akey, av in mapping.items():
+                                a = str(akey or "").strip().lower()
+                                if a not in ("e", "q", "r"):
+                                    continue
+                                url = str(av or "").strip()
+                                if url:
+                                    m[a] = url
+                            if m:
+                                ability_images[c] = m
+                    ww_teams[team_id] = {"name": name, "swap_images": swap_images, "ability_images": ability_images}
+            self.ww_teams = ww_teams
+
+            active_team = str(data.get("ww_active_team_id") or "").strip()
+            self.ww_active_team_id = active_team if active_team in self.ww_teams else None
+
+            combo_team = data.get("combo_ww_team", {})
+            combo_ww_team: dict[str, str] = {}
+            if isinstance(combo_team, dict):
+                for k, v in combo_team.items():
+                    cname = str(k).strip()
+                    tid = str(v).strip()
+                    if not cname or not tid:
+                        continue
+                    if tid in self.ww_teams:
+                        combo_ww_team[cname] = tid
+            self.combo_ww_team = combo_ww_team
+
+            # Migration: old per-combo ww ability images -> teams (so presets don't vanish)
+            legacy = data.get("combo_ww_ability_images", {})
+            if isinstance(legacy, dict):
+                for combo_name, mapping in legacy.items():
+                    cname = str(combo_name).strip()
+                    if not cname or not isinstance(mapping, dict):
+                        continue
+                    per_char: dict[str, dict[str, str]] = {}
+                    for ck, cm in mapping.items():
+                        c = str(ck or "").strip()
+                        if c not in ("1", "2", "3") or not isinstance(cm, dict):
+                            continue
+                        m: dict[str, str] = {}
+                        for akey, av in cm.items():
+                            a = str(akey or "").strip().lower()
+                            if a not in ("e", "q", "r"):
+                                continue
+                            url = str(av or "").strip()
+                            if url:
+                                m[a] = url
+                        if m:
+                            per_char[c] = m
+                    if not per_char:
+                        continue
+
+                    team_id = uuid4().hex[:10]
+                    swap_images: dict[str, str] = {}
+                    try:
+                        km = (key_images.get(cname) or {})
+                        if isinstance(km, dict):
+                            for sk in ("1", "2", "3"):
+                                url = str(km.get(sk, "") or "").strip()
+                                if url:
+                                    swap_images[sk] = url
+                    except Exception:
+                        pass
+
+                    self.ww_teams[team_id] = {
+                        "name": f"Imported: {cname}",
+                        "swap_images": swap_images,
+                        "ability_images": per_char,
+                    }
+                    self.combo_ww_team[cname] = team_id
+                    if self.ww_active_team_id is None:
+                        self.ww_active_team_id = team_id
+
             last_active = data.get("last_active_combo")
             if last_active in self.combos:
                 self.set_active_combo(str(last_active), emit=False)
@@ -707,6 +870,12 @@ class ComboTrackerEngine:
             self.combo_enders = {}
             self.combo_expected_ms = {}
             self.combo_user_difficulty = {}
+            self.combo_step_display_mode = {}
+            self.combo_key_images = {}
+            self.combo_target_game = {}
+            self.ww_teams = {}
+            self.ww_active_team_id = None
+            self.combo_ww_team = {}
             self.active_combo_name = None
             self.active_combo_tokens = []
             self.active_combo_steps = []
@@ -722,6 +891,12 @@ class ComboTrackerEngine:
                 "combo_stats": dict(self.combo_stats),
                 "combo_expected_ms": dict(self.combo_expected_ms),
                 "combo_user_difficulty": dict(self.combo_user_difficulty),
+                "combo_step_display_mode": dict(self.combo_step_display_mode),
+                "combo_key_images": dict(self.combo_key_images),
+                "combo_target_game": dict(self.combo_target_game),
+                "ww_teams": dict(self.ww_teams),
+                "ww_active_team_id": self.ww_active_team_id,
+                "combo_ww_team": dict(self.combo_ww_team),
             }
             self.save_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         except Exception:
@@ -1150,12 +1325,68 @@ class ComboTrackerEngine:
             if d is not None:
                 # Keep it friendly for editing (no trailing .0)
                 user_diff = f"{d:g}"
+
+        mode = "icons"
+        if name:
+            m = str(self.combo_step_display_mode.get(name, "icons") or "icons").strip().lower()
+            if m in ("icons", "images"):
+                mode = m
+        key_images = {}
+        if name:
+            m = self.combo_key_images.get(name)
+            if isinstance(m, dict):
+                # shallow copy for safety
+                key_images = dict(m)
+
+        target_game = "generic"
+        if name:
+            g = str(self.combo_target_game.get(name, "generic") or "generic").strip().lower()
+            if g in ("generic", "wuthering_waves"):
+                target_game = g
+
+        ww_teams = []
+        for tid, tv in self.ww_teams.items():
+            if not isinstance(tv, dict):
+                continue
+            ww_teams.append({"id": str(tid), "name": str(tv.get("name", "") or "Team")})
+        ww_teams.sort(key=lambda x: (x.get("name") or "").lower())
+
+        # Selected team: combo assignment > active team > none
+        sel_team_id = ""
+        if target_game == "wuthering_waves":
+            if name and name in self.combo_ww_team and self.combo_ww_team[name] in self.ww_teams:
+                sel_team_id = self.combo_ww_team[name]
+            elif self.ww_active_team_id and self.ww_active_team_id in self.ww_teams:
+                sel_team_id = self.ww_active_team_id
+
+        team_name = ""
+        team_swap_images: dict[str, str] = {}
+        team_ability_images: dict[str, dict[str, str]] = {}
+        if sel_team_id and sel_team_id in self.ww_teams:
+            tv = self.ww_teams.get(sel_team_id) or {}
+            team_name = str(tv.get("name", "") or "")
+            si = tv.get("swap_images", {})
+            if isinstance(si, dict):
+                team_swap_images = {k: str(v) for k, v in si.items() if k in ("1", "2", "3") and str(v).strip()}
+            ai = tv.get("ability_images", {})
+            if isinstance(ai, dict):
+                for ck, vv in ai.items():
+                    if ck in ("1", "2", "3") and isinstance(vv, dict):
+                        team_ability_images[ck] = {a: str(u) for a, u in vv.items() if a in ("e", "q", "r") and str(u).strip()}
         return {
             "name": name,
             "inputs": inputs,
             "enders": enders,
             "expected_time": expected,
             "user_difficulty": user_diff,
+            "step_display_mode": mode,
+            "key_images": key_images,
+            "target_game": target_game,
+            "ww_teams": ww_teams,
+            "ww_team_id": sel_team_id,
+            "ww_team_name": team_name,
+            "ww_team_swap_images": team_swap_images,
+            "ww_team_ability_images": team_ability_images,
         }
 
     def get_status(self) -> Status:
@@ -1350,6 +1581,40 @@ class ComboTrackerEngine:
             except Exception:
                 pass
 
+            # Collapse "press X" followed immediately by a wait gate into a single displayed tile.
+            # This is useful when the wait is essentially "animation time" right after a key:
+            # e.g. lmb, wait:0.1s should read as one step with "100ms" under it (progress bar shows the wait).
+            try:
+                if (
+                    i + 1 < len(arr)
+                    and isinstance(s, dict)
+                    and s.get("wait_ms") is None
+                    and s.get("hold_ms") is None
+                    and s.get("group_presses") is None
+                    and isinstance(arr[i + 1], dict)
+                    and arr[i + 1].get("wait_ms") is not None
+                    and str(arr[i + 1].get("wait_mode") or "soft").strip().lower() in ("soft", "hard")
+                ):
+                    press_inp = str(s.get("input") or "").strip().lower()
+                    w = arr[i + 1]
+                    wait_idx = i + 1
+                    w_mark = self.step_marks.get(wait_idx) or mark
+                    steps.append(
+                        {
+                            "type": "press_wait",
+                            "input": press_inp,
+                            "duration": int(w.get("wait_ms") or 0),
+                            "mode": str(w.get("wait_mode") or "soft"),
+                            "active": (self.current_index == idx) or (self.current_index == wait_idx),
+                            "completed": self.current_index > wait_idx,
+                            "mark": w_mark,
+                        }
+                    )
+                    i += 2
+                    continue
+            except Exception:
+                pass
+
             if s.get("wait_ms") is not None:
                 steps.append(
                     {
@@ -1477,6 +1742,10 @@ class ComboTrackerEngine:
         enders: str,
         expected_time: str | None = None,
         user_difficulty: str | None = None,
+        step_display_mode: str | None = None,
+        key_images: Any | None = None,
+        target_game: str | None = None,
+        ww_team_id: str | None = None,
     ) -> tuple[bool, str | None]:
         name = (name or "").strip()
         keys_str = (inputs or "").strip()
@@ -1520,6 +1789,14 @@ class ComboTrackerEngine:
                 del self.combo_expected_ms[old_name]
             if old_name in self.combo_user_difficulty:
                 del self.combo_user_difficulty[old_name]
+            if old_name in self.combo_step_display_mode and name not in self.combo_step_display_mode:
+                self.combo_step_display_mode[name] = self.combo_step_display_mode.pop(old_name)
+            if old_name in self.combo_key_images and name not in self.combo_key_images:
+                self.combo_key_images[name] = self.combo_key_images.pop(old_name)
+            if old_name in self.combo_target_game and name not in self.combo_target_game:
+                self.combo_target_game[name] = self.combo_target_game.pop(old_name)
+            if old_name in self.combo_ww_team and name not in self.combo_ww_team:
+                self.combo_ww_team[name] = self.combo_ww_team.pop(old_name)
         else:
             self.combos[name] = input_list
 
@@ -1533,6 +1810,47 @@ class ComboTrackerEngine:
             self.combo_user_difficulty[name] = float(user_diff_val)
         else:
             self.combo_user_difficulty.pop(name, None)
+
+        # Apply step display mode (per-combo metadata)
+        mode_raw = (step_display_mode or "").strip().lower()
+        if mode_raw in ("icons", "images"):
+            self.combo_step_display_mode[name] = mode_raw
+        else:
+            self.combo_step_display_mode.pop(name, None)
+
+        # Apply key images mapping (per-combo metadata)
+        cleaned_imgs: dict[str, str] = {}
+        if isinstance(key_images, dict):
+            for k, v in key_images.items():
+                key = str(k).strip().lower()
+                url = str(v).strip()
+                if not key or not url:
+                    continue
+                cleaned_imgs[key] = url
+        if cleaned_imgs:
+            self.combo_key_images[name] = cleaned_imgs
+        else:
+            # Keep existing images if caller didn't send a dict at all; otherwise allow clearing.
+            if isinstance(key_images, dict):
+                self.combo_key_images.pop(name, None)
+
+        # Apply target game (per-combo metadata)
+        g_raw = str(target_game or "").strip().lower()
+        if g_raw in ("generic", "wuthering_waves"):
+            self.combo_target_game[name] = g_raw
+        else:
+            self.combo_target_game.pop(name, None)
+
+        # Apply WW team assignment (combo detail)
+        if g_raw == "wuthering_waves":
+            tid = str(ww_team_id or "").strip()
+            if tid and tid in self.ww_teams:
+                self.combo_ww_team[name] = tid
+                self.ww_active_team_id = tid
+            else:
+                self.combo_ww_team.pop(name, None)
+        else:
+            self.combo_ww_team.pop(name, None)
 
         self._ensure_combo_stats(name)
         self.set_active_combo(name, emit=False)
@@ -1554,6 +1872,14 @@ class ComboTrackerEngine:
             del self.combo_expected_ms[name]
         if name in self.combo_user_difficulty:
             del self.combo_user_difficulty[name]
+        if name in self.combo_step_display_mode:
+            del self.combo_step_display_mode[name]
+        if name in self.combo_key_images:
+            del self.combo_key_images[name]
+        if name in self.combo_target_game:
+            del self.combo_target_game[name]
+        if name in self.combo_ww_team:
+            del self.combo_ww_team[name]
 
         if self.active_combo_name == name:
             self.active_combo_name = None
@@ -1561,6 +1887,88 @@ class ComboTrackerEngine:
             self.active_combo_steps = []
             self.reset_tracking()
 
+        self.save_combos()
+        self._send({"type": "init", **self.init_payload()})
+        return True, None
+
+    # -------------------------
+    # Wuthering Waves teams (presets)
+    # -------------------------
+
+    def set_active_ww_team(self, team_id: str):
+        tid = str(team_id or "").strip()
+        if tid and tid in self.ww_teams:
+            self.ww_active_team_id = tid
+            self.save_combos()
+            # Refresh editor payload + timeline (so icons update)
+            self._send({"type": "combo_data", **self.get_editor_payload()})
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+    def save_or_update_ww_team(
+        self,
+        *,
+        team_id: str | None,
+        team_name: str | None,
+        swap_images: Any | None,
+        ability_images: Any | None,
+    ) -> tuple[bool, str | None]:
+        name = str(team_name or "").strip()
+        if not name:
+            return False, "Please provide a Team name."
+
+        tid = str(team_id or "").strip()
+        if not tid:
+            tid = uuid4().hex[:10]
+
+        # Clean swap images
+        swap: dict[str, str] = {}
+        if isinstance(swap_images, dict):
+            for k, v in swap_images.items():
+                kk = str(k or "").strip()
+                if kk not in ("1", "2", "3"):
+                    continue
+                url = str(v or "").strip()
+                if url:
+                    swap[kk] = url
+
+        # Clean ability images
+        abil: dict[str, dict[str, str]] = {}
+        if isinstance(ability_images, dict):
+            for ck, vv in ability_images.items():
+                c = str(ck or "").strip()
+                if c not in ("1", "2", "3") or not isinstance(vv, dict):
+                    continue
+                m: dict[str, str] = {}
+                for akey, av in vv.items():
+                    a = str(akey or "").strip().lower()
+                    if a not in ("e", "q", "r"):
+                        continue
+                    url = str(av or "").strip()
+                    if url:
+                        m[a] = url
+                if m:
+                    abil[c] = m
+
+        self.ww_teams[tid] = {"name": name, "swap_images": swap, "ability_images": abil}
+        self.ww_active_team_id = tid
+        self.save_combos()
+
+        # Broadcast refresh (updates team dropdown + active team)
+        self._send({"type": "init", **self.init_payload()})
+        return True, None
+
+    def delete_ww_team(self, team_id: str) -> tuple[bool, str | None]:
+        tid = str(team_id or "").strip()
+        if not tid or tid not in self.ww_teams:
+            return False, "Select a team to delete."
+
+        del self.ww_teams[tid]
+        # Remove any combo mappings pointing at this team
+        for cname, ct in list(self.combo_ww_team.items()):
+            if ct == tid:
+                del self.combo_ww_team[cname]
+        if self.ww_active_team_id == tid:
+            self.ww_active_team_id = None
         self.save_combos()
         self._send({"type": "init", **self.init_payload()})
         return True, None

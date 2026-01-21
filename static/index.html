@@ -4,18 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Combo Trainer</title>
-    <link rel="stylesheet" href="style.css?v=16">
+    <link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
     <div class="container">
         
-        <!-- SECTION 1: Add/Edit Combo -->
+        <!-- SECTION 1: Combo -->
         <section class="section">
-            <h2>Add New Combo</h2>
+            <h2>Combo</h2>
             <div class="form-grid">
-                <label>Name:</label>
-                <input type="text" id="comboName" placeholder="e.g., Rocket Jump">
-                
+                <label>Selected:</label>
+                <div class="two-col-row">
+                    <select id="comboSelector">
+                        <option value="">— Select Combo —</option>
+                    </select>
+                    <input type="text" id="comboName" placeholder="Combo name">
+                </div>
+
+                <label>Manage:</label>
+                <div class="two-col-buttons">
+                    <button id="saveBtn" type="button">Save / Update</button>
+                    <button id="newBtn" type="button">New Combo</button>
+                    <button id="deleteBtn" type="button" class="danger">Delete</button>
+                </div>
+
                 <label>Inputs:</label>
                 <textarea id="comboInputs" rows="3" placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
                 
@@ -35,21 +47,32 @@
                 <label>Combo Enders:</label>
                 <input type="text" id="comboEnders" placeholder="q:0.2, e:0.2, lmb, 1, 2, 3">
             </div>
-            <div class="button-row">
-                <button id="saveBtn">Save / Update</button>
-                <button id="newBtn">New</button>
-            </div>
         </section>
 
-        <!-- SECTION 2: Practice Controls -->
+        <!-- SECTION 2: Target game -->
         <section class="section">
-            <h2>Practice</h2>
-            <div class="practice-controls">
-                <select id="comboSelector">
-                    <option value="">— Select Combo —</option>
+            <h2>Target game</h2>
+            <div class="form-grid">
+                <label>Game:</label>
+                <select id="targetGameSelect">
+                    <option value="generic">Generic</option>
+                    <option value="wuthering_waves">Wuthering Waves</option>
                 </select>
-                <button id="deleteBtn">Delete</button>
-                <button id="clearBtn">Clear History</button>
+
+                <label id="wwTeamLabel" class="hidden">Team:</label>
+                <div id="wwTeamControls" class="hidden">
+                    <div class="ww-team-row">
+                        <select id="wwTeamSelect">
+                            <option value="">— New Team —</option>
+                        </select>
+                        <input type="text" id="wwTeamName" placeholder="Team name">
+                    </div>
+                    <div class="ww-team-buttons">
+                        <button id="saveTeamBtn" type="button">Save / Update</button>
+                        <button id="newTeamBtn" type="button">New Team</button>
+                        <button id="deleteTeamBtn" type="button" class="danger">Delete</button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -66,7 +89,31 @@
 
         <!-- SECTION 4: Visual Combo Timeline -->
         <section class="section">
-            <h3>Combo Steps</h3>
+            <div class="combo-steps-header">
+                <h3 style="margin: 0;">Combo Steps</h3>
+                <div class="combo-steps-controls">
+                    <span class="toggle-label">Images</span>
+                    <label class="toggle-switch" title="Toggle custom images for combo steps">
+                        <input type="checkbox" id="stepDisplayToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            <details class="collapsible" id="keyImagesDetails">
+                <summary>Key images</summary>
+                <div class="collapsible-body">
+                    <div class="help-text" style="margin: 0 0 8px 0;">
+                        Paste an image URL per key (leave blank to use the default icon/text). Keys are parsed from Inputs.
+                    </div>
+                    <div id="keyImagesEditor" class="key-images-editor"></div>
+                </div>
+            </details>
+            <details class="collapsible hidden" id="wwAbilityDetails">
+                <summary>Wuthering Waves ability images</summary>
+                <div class="collapsible-body">
+                    <div id="wwAbilityEditor" class="ww-ability-editor"></div>
+                </div>
+            </details>
             <div id="comboTimeline" class="timeline">
                 <!-- Steps will be rendered here -->
             </div>
@@ -74,7 +121,10 @@
 
         <!-- SECTION 5: Live Results -->
         <section class="section">
-            <h3>Attempt Log</h3>
+            <div class="attempt-header">
+                <h3 style="margin: 0;">Attempt Log</h3>
+                <button id="clearBtn" type="button" class="danger subtle">Clear History</button>
+            </div>
             <div id="resultsTable" class="results-table">
                 <div class="table-header">
                     <span>Input</span>
@@ -99,6 +149,6 @@
 
     </div>
 
-    <script src="app.js?v=17"></script>
+    <script src="app.js?v=19"></script>
 </body>
 </html>

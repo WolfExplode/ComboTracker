@@ -88,7 +88,26 @@ async def ws_handler(websocket, _path=None):
                     enders=str(msg.get("enders") or ""),
                     expected_time=str(msg.get("expected_time") or ""),
                     user_difficulty=str(msg.get("user_difficulty") or ""),
+                    step_display_mode=str(msg.get("step_display_mode") or ""),
+                    key_images=msg.get("key_images"),
+                    target_game=str(msg.get("target_game") or ""),
+                    ww_team_id=str(msg.get("ww_team_id") or ""),
                 )
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
+            elif mtype == "save_team":
+                ok, err = engine.save_or_update_ww_team(
+                    team_id=str(msg.get("team_id") or ""),
+                    team_name=str(msg.get("team_name") or ""),
+                    swap_images=msg.get("swap_images"),
+                    ability_images=msg.get("ability_images"),
+                )
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
+            elif mtype == "select_team":
+                engine.set_active_ww_team(str(msg.get("team_id") or ""))
+            elif mtype == "delete_team":
+                ok, err = engine.delete_ww_team(str(msg.get("team_id") or ""))
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "delete_combo":

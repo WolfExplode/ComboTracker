@@ -123,22 +123,271 @@ button:active {
 }
 
 button.danger {
-    background: var(--accent-red);
+    background: #ff8b8b;
 }
 
 button.danger:hover {
-    background: #ff5a5a;
+    background: #ff6a6a;
 }
 
-/* Practice Controls */
-.practice-controls {
+.danger.subtle {
+    background: rgba(255, 120, 120, 0.25);
+    color: var(--text-primary);
+}
+
+.danger.subtle:hover {
+    background: rgba(255, 120, 120, 0.45);
+}
+
+.attempt-header {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+/* Key image mapping editor */
+.key-images-editor {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.10);
+}
+
+/* Two-column row controls (like combo selector + name, or team selector + name) */
+.two-col-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
     align-items: center;
 }
 
+/* Button cluster under a row */
+.two-col-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.combo-steps-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.combo-steps-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 12px;
+    user-select: none;
+}
+
+.toggle-label {
+    letter-spacing: 0.2px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 22px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    transition: var(--transition);
+    border-radius: 999px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    top: 2px;
+    background: var(--text-primary);
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: rgba(74, 158, 255, 0.28);
+    border-color: rgba(74, 158, 255, 0.55);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(19px);
+}
+
+.collapsible {
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.10);
+}
+
+.collapsible > summary {
+    cursor: pointer;
+    padding: 10px 12px;
+    list-style: none;
+    font-weight: 800;
+    color: var(--text-secondary);
+}
+
+.collapsible > summary::-webkit-details-marker {
+    display: none;
+}
+
+.collapsible > summary:after {
+    content: "▾";
+    float: right;
+    opacity: 0.8;
+    transition: transform 140ms ease;
+}
+
+.collapsible[open] > summary:after {
+    transform: rotate(180deg);
+}
+
+.collapsible-body {
+    padding: 0 12px 12px 12px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Wuthering Waves team controls */
+.ww-team-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.ww-team-buttons {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Wuthering Waves ability image editor */
+.ww-ability-editor {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.ww-ability-char {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.10);
+    padding: 10px;
+}
+
+.ww-ability-char-title {
+    font-weight: 900;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.ww-ability-key {
+    font-family: 'Fira Code', monospace;
+    font-weight: 900;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    width: fit-content;
+}
+
+.ww-ability-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.ww-ability-controls {
+    display: grid;
+    grid-template-columns: 1fr 40px;
+    gap: 8px;
+    align-items: center;
+}
+
+.ww-ability-preview {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    object-fit: contain;
+    display: none;
+}
+
+.key-image-row {
+    display: grid;
+    grid-template-columns: 56px 1fr 40px;
+    gap: 8px;
+    align-items: center;
+}
+
+.key-image-row.unused {
+    opacity: 0.75;
+}
+
+.key-image-key {
+    font-family: 'Fira Code', monospace;
+    font-weight: 800;
+    color: var(--text-primary);
+    text-align: center;
+    padding: 8px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.key-image-url {
+    width: 100%;
+}
+
+.key-image-preview {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    object-fit: contain;
+    display: none;
+}
+
 select {
-    flex: 1;
     cursor: pointer;
 }
 
@@ -267,19 +516,19 @@ select {
 }
 
 .step-group {
-    border: 2px dashed rgba(74, 158, 255, 0.55);
+    border: 2px dashed rgba(200, 200, 200, 0.65);
     border-radius: 6px;
-    padding: 8px;
+    padding: 2px;
     background: rgba(0, 0, 0, 0.12);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
 }
 
 .step-group-items {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 2px;
 }
 
 .step.group-item {
@@ -300,10 +549,38 @@ select {
     height: 36px;
 }
 
+.key-step-image {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    display: block;
+}
+
+.key-img-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
 .hold-label { margin-top: 4px; }
 
 .step.wait {
     border-color: var(--accent-yellow);
+    --wait-pct: 0%;
+    background: linear-gradient(
+        to right,
+        rgba(255, 221, 74, 0.22) 0%,
+        rgba(255, 221, 74, 0.22) var(--wait-pct),
+        var(--bg-primary) var(--wait-pct),
+        var(--bg-primary) 100%
+    );
+}
+
+/* Press + wait (animation time right after a key): keep the yellow fill, but don't use a bright yellow border */
+.step.press-wait {
+    border-color: rgba(255, 221, 74, 0.22); /* subtle */
     --wait-pct: 0%;
     background: linear-gradient(
         to right,
