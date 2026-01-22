@@ -1,4 +1,5 @@
 ## ComboTracker
+![ComboTracker_AutoScroll](https://github.com/user-attachments/assets/b011d51d-d7c3-45e8-ae52-5e643f254e16)
 
 A small local web UI + Python backend that listens to your keyboard/mouse and tracks whether you performed a defined “combo” correctly, including **wait** and **hold** timing steps.
 
@@ -144,4 +145,5 @@ Make sure you’re running `ui_server.py` from `ComboTracker/`, or just run it n
 ### Nothing is being detected
 - Make sure the window is not blocking global hooks (some apps/games run with elevated privileges).
 - Try running the Python process as admin if needed.
+
 
