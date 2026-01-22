@@ -46,6 +46,7 @@ function initializeUI(data) {
 let currentStepDisplayMode = 'icons'; // "icons" | "images"
 let currentKeyImages = {}; // key -> url
 let lastTimelineSteps = null;
+let autoScrollEnabled = false;
 
 // Per-combo game config
 let currentTargetGame = 'generic'; // "generic" | "wuthering_waves"
@@ -764,6 +765,49 @@ function attachTwoClickConfirm(btn, {
     });
 }
 
+function resetAutoScroll() {
+    const track = document.getElementById('comboTimeline');
+    if (track) {
+        track.style.transform = '';
+        track.style.paddingLeft = '';
+        track.style.paddingRight = '';
+    }
+}
+
+function setAutoScrollEnabled(enabled) {
+    autoScrollEnabled = !!enabled;
+    const viewport = document.getElementById('comboTimelineViewport');
+    if (viewport) {
+        viewport.classList.toggle('auto-scroll-on', autoScrollEnabled);
+        if (!autoScrollEnabled) {
+            resetAutoScroll();
+        }
+    }
+}
+
+function applyAutoScroll() {
+    if (!autoScrollEnabled) return;
+
+    const viewport = document.getElementById('comboTimelineViewport');
+    const track = document.getElementById('comboTimeline');
+    if (!viewport || !track) return;
+
+    const activeEl = track.querySelector('.step.active, .step-group.active');
+    if (!activeEl) {
+        track.style.transform = 'translateX(0)';
+        return;
+    }
+
+    const viewportWidth = viewport.offsetWidth;
+    const activeRect = activeEl.getBoundingClientRect();
+    const trackRect = track.getBoundingClientRect();
+
+    const activeCenter = (activeRect.left - trackRect.left) + (activeRect.width / 2);
+    const targetOffset = viewportWidth / 2;
+
+    track.style.transform = `translateX(${targetOffset - activeCenter}px)`;
+}
+
 // Timeline visualization
 function updateTimeline(steps) {
     lastTimelineSteps = steps;
@@ -1022,6 +1066,10 @@ function updateTimeline(steps) {
         
         timeline.appendChild(div);
     });
+
+    if (autoScrollEnabled) {
+        requestAnimationFrame(applyAutoScroll);
+    }
 }
 
 // Results table
@@ -1157,6 +1205,19 @@ if (stepToggleEl) {
         if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
     });
 }
+
+const autoScrollToggleEl = document.getElementById('autoScrollToggle');
+if (autoScrollToggleEl) {
+    setAutoScrollEnabled(autoScrollToggleEl.checked);
+    autoScrollToggleEl.addEventListener('change', () => {
+        setAutoScrollEnabled(autoScrollToggleEl.checked);
+        if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+    });
+}
+
+window.addEventListener('resize', () => {
+    if (autoScrollEnabled) applyAutoScroll();
+});
 
 const inputsEl = document.getElementById('comboInputs');
 if (inputsEl) {

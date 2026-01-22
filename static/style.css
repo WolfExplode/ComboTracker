@@ -425,15 +425,123 @@ select {
 .diff-hard { color: #ff9a4a; }
 .diff-insane { color: var(--accent-red); }
 
-/* Timeline */
-.timeline {
+/* Timeline Base */
+.timeline-viewport {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+}
+
+.timeline-viewport::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        rgba(26, 26, 26, 1) 0%,
+        rgba(26, 26, 26, 0) 18%,
+        rgba(26, 26, 26, 0) 82%,
+        rgba(26, 26, 26, 1) 100%
+    );
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Normal (non-scrolling) timeline */
+.timeline-viewport:not(.auto-scroll-on) .timeline {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     padding: 10px 0;
-    flex-wrap: wrap;
     align-content: flex-start;
-    overflow-x: hidden; /* no horizontal scroll wheel */
-    overflow-y: visible;
+}
+
+/* Auto-scroll timeline */
+.timeline-viewport.auto-scroll-on {
+    height: 100px;
+    display: block;
+}
+
+.timeline-viewport.auto-scroll-on .timeline {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 10px;
+    align-items: center !important;
+    height: auto;
+    min-height: 0;
+    padding: 0 50%;
+    margin: 0;
+    transition: transform 0.15s ease-out;
+    will-change: transform;
+}
+
+.timeline-viewport.auto-scroll-on .step-group {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    padding: 2px;
+    gap: 2px;
+    border: 2px dashed rgba(200, 200, 200, 0.65);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.timeline-viewport.auto-scroll-on .step-group-items {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    gap: 2px;
+}
+
+.timeline-viewport.auto-scroll-on .step,
+.timeline-viewport.auto-scroll-on .step-group,
+.timeline-viewport.auto-scroll-on .step-group-items,
+.timeline-viewport.auto-scroll-on .step.group-item {
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+    white-space: nowrap !important;
+}
+
+.timeline-viewport.auto-scroll-on .timeline,
+.timeline-viewport.auto-scroll-on .step {
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+}
+
+.timeline-viewport.auto-scroll-on .step {
+    min-height: auto !important;
+}
+
+.timeline-viewport.auto-scroll-on .step * {
+    white-space: nowrap !important;
+}
+
+/* Remove the gradient when auto-scroll is off */
+.timeline-viewport:not(.auto-scroll-on)::before {
+    display: none;
+}
+
+/* Auto-scroll "window" behavior (match Test.html style) */
+.timeline-viewport.auto-scroll-on {
+    height: 100px;
+}
+
+.timeline-viewport.auto-scroll-on .timeline-track {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    align-items: center;
+    flex-wrap: nowrap !important;
 }
 
 .step {
@@ -712,4 +820,60 @@ select {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* ============================================================================
+   AUTO-SCROLL MODE: COMPLETE LAYOUT OVERRIDE - FORCE SINGLE LINE
+   ============================================================================ */
+
+/* First, ensure all containers become horizontal flexboxes */
+.timeline-viewport.auto-scroll-on .timeline,
+.timeline-viewport.auto-scroll-on .step-group,
+.timeline-viewport.auto-scroll-on .step-group-items {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    align-content: center !important;
+    justify-content: flex-start !important;
+}
+
+/* CRITICAL: Change step from column to row and kill all wrapping */
+.timeline-viewport.auto-scroll-on .step {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+    min-height: auto !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+    padding: 4px 10px !important;
+}
+
+/* Force every single child element to be inline and never wrap */
+.timeline-viewport.auto-scroll-on .step * {
+    display: inline-block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+
+/* Text elements need specific sizing to prevent overflow */
+.timeline-viewport.auto-scroll-on .step-secondary {
+    font-size: 10px !important;
+    max-width: 60px !important;
+}
+
+/* Keep group items compact */
+.timeline-viewport.auto-scroll-on .step.group-item {
+    padding: 2px 8px !important;
+    min-width: 60px !important;
+}
+
+/* Ensure corner keys don't break layout */
+.timeline-viewport.auto-scroll-on .corner-key {
+    position: static !important;
+    margin-left: auto !important;
 }

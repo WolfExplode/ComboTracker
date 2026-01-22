@@ -1,16 +1,17 @@
-import json
+import logging
 import sys
+import threading
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
 
+from Game_Wuthering_Waves import WutheringWavesGame
+import combo_engine_ui as ui
+from combo_engine_ui import Status
+from persistence import load_engine_state, save_engine_state
 
-@dataclass
-class Status:
-    text: str
-    color: str  # ready|recording|success|fail|wait|neutral
+logger = logging.getLogger(__name__)
 
 
 class ComboTrackerEngine:
@@ -22,6 +23,10 @@ class ComboTrackerEngine:
     """
 
     def __init__(self):
+        # Engine is mutated from multiple threads:
+        # - pynput keyboard/mouse callbacks
+        # - ui_server tick thread (wait completion without input)
+        self._lock = threading.RLock()
         # --- Data & State ---
         self.combos: dict[str, list[str]] = {}
         self.active_combo_name: str | None = None
@@ -75,22 +80,8 @@ class ComboTrackerEngine:
         # - combo_key_images: combo_name -> { key -> image_url }
         self.combo_key_images: dict[str, dict[str, str]] = {}
 
-        # Optional: per-combo target game mode
-        # - combo_target_game: "generic" (default) or "wuthering_waves"
-        self.combo_target_game: dict[str, str] = {}
-
-        # Optional: Wuthering Waves teams (presets)
-        # ww_teams: team_id -> {
-        #   "name": str,
-        #   "dash_image": str,  # RMB / dash (shared)
-        #   "swap_images": {"1":url,"2":url,"3":url},
-        #   "lmb_images": {"1":url,"2":url,"3":url},  # normal attack (per character)
-        #   "ability_images": {"1":{"e":..,"q":..,"r":..}, ...}
-        # }
-        self.ww_teams: dict[str, dict[str, Any]] = {}
-        self.ww_active_team_id: str | None = None
-        # Per-combo assigned team (when target_game = wuthering_waves)
-        self.combo_ww_team: dict[str, str] = {}
+        # Game-specific state (kept out of the core combo engine logic)
+        self.ww = WutheringWavesGame()
 
         # Emission
         self._emit: Callable[[dict[str, Any]], None] | None = None
@@ -101,6 +92,44 @@ class ComboTrackerEngine:
 
         # Load persisted state
         self.load_combos()
+
+    # -------------------------
+    # Backwards-compatible accessors (WW fields used throughout the engine)
+    # -------------------------
+    # These properties keep older code paths working while the WW logic is moved into
+    # `Game_Wuthering_Waves.py`.
+
+    @property
+    def combo_target_game(self) -> dict[str, str]:
+        return self.ww.combo_target_game
+
+    @combo_target_game.setter
+    def combo_target_game(self, value: dict[str, str]):
+        self.ww.combo_target_game = value
+
+    @property
+    def ww_teams(self) -> dict[str, dict[str, Any]]:
+        return self.ww.ww_teams
+
+    @ww_teams.setter
+    def ww_teams(self, value: dict[str, dict[str, Any]]):
+        self.ww.ww_teams = value
+
+    @property
+    def ww_active_team_id(self) -> str | None:
+        return self.ww.ww_active_team_id
+
+    @ww_active_team_id.setter
+    def ww_active_team_id(self, value: str | None):
+        self.ww.ww_active_team_id = value
+
+    @property
+    def combo_ww_team(self) -> dict[str, str]:
+        return self.ww.combo_ww_team
+
+    @combo_ww_team.setter
+    def combo_ww_team(self, value: dict[str, str]):
+        self.ww.combo_ww_team = value
 
     # -------------------------
     # Emission helpers
@@ -116,7 +145,7 @@ class ComboTrackerEngine:
                 self._emit(msg)
             except Exception:
                 # Never let UI plumbing crash input processing
-                pass
+                logger.debug("Emitter raised while sending message", exc_info=True)
 
     # -------------------------
     # Normalization helpers
@@ -169,8 +198,32 @@ class ComboTrackerEngine:
 
     def split_inputs(self, keys_str: str):
         """
-        Split the Inputs field into tokens by commas, but do NOT split commas that are
-        inside hold(...) parentheses, inside {...} braces, or inside [...] any-order groups.
+        Split a user-entered Inputs string into top-level comma-separated tokens.
+
+        This parser is intentionally **shallow**: it only understands enough structure to
+        avoid splitting commas that are part of nested syntaxes:
+        - `hold(...)` parentheses
+        - `{...}` hold-duration braces (e.g. `e{350ms}`)
+        - `[...]` any-order group brackets
+
+        The returned tokens are *not* validated here; validation happens later in `parse_step()`.
+
+        Examples:
+
+        - Basic:
+          `split_inputs("e, 3, r") -> ["e", "3", "r"]`
+
+        - Hold parentheses:
+          `split_inputs("lmb, hold(lmb, 0.30), rmb") -> ["lmb", "hold(lmb, 0.30)", "rmb"]`
+
+        - Brace holds:
+          `split_inputs("e{350ms}, q") -> ["e{350ms}", "q"]`
+
+        - Any-order groups:
+          `split_inputs("[q, e], 2") -> ["[q, e]", "2"]`
+
+        - Mixed:
+          `split_inputs("[lmb, wait:0.1s, hold(e,0.30)], r") -> ["[lmb, wait:0.1s, hold(e,0.30)]", "r"]`
         """
         s = keys_str or ""
         out: list[str] = []
@@ -231,6 +284,50 @@ class ComboTrackerEngine:
         return int(millis)
 
     def parse_step(self, token: str):
+        """
+        Parse a single token from `split_inputs()` into a normalized step dict.
+
+        Supported token forms (examples show typical user input; parsing is case-insensitive):
+
+        - Press:
+          - `e`, `3`, `r`, `lmb`, `rmb`
+          -> `{"input": "<key>", "hold_ms": None, "wait_ms": None}`
+
+        - Soft wait gate (minimum delay; early presses ignored):
+          - `wait:0.1` / `wait:0.1s` / `wait:100ms`
+          -> `{"wait_ms": 100, "wait_mode": "soft"}`
+
+        - Hard wait gate (early press can drop the combo):
+          - `wait_hard:0.2`
+          -> `{"wait_ms": 200, "wait_mode": "hard"}`
+
+        - Hold:
+          - `hold(e, 0.35)` or `e{350ms}`
+          -> `{"input": "e", "hold_ms": 350, "wait_ms": None}`
+
+        - Mandatory animation lock:
+          - `wait(r, 1.5)` means: press `r`, then a mandatory wait ≥ 1.5s.
+            During this mandatory wait, in-game inputs have no effect and therefore should not drop combos.
+          -> `{"composite_steps": [press_step, mandatory_wait_step]}`
+
+        - Any-order group:
+          Groups are parsed as a single step that contains multiple required "items" that can be completed in any order.
+          Supported group item types:
+          - plain press: `q`
+          - press+wait pair: `lmb, wait:0.1s` (treated as one atomic item inside the group)
+          - hold: `hold(e, 0.30)`
+          - mandatory animation lock: `wait(r, 1.5)` (treated as one group item)
+
+          Examples:
+          - `[q, e]`
+          - `[wait(r, 1.5), q, e]`
+          - `[lmb, wait:0.1s, rmb, wait:0.5s, q]`
+          - `[hold(e, 0.30), lmb, rmb]`
+          - `[lmb, wait:0.1, hold(e, 0.30), lmb, wait:0.5, q]` (same key can appear with different waits)
+
+        Returns:
+        - A dict describing one step, OR a dict with `composite_steps` (to be expanded by the caller), OR None.
+        """
         t = (token or "").strip()
         if not t:
             return None
@@ -259,13 +356,14 @@ class ComboTrackerEngine:
                     return {"composite_steps": [press_step, wait_step]}
 
         # Any-order group step:
+        # (See parse_step() docstring for supported syntaxes + examples.)
         # Examples:
         # - [q, e]                 -> press BOTH q and e, in any order
         # - [wait(r, 1.5), q, e]   -> press r/q/e in any order; r triggers a mandatory animation wait before the group can finish
         #
         # Notes:
-        # - Inside the group we currently support press items and wait(r, t) (mandatory animation wait).
-        # - During the mandatory wait, key presses are ignored (no fail, and they do not count).
+        # - Inside the group we support: press, press+wait (e.g. lmb, wait:0.1s), hold(e,0.30), and wait(r,t).
+        # - During "mandatory" waits (animation locks) and press+wait windows, extra presses are ignored (no fail).
         if tl.startswith("[") and tl.endswith("]") and len(tl) >= 3:
             inner = tl[1:-1].strip()
             parts = [p.strip() for p in self.split_inputs(inner) if p.strip()]
@@ -717,377 +815,10 @@ class ComboTrackerEngine:
         return Path(__file__).resolve().parent
 
     def load_combos(self):
-        try:
-            if not self.save_path.exists():
-                return
-
-            data = json.loads(self.save_path.read_text(encoding="utf-8"))
-
-            combos = data.get("combos", {})
-            if isinstance(combos, dict):
-                sanitized: dict[str, list[str]] = {}
-                for name, seq in combos.items():
-                    if not isinstance(name, str) or not isinstance(seq, list):
-                        continue
-                    sanitized[name] = [str(x).strip().lower() for x in seq if str(x).strip()]
-                self.combos = sanitized
-
-            enders = data.get("combo_enders", {})
-            parsed: dict[str, int] = {}
-            if isinstance(enders, dict):
-                for k, v in enders.items():
-                    key = str(k).strip().lower()
-                    if not key:
-                        continue
-                    try:
-                        ms = int(float(v))
-                    except Exception:
-                        ms = 0
-                    parsed[key] = max(0, ms)
-            elif isinstance(enders, list):
-                for x in enders:
-                    key = str(x).strip().lower()
-                    if key:
-                        parsed[key] = 0
-            self.combo_enders = parsed
-
-            stats = data.get("combo_stats", {})
-            if isinstance(stats, dict):
-                cleaned: dict[str, dict[str, Any]] = {}
-                for k, v in stats.items():
-                    name = str(k).strip()
-                    if not name or not isinstance(v, dict):
-                        continue
-
-                    def _as_int(x, default=0):
-                        try:
-                            return int(x)
-                        except Exception:
-                            return default
-
-                    s = max(0, _as_int(v.get("success", 0), 0))
-                    f = max(0, _as_int(v.get("fail", 0), 0))
-
-                    best_ms = v.get("best_ms", None)
-                    try:
-                        best_ms = int(best_ms) if best_ms is not None else None
-                        if best_ms is not None and best_ms <= 0:
-                            best_ms = None
-                    except Exception:
-                        best_ms = None
-
-                    total_success_ms = max(0, _as_int(v.get("total_success_ms", 0), 0))
-
-                    def _clean_counter_dict(d: Any, key_norm: Callable[[Any], str] | None = None):
-                        if not isinstance(d, dict):
-                            return {}
-                        out: dict[str, int] = {}
-                        for kk, vv in d.items():
-                            key = key_norm(kk) if key_norm else str(kk)
-                            key = str(key).strip()
-                            if not key:
-                                continue
-                            try:
-                                cnt = int(vv)
-                            except Exception:
-                                continue
-                            if cnt <= 0:
-                                continue
-                            out[key] = cnt
-                        return out
-
-                    fail_by_step = _clean_counter_dict(
-                        v.get("fail_by_step", {}),
-                        key_norm=lambda kk: str(int(str(kk))),
-                    )
-                    fail_by_expected = _clean_counter_dict(
-                        v.get("fail_by_expected", {}),
-                        key_norm=lambda kk: str(kk).strip().lower(),
-                    )
-                    fail_by_reason = _clean_counter_dict(
-                        v.get("fail_by_reason", {}),
-                        key_norm=lambda kk: str(kk).strip().lower(),
-                    )
-
-                    fail_events = v.get("fail_events", [])
-                    fes: list[dict[str, Any]] = []
-                    if isinstance(fail_events, list):
-                        for ev in fail_events[-100:]:
-                            if not isinstance(ev, dict):
-                                continue
-                            fes.append(
-                                {
-                                    "ts": int(ev.get("ts", 0) or 0),
-                                    "attempt": max(0, _as_int(ev.get("attempt", 0), 0)),
-                                    "step_index": max(0, _as_int(ev.get("step_index", 0), 0)),
-                                    "expected": str(ev.get("expected", "") or ""),
-                                    "actual": str(ev.get("actual", "") or ""),
-                                    "reason": str(ev.get("reason", "") or ""),
-                                    "elapsed_ms": (
-                                        _as_int(ev.get("elapsed_ms"), 0)
-                                        if ev.get("elapsed_ms") is not None
-                                        else None
-                                    ),
-                                }
-                            )
-
-                    cleaned[name] = {
-                        "success": s,
-                        "fail": f,
-                        "best_ms": best_ms,
-                        "total_success_ms": total_success_ms,
-                        "fail_by_step": fail_by_step,
-                        "fail_by_expected": fail_by_expected,
-                        "fail_by_reason": fail_by_reason,
-                        "fail_events": fes,
-                    }
-                self.combo_stats = cleaned
-
-            # Optional: per-combo expected execution time (ms)
-            exp = data.get("combo_expected_ms", {})
-            expected_ms: dict[str, int] = {}
-            if isinstance(exp, dict):
-                for k, v in exp.items():
-                    name = str(k).strip()
-                    if not name:
-                        continue
-                    try:
-                        ms = int(float(v))
-                    except Exception:
-                        continue
-                    if ms > 0:
-                        expected_ms[name] = ms
-            self.combo_expected_ms = expected_ms
-
-            # Optional: per-combo user difficulty (0..10)
-            ud = data.get("combo_user_difficulty", {})
-            user_diff: dict[str, float] = {}
-            if isinstance(ud, dict):
-                for k, v in ud.items():
-                    name = str(k).strip()
-                    if not name:
-                        continue
-                    try:
-                        d = float(v)
-                    except Exception:
-                        continue
-                    if 0.0 <= d <= 10.0:
-                        user_diff[name] = d
-            self.combo_user_difficulty = user_diff
-
-            # Optional: per-combo step display mode ("icons" | "images")
-            dm = data.get("combo_step_display_mode", {})
-            display_mode: dict[str, str] = {}
-            if isinstance(dm, dict):
-                for k, v in dm.items():
-                    name = str(k).strip()
-                    if not name:
-                        continue
-                    mode = str(v or "").strip().lower()
-                    if mode in ("icons", "images"):
-                        display_mode[name] = mode
-            self.combo_step_display_mode = display_mode
-
-            # Optional: per-combo key images mapping
-            ki = data.get("combo_key_images", {})
-            key_images: dict[str, dict[str, str]] = {}
-            if isinstance(ki, dict):
-                for k, v in ki.items():
-                    name = str(k).strip()
-                    if not name or not isinstance(v, dict):
-                        continue
-                    m: dict[str, str] = {}
-                    for kk, vv in v.items():
-                        key = str(kk).strip().lower()
-                        url = str(vv).strip()
-                        if not key or not url:
-                            continue
-                        m[key] = url
-                    if m:
-                        key_images[name] = m
-            self.combo_key_images = key_images
-
-            # Optional: per-combo target game mode
-            tg = data.get("combo_target_game", {})
-            target_game: dict[str, str] = {}
-            if isinstance(tg, dict):
-                for k, v in tg.items():
-                    name = str(k).strip()
-                    if not name:
-                        continue
-                    g = str(v or "").strip().lower()
-                    if g in ("generic", "wuthering_waves"):
-                        target_game[name] = g
-            self.combo_target_game = target_game
-
-            # Optional: Wuthering Waves teams (presets)
-            teams = data.get("ww_teams", {})
-            ww_teams: dict[str, dict[str, Any]] = {}
-            if isinstance(teams, dict):
-                for tid, tv in teams.items():
-                    team_id = str(tid).strip()
-                    if not team_id or not isinstance(tv, dict):
-                        continue
-                    name = str(tv.get("name", "") or "").strip() or "Team"
-                    dash_image = str(tv.get("dash_image", "") or "").strip()
-                    swap_raw = tv.get("swap_images", {})
-                    swap_images: dict[str, str] = {}
-                    if isinstance(swap_raw, dict):
-                        for kk, vv in swap_raw.items():
-                            k = str(kk or "").strip()
-                            if k not in ("1", "2", "3"):
-                                continue
-                            url = str(vv or "").strip()
-                            if url:
-                                swap_images[k] = url
-                    lmb_raw = tv.get("lmb_images", {})
-                    lmb_images: dict[str, str] = {}
-                    if isinstance(lmb_raw, dict):
-                        for kk, vv in lmb_raw.items():
-                            k = str(kk or "").strip()
-                            if k not in ("1", "2", "3"):
-                                continue
-                            url = str(vv or "").strip()
-                            if url:
-                                lmb_images[k] = url
-                    abil_raw = tv.get("ability_images", {})
-                    ability_images: dict[str, dict[str, str]] = {}
-                    if isinstance(abil_raw, dict):
-                        for ck, mapping in abil_raw.items():
-                            c = str(ck or "").strip()
-                            if c not in ("1", "2", "3") or not isinstance(mapping, dict):
-                                continue
-                            m: dict[str, str] = {}
-                            for akey, av in mapping.items():
-                                a = str(akey or "").strip().lower()
-                                if a not in ("e", "q", "r"):
-                                    continue
-                                url = str(av or "").strip()
-                                if url:
-                                    m[a] = url
-                            if m:
-                                ability_images[c] = m
-                    ww_teams[team_id] = {
-                        "name": name,
-                        "dash_image": dash_image,
-                        "swap_images": swap_images,
-                        "lmb_images": lmb_images,
-                        "ability_images": ability_images,
-                    }
-            self.ww_teams = ww_teams
-
-            active_team = str(data.get("ww_active_team_id") or "").strip()
-            self.ww_active_team_id = active_team if active_team in self.ww_teams else None
-
-            combo_team = data.get("combo_ww_team", {})
-            combo_ww_team: dict[str, str] = {}
-            if isinstance(combo_team, dict):
-                for k, v in combo_team.items():
-                    cname = str(k).strip()
-                    tid = str(v).strip()
-                    if not cname or not tid:
-                        continue
-                    if tid in self.ww_teams:
-                        combo_ww_team[cname] = tid
-            self.combo_ww_team = combo_ww_team
-
-            # Migration: old per-combo ww ability images -> teams (so presets don't vanish)
-            legacy = data.get("combo_ww_ability_images", {})
-            if isinstance(legacy, dict):
-                for combo_name, mapping in legacy.items():
-                    cname = str(combo_name).strip()
-                    if not cname or not isinstance(mapping, dict):
-                        continue
-                    per_char: dict[str, dict[str, str]] = {}
-                    for ck, cm in mapping.items():
-                        c = str(ck or "").strip()
-                        if c not in ("1", "2", "3") or not isinstance(cm, dict):
-                            continue
-                        m: dict[str, str] = {}
-                        for akey, av in cm.items():
-                            a = str(akey or "").strip().lower()
-                            if a not in ("e", "q", "r"):
-                                continue
-                            url = str(av or "").strip()
-                            if url:
-                                m[a] = url
-                        if m:
-                            per_char[c] = m
-                    if not per_char:
-                        continue
-
-                    team_id = uuid4().hex[:10]
-                    swap_images: dict[str, str] = {}
-                    lmb_images: dict[str, str] = {}
-                    dash_image = ""
-                    try:
-                        km = (key_images.get(cname) or {})
-                        if isinstance(km, dict):
-                            for sk in ("1", "2", "3"):
-                                url = str(km.get(sk, "") or "").strip()
-                                if url:
-                                    swap_images[sk] = url
-                            # Optional legacy convenience: allow lmb/rmb to migrate if present
-                            dash_image = str(km.get("rmb", "") or "").strip()
-                            lmb_any = str(km.get("lmb", "") or "").strip()
-                            if lmb_any:
-                                # No way to infer per-character; apply to all as a default.
-                                for sk in ("1", "2", "3"):
-                                    lmb_images[sk] = lmb_any
-                    except Exception:
-                        pass
-
-                    self.ww_teams[team_id] = {
-                        "name": f"Imported: {cname}",
-                        "dash_image": dash_image,
-                        "swap_images": swap_images,
-                        "lmb_images": lmb_images,
-                        "ability_images": per_char,
-                    }
-                    self.combo_ww_team[cname] = team_id
-                    if self.ww_active_team_id is None:
-                        self.ww_active_team_id = team_id
-
-            last_active = data.get("last_active_combo")
-            if last_active in self.combos:
-                self.set_active_combo(str(last_active), emit=False)
-        except Exception:
-            self.combos = {}
-            self.combo_stats = {}
-            self.combo_enders = {}
-            self.combo_expected_ms = {}
-            self.combo_user_difficulty = {}
-            self.combo_step_display_mode = {}
-            self.combo_key_images = {}
-            self.combo_target_game = {}
-            self.ww_teams = {}
-            self.ww_active_team_id = None
-            self.combo_ww_team = {}
-            self.active_combo_name = None
-            self.active_combo_tokens = []
-            self.active_combo_steps = []
+        load_engine_state(self)
 
     def save_combos(self):
-        try:
-            self.data_dir.mkdir(parents=True, exist_ok=True)
-            payload = {
-                "version": 1,
-                "last_active_combo": self.active_combo_name,
-                "combos": self.combos,
-                "combo_enders": dict(self.combo_enders),
-                "combo_stats": dict(self.combo_stats),
-                "combo_expected_ms": dict(self.combo_expected_ms),
-                "combo_user_difficulty": dict(self.combo_user_difficulty),
-                "combo_step_display_mode": dict(self.combo_step_display_mode),
-                "combo_key_images": dict(self.combo_key_images),
-                "combo_target_game": dict(self.combo_target_game),
-                "ww_teams": dict(self.ww_teams),
-                "ww_active_team_id": self.ww_active_team_id,
-                "combo_ww_team": dict(self.combo_ww_team),
-            }
-            self.save_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+        save_engine_state(self)
 
     # -------------------------
     # Stats helpers
@@ -1132,71 +863,13 @@ class ComboTrackerEngine:
         return f"{(success / total) * 100:.1f}%"
 
     def stats_text(self):
-        name = self.active_combo_name
-        if not name:
-            return "Stats: —"
-        self._ensure_combo_stats(name)
-        s = int(self.combo_stats[name].get("success", 0))
-        f = int(self.combo_stats[name].get("fail", 0))
-        pct = self._format_percent(s, f)
-
-        best = self.combo_stats[name].get("best_ms", None)
-        avg = self._combo_avg_ms(name)
-
-        # Hardest steps (top 2)
-        hardest = ""
-        by_step = self.combo_stats[name].get("fail_by_step", {})
-        if isinstance(by_step, dict) and by_step:
-            pairs: list[tuple[int, int]] = []
-            for k, v in by_step.items():
-                try:
-                    idx = int(k)
-                    cnt = int(v)
-                except Exception:
-                    continue
-                if cnt <= 0:
-                    continue
-                pairs.append((cnt, idx))
-            pairs.sort(reverse=True)
-            parts: list[str] = []
-            for cnt, idx in pairs[:2]:
-                label = "—"
-                if 0 <= idx < len(self.active_combo_steps):
-                    label = self._expected_label_for_step(self.active_combo_steps[idx])
-                parts.append(f"#{idx+1}:{label} ({cnt})")
-            if parts:
-                hardest = " | Hardest: " + ", ".join(parts)
-
-        return (
-            f"Stats: {s} success / {f} fail ({pct})"
-            f" | Best: {self._format_ms_brief(best)} | Avg: {self._format_ms_brief(avg)}"
-            f"{hardest}"
-        )
+        return ui.stats_text(self)
 
     def failures_by_reason(self) -> dict[str, int]:
-        name = self.active_combo_name
-        if not name:
-            return {}
-        self._ensure_combo_stats(name)
-        by_reason = self.combo_stats[name].get("fail_by_reason", {})
-        if not isinstance(by_reason, dict):
-            return {}
-        out: dict[str, int] = {}
-        for k, v in by_reason.items():
-            reason = str(k).strip() or "unknown"
-            try:
-                cnt = int(v)
-            except Exception:
-                cnt = 0
-            if cnt > 0:
-                out[reason] = cnt
-        return out
+        return ui.failures_by_reason(self)
 
     def min_time_text(self) -> str:
-        if not self.active_combo_steps:
-            return "Fastest possible: —"
-        min_ms = self.calc_min_combo_time_ms(self.active_combo_steps)
-        return f"Fastest possible: {self._format_ms(min_ms)}"
+        return ui.min_time_text(self)
 
     # -------------------------
     # Difficulty (Practical APM + simple timing model)
@@ -1245,45 +918,16 @@ class ComboTrackerEngine:
         return press, hold, press + hold
 
     def practical_apm(self) -> float | None:
-        """
-        Practical APM uses user-entered expected execution time (ms) for the active combo.
-        """
-        name = self.active_combo_name
-        if not name or not self.active_combo_steps:
-            return None
-        expected_ms = self.combo_expected_ms.get(name)
-        if expected_ms is None or expected_ms <= 0:
-            return None
-        press_count, _hold_count, _actions = self._count_combo_actions(self.active_combo_steps)
-        if press_count <= 0:
-            return None
-        return (60000.0 / float(expected_ms)) * float(press_count)
+        return ui.practical_apm(self)
 
     def theoretical_max_apm(self) -> float | None:
-        """
-        Theoretical max APM uses the fastest-possible combo time (sum of waits + holds).
-        """
-        if not self.active_combo_name or not self.active_combo_steps:
-            return None
-        min_ms = self.calc_min_combo_time_ms(self.active_combo_steps)
-        if min_ms <= 0:
-            return None
-        press_count, _hold_count, _actions = self._count_combo_actions(self.active_combo_steps)
-        if press_count <= 0:
-            return None
-        return (60000.0 / float(min_ms)) * float(press_count)
+        return ui.theoretical_max_apm(self)
 
     def apm_text(self) -> str:
-        apm = self.practical_apm()
-        if apm is None:
-            return "Practical APM: —"
-        return f"Practical APM: {apm:.1f}"
+        return ui.apm_text(self)
 
     def apm_max_text(self) -> str:
-        apm = self.theoretical_max_apm()
-        if apm is None:
-            return "Theoretical max APM: —"
-        return f"Theoretical max APM: {apm:.1f}"
+        return ui.apm_max_text(self)
 
     def _wait_triangle_score(self, wait_ms: int) -> float:
         """
@@ -1372,639 +1016,32 @@ class ComboTrackerEngine:
         return int(len(non_micro_waits) + len(holds) + micro_bonus)
 
     def difficulty_score_10(self) -> float | None:
-        """
-        Returns a 0..10 score (float) or None if there's no active combo.
-        """
-        if not self.active_combo_steps or not self.active_combo_name:
-            return None
-
-        # --- Keys camp (Practical APM + combo length) ---
-        apm = self.practical_apm() or 0.0
-        press_count, hold_count, actions = self._count_combo_actions(self.active_combo_steps)
-
-        # --- Normalization / scaling constants ---
-        # APM normalization: 200 APM maps to 1.0 (anything faster clamps).
-        # This is intentionally "tunable": change 200.0 if your game’s APM scale differs.
-        apm_norm = self._clamp01(apm / 200.0)
-
-        # Action normalization: 8 actions maps to 1.0.
-        # (actions = presses + holds; waits don't count as actions)
-        actions_norm = self._clamp01(float(actions) / 8.0)
-
-        # Keys weighting: prioritize speed (APM) over length, but keep length as a reliability tax.
-        keys = (0.6 * apm_norm) + (0.4 * actions_norm)
-
-        # --- Timing camp (wait + hold + simple variation points) ---
-        wait_scores: list[float] = []
-        hold_scores: list[float] = []
-        for s in self.active_combo_steps:
-            if not isinstance(s, dict):
-                continue
-            if s.get("wait_ms") is not None:
-                try:
-                    wait_scores.append(self._wait_triangle_score(int(s.get("wait_ms") or 0)))
-                except Exception:
-                    continue
-            elif s.get("hold_ms") is not None:
-                try:
-                    hold_scores.append(self._hold_score(int(s.get("hold_ms") or 0)))
-                except Exception:
-                    continue
-
-        has_wait = 1.0 if wait_scores else 0.0
-        has_hold = 1.0 if hold_scores else 0.0
-        wait_avg = (sum(wait_scores) / len(wait_scores)) if wait_scores else 0.0
-        hold_avg = (sum(hold_scores) / len(hold_scores)) if hold_scores else 0.0
-
-        # Holds weighted higher than waits because they "commit" a finger and restrict spamming.
-        # Increase hold_w to make holds matter more relative to waits.
-        wait_w = 1.0
-        hold_w = 1.5
-        denom = (wait_w * has_wait) + (hold_w * has_hold)
-        timing_base = 0.0 if denom <= 0 else ((wait_avg * wait_w * has_wait) + (hold_avg * hold_w * has_hold)) / denom
-
-        var_points = self._timing_variation_points()
-
-        # Variation scaling (diminishing returns):
-        # We want 1–2 distinct timings to be a big penalty (hard to adapt),
-        # but 3–4 to add less (at that point it starts feeling "random" anyway).
-        #
-        # This uses an exponential saturation curve:
-        #   var_norm = 1 - exp(-var_points / K)
-        # where K controls how fast it saturates.
-        #
-        # With K=1.0:
-        # - 0 -> 0.000
-        # - 1 -> 0.632
-        # - 2 -> 0.865
-        # - 3 -> 0.950
-        # - 4 -> 0.982
-        #
-        # Increase K to make variation matter less; decrease K to make it spike faster.
-        K = 1.0
-        var_norm = self._clamp01(1.0 - (2.718281828 ** (-float(var_points) / K)))
-
-        # Timing blend:
-        # - timing_base = "how hard are the raw waits/holds"
-        # - var_norm    = "how many distinct timing rules do I have to remember"
-        # Increase the var_norm weight if you want "one weird timing" to dominate difficulty.
-        timing = (0.3 * self._clamp01(timing_base)) + (0.7 * var_norm)
-
-        # Overall blend: slightly emphasize timing over raw key speed/length.
-        # Adjust these if you want APM to dominate or timing to dominate.
-        combined = (0.45 * keys) + (0.55 * timing)
-        return round(10.0 * self._clamp01(combined), 1)
+        return ui.difficulty_score_10(self)
 
     def difficulty_text(self) -> str:
-        d = self.difficulty_score_10()
-        if d is None:
-            return "Difficulty: —"
-        return f"Difficulty: {d:.1f} / 10"
+        return ui.difficulty_text(self)
 
     def user_difficulty_value(self) -> float | None:
-        name = self.active_combo_name
-        if not name:
-            return None
-        d = self.combo_user_difficulty.get(name)
-        if d is None:
-            return None
-        try:
-            d_f = float(d)
-        except Exception:
-            return None
-        if 0.0 <= d_f <= 10.0:
-            return d_f
-        return None
+        return ui.user_difficulty_value(self)
 
     def user_difficulty_text(self) -> str:
-        d = self.user_difficulty_value()
-        if d is None:
-            return "Your difficulty: —"
-        return f"Your difficulty: {d:g} / 10"
+        return ui.user_difficulty_text(self)
 
     # -------------------------
     # UI state snapshots
     # -------------------------
 
     def get_editor_payload(self) -> dict[str, Any]:
-        name = self.active_combo_name or ""
-        inputs = ", ".join(self.active_combo_tokens) if self.active_combo_tokens else ""
-
-        enders = ""
-        if self.combo_enders:
-            parts: list[str] = []
-            for k in sorted(self.combo_enders.keys()):
-                ms = int(self.combo_enders[k])
-                if ms > 0:
-                    parts.append(f"{k}:{ms/1000.0:.3g}")
-                else:
-                    parts.append(k)
-            enders = ", ".join(parts)
-
-        expected = ""
-        if name:
-            ms = self.combo_expected_ms.get(name)
-            if ms is not None:
-                expected = self._format_ms_brief(ms)
-        user_diff = ""
-        if name:
-            d = self.combo_user_difficulty.get(name)
-            if d is not None:
-                # Keep it friendly for editing (no trailing .0)
-                user_diff = f"{d:g}"
-
-        mode = "icons"
-        if name:
-            m = str(self.combo_step_display_mode.get(name, "icons") or "icons").strip().lower()
-            if m in ("icons", "images"):
-                mode = m
-        key_images = {}
-        if name:
-            m = self.combo_key_images.get(name)
-            if isinstance(m, dict):
-                # shallow copy for safety
-                key_images = dict(m)
-
-        target_game = "generic"
-        if name:
-            g = str(self.combo_target_game.get(name, "generic") or "generic").strip().lower()
-            if g in ("generic", "wuthering_waves"):
-                target_game = g
-
-        ww_teams = []
-        for tid, tv in self.ww_teams.items():
-            if not isinstance(tv, dict):
-                continue
-            ww_teams.append({"id": str(tid), "name": str(tv.get("name", "") or "Team")})
-        ww_teams.sort(key=lambda x: (x.get("name") or "").lower())
-
-        # Selected team: combo assignment > active team > none
-        sel_team_id = ""
-        if target_game == "wuthering_waves":
-            if name and name in self.combo_ww_team and self.combo_ww_team[name] in self.ww_teams:
-                sel_team_id = self.combo_ww_team[name]
-            elif self.ww_active_team_id and self.ww_active_team_id in self.ww_teams:
-                sel_team_id = self.ww_active_team_id
-
-        team_name = ""
-        team_swap_images: dict[str, str] = {}
-        team_lmb_images: dict[str, str] = {}
-        team_dash_image = ""
-        team_ability_images: dict[str, dict[str, str]] = {}
-        if sel_team_id and sel_team_id in self.ww_teams:
-            tv = self.ww_teams.get(sel_team_id) or {}
-            team_name = str(tv.get("name", "") or "")
-            team_dash_image = str(tv.get("dash_image", "") or "")
-            si = tv.get("swap_images", {})
-            if isinstance(si, dict):
-                team_swap_images = {k: str(v) for k, v in si.items() if k in ("1", "2", "3") and str(v).strip()}
-            li = tv.get("lmb_images", {})
-            if isinstance(li, dict):
-                team_lmb_images = {k: str(v) for k, v in li.items() if k in ("1", "2", "3") and str(v).strip()}
-            ai = tv.get("ability_images", {})
-            if isinstance(ai, dict):
-                for ck, vv in ai.items():
-                    if ck in ("1", "2", "3") and isinstance(vv, dict):
-                        team_ability_images[ck] = {a: str(u) for a, u in vv.items() if a in ("e", "q", "r") and str(u).strip()}
-        return {
-            "name": name,
-            "inputs": inputs,
-            "enders": enders,
-            "expected_time": expected,
-            "user_difficulty": user_diff,
-            "step_display_mode": mode,
-            "key_images": key_images,
-            "target_game": target_game,
-            "ww_teams": ww_teams,
-            "ww_team_id": sel_team_id,
-            "ww_team_name": team_name,
-            "ww_team_dash_image": team_dash_image,
-            "ww_team_swap_images": team_swap_images,
-            "ww_team_lmb_images": team_lmb_images,
-            "ww_team_ability_images": team_ability_images,
-        }
+        return ui.get_editor_payload(self)
 
     def get_status(self) -> Status:
-        if not self.active_combo_steps:
-            return Status("Status: Select a combo to start", "neutral")
-
-        step = self._active_step()
-        if not step:
-            return Status("Status: Select a combo to start", "neutral")
-
-        if self.current_index == 0:
-            # Any-order group can start with any option.
-            if step.get("group_presses") is not None:
-                opts = [str(x or "").strip().upper() for x in (step.get("group_presses") or [])]
-                opts = [o for o in opts if o]
-                pw_meta = step.get("group_pw_meta")
-                if isinstance(pw_meta, dict) and pw_meta:
-                    pw_keys = []
-                    for _sig, meta in pw_meta.items():
-                        k = str((meta or {}).get("input") or "").strip().upper()
-                        if k:
-                            pw_keys.append(k)
-                    if pw_keys:
-                        opts = pw_keys + opts
-                mw = step.get("group_mandatory_wait")
-                if isinstance(mw, dict):
-                    mw_for = str(mw.get("wait_for") or "").strip().upper()
-                    if mw_for:
-                        opts = [mw_for] + opts
-                if opts:
-                    quoted = ", ".join([f"'{o}'" for o in opts])
-                    return Status(f"Ready! Press {quoted} to start.", "ready")
-                return Status("Ready! Press the first input to start.", "ready")
-
-            start_key = str(step.get("input") or "").upper()
-            if step.get("hold_ms") is None:
-                return Status(f"Ready! Press '{start_key}' to start.", "ready")
-            return Status(
-                f"Ready! Hold '{start_key}' for {int(step.get('hold_ms') or 0)}ms to start.",
-                "ready",
-            )
-
-        if self.wait_in_progress:
-            req = self._format_hold_requirement(int(self.wait_required_ms or 0))
-            # If this is a mandatory animation lock, make it explicit.
-            mode = "soft"
-            try:
-                s = self._active_step()
-                if isinstance(s, dict) and s.get("wait_ms") is not None:
-                    mode = str(s.get("wait_mode") or "soft").strip().lower() or "soft"
-            except Exception:
-                mode = "soft"
-            if mode == "mandatory":
-                return Status(f"Animation lock ≥ {req} (inputs ignored)...", "wait")
-            return Status(f"Waiting ≥ {req}...", "wait")
-        if self.hold_in_progress:
-            req = self._format_hold_requirement(int(self.hold_required_ms or 0))
-            inp = str(self.hold_expected_input or "").upper()
-            return Status(f"Holding '{inp}' (≥ {req}). Release OR press next input to continue...", "recording")
-        return Status("Recording...", "recording")
+        return ui.get_status(self)
 
     def timeline_steps(self) -> list[dict[str, Any]]:
-        steps = []
-        i = 0
-        arr = self.active_combo_steps or []
-        # When idle after a success, keep the timeline fully completed/green until a new attempt starts.
-        cur = self.current_index
-        try:
-            if (
-                int(cur) == 0
-                and self._ui_last_success_combo
-                and self._ui_last_success_combo == self.active_combo_name
-                and int(self._ui_last_success_steps_len or 0) == len(arr)
-            ):
-                cur = len(arr)
-        except Exception:
-            cur = self.current_index
-        while i < len(arr):
-            s = arr[i]
-            idx = i
-            mark = self.step_marks.get(idx)
-            if s.get("group_presses") is not None:
-                done_counts = s.get("group_done_counts")
-                done_counts = done_counts if isinstance(done_counts, dict) else {}
-                pw_done_counts = s.get("group_pw_done_counts")
-                pw_done_counts = pw_done_counts if isinstance(pw_done_counts, dict) else {}
-                pw_need_counts = s.get("group_pw_need_counts")
-                pw_need_counts = pw_need_counts if isinstance(pw_need_counts, dict) else {}
-                pw_meta = s.get("group_pw_meta")
-                pw_meta = pw_meta if isinstance(pw_meta, dict) else {}
-                pw_active = bool(s.get("group_pw_active"))
-                pw_sig_active = str(s.get("group_pw_sig") or "").strip()
-                hold_done_counts = s.get("group_hold_done_counts")
-                hold_done_counts = hold_done_counts if isinstance(hold_done_counts, dict) else {}
-                hold_need_counts = s.get("group_hold_need_counts")
-                hold_need_counts = hold_need_counts if isinstance(hold_need_counts, dict) else {}
-                hold_meta = s.get("group_hold_meta")
-                hold_meta = hold_meta if isinstance(hold_meta, dict) else {}
-                hold_active = bool(s.get("group_hold_active"))
-                hold_sig_active = str(s.get("group_hold_sig") or "").strip()
-                mw_done = bool(s.get("group_wait_done"))
-                mw_active = bool(s.get("group_wait_active"))
-                mw = s.get("group_mandatory_wait")
-                mw_for = ""
-                mw_ms = None
-                if isinstance(mw, dict):
-                    mw_for = str(mw.get("wait_for") or "").strip().lower()
-                    mw_ms = mw.get("wait_ms")
-
-                order = s.get("group_order")
-                order_list = order if isinstance(order, list) else []
-
-                items_payload: list[dict[str, Any]] = []
-                done_count = 0
-                total = 0
-                seen_press: dict[str, int] = {}      # key -> occurrences (for press duplicates)
-                seen_pw: dict[str, int] = {}         # sig -> occurrences (for press_wait duplicates)
-                seen_hold: dict[str, int] = {}       # sig -> occurrences (for hold duplicates)
-
-                # Build items in the exact order written in the combo.
-                for it in order_list:
-                    if not isinstance(it, dict):
-                        continue
-                    kind = str(it.get("kind") or "")
-                    if kind == "anim_wait":
-                        total += 1
-                        dur = int(it.get("wait_ms") or 0)
-                        wf = str(it.get("wait_for") or "").strip().lower()
-                        comp = mw_done or (idx < cur)
-                        act = (idx == cur) and mw_active
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {
-                                "type": "wait",
-                                "mode": "mandatory",
-                                "wait_for": wf,
-                                "duration": dur,
-                                "active": act,
-                                "completed": comp,
-                            }
-                        )
-                    elif kind == "press_wait":
-                        total += 1
-                        sig = str(it.get("sig") or "").strip()
-                        meta = pw_meta.get(sig) if isinstance(pw_meta, dict) else None
-                        inp = str((meta or {}).get("input") or it.get("input") or "").strip().lower()
-                        dur = int((meta or {}).get("wait_ms") or it.get("wait_ms") or 0)
-                        # occurrence counting for duplicates of same sig:
-                        seen_pw[sig] = int(seen_pw.get(sig, 0)) + 1
-                        occ = int(seen_pw.get(sig, 1))
-                        comp = (int(pw_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                        act = (idx == cur) and pw_active and (pw_sig_active == sig)
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {
-                                "type": "press_wait",
-                                "input": inp,
-                                "duration": dur,
-                                "active": act,
-                                "completed": comp,
-                            }
-                        )
-                    elif kind == "press":
-                        total += 1
-                        inp = str(it.get("input") or "").strip().lower()
-                        seen_press[inp] = int(seen_press.get(inp, 0)) + 1
-                        occ = int(seen_press.get(inp, 1))
-                        comp = (int(done_counts.get(inp, 0)) >= occ) or (idx < cur)
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {
-                                "type": "press",
-                                "input": inp,
-                                "duration": 0,
-                                "active": False,
-                                "completed": comp,
-                            }
-                        )
-                    elif kind == "hold":
-                        total += 1
-                        sig = str(it.get("sig") or "").strip()
-                        key = str(it.get("input") or "").strip().lower()
-                        dur = int(it.get("hold_ms") or 0)
-                        seen_hold[sig] = int(seen_hold.get(sig, 0)) + 1
-                        occ = int(seen_hold.get(sig, 1))
-                        comp = (int(hold_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                        act = (idx == cur) and hold_active and (hold_sig_active == sig)
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {
-                                "type": "hold",
-                                "input": key,
-                                "duration": dur,
-                                "active": act,
-                                "completed": comp,
-                            }
-                        )
-
-                # Fallback (shouldn't happen): derive a stable order.
-                if not items_payload:
-                    total = 0
-                    done_count = 0
-                    if mw_ms is not None:
-                        total += 1
-                        comp = mw_done or (idx < cur)
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {
-                                "type": "wait",
-                                "mode": "mandatory",
-                                "wait_for": mw_for,
-                                "duration": int(mw_ms),
-                                "active": (idx == self.current_index) and mw_active,
-                                "completed": comp,
-                            }
-                        )
-                    # Add press-wait items (if any) then plain presses.
-                    for sig, meta in (pw_meta or {}).items():
-                        try:
-                            need_n = int(pw_need_counts.get(sig, 0) or 0)
-                        except Exception:
-                            need_n = 0
-                        key = str((meta or {}).get("input") or "").strip().lower()
-                        dur = int((meta or {}).get("wait_ms") or 0)
-                        for occ in range(1, max(0, need_n) + 1):
-                            total += 1
-                            comp = (int(pw_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                            if comp:
-                                done_count += 1
-                            items_payload.append(
-                                {
-                                    "type": "press_wait",
-                                    "input": key,
-                                    "duration": dur,
-                                    "active": (idx == cur) and pw_active and (pw_sig_active == str(sig)),
-                                    "completed": comp,
-                                }
-                            )
-                    # Plain press counts fallback: if need_counts exist, represent repeats.
-                    need_counts = s.get("group_press_need_counts")
-                    need_counts = need_counts if isinstance(need_counts, dict) else {}
-                    for inp, cnt in need_counts.items():
-                        key = str(inp or "").strip().lower()
-                        if not key:
-                            continue
-                        try:
-                            n = int(cnt or 0)
-                        except Exception:
-                            n = 0
-                        for occ in range(1, max(0, n) + 1):
-                            total += 1
-                            comp = (int(done_counts.get(key, 0)) >= occ) or (idx < cur)
-                            if comp:
-                                done_count += 1
-                            items_payload.append(
-                                {"type": "press", "input": key, "duration": 0, "active": False, "completed": comp}
-                            )
-                    # Hold fallback (if any)
-                    for sig, cnt in hold_need_counts.items():
-                        try:
-                            n = int(cnt or 0)
-                        except Exception:
-                            n = 0
-                        meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
-                        key = str((meta or {}).get("input") or "").strip().lower()
-                        dur = int((meta or {}).get("hold_ms") or 0)
-                        for occ in range(1, max(0, n) + 1):
-                            total += 1
-                            comp = (int(hold_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                            if comp:
-                                done_count += 1
-                            items_payload.append(
-                                {
-                                    "type": "hold",
-                                    "input": key,
-                                    "duration": dur,
-                                    "active": (idx == cur) and hold_active and (hold_sig_active == str(sig)),
-                                    "completed": comp,
-                                }
-                            )
-
-                steps.append(
-                    {
-                        "type": "group",
-                        "active": idx == cur,
-                        "completed": idx < cur,
-                        "mark": mark,
-                        "items": items_payload,
-                        "progress": {"done": int(done_count), "total": int(total)},
-                    }
-                )
-                i += 1
-                continue
-
-            # Collapse "press X" followed by "mandatory wait for X" into a single displayed tile,
-            # so wait(1, 0.5) doesn't show as "1" then "1 (animation time ...)".
-            try:
-                if (
-                    i + 1 < len(arr)
-                    and isinstance(s, dict)
-                    and s.get("wait_ms") is None
-                    and s.get("hold_ms") is None
-                    and arr[i + 1].get("wait_ms") is not None
-                    and str(arr[i + 1].get("wait_mode") or "").strip().lower() == "mandatory"
-                    and str(arr[i + 1].get("wait_for") or "").strip().lower()
-                    == str(s.get("input") or "").strip().lower()
-                ):
-                    wait_step = arr[i + 1]
-                    wait_idx = i + 1
-                    wait_mark = self.step_marks.get(wait_idx) or mark
-                    steps.append(
-                        {
-                            "type": "wait",
-                            "input": None,
-                            "duration": int(wait_step.get("wait_ms") or 0),
-                            "mode": "mandatory",
-                            "wait_for": str(wait_step.get("wait_for") or ""),
-                            "active": (cur == idx) or (cur == wait_idx),
-                            "completed": cur > wait_idx,
-                            "mark": wait_mark,
-                        }
-                    )
-                    i += 2
-                    continue
-            except Exception:
-                pass
-
-            # Collapse "press X" followed immediately by a wait gate into a single displayed tile.
-            # This is useful when the wait is essentially "animation time" right after a key:
-            # e.g. lmb, wait:0.1s should read as one step with "100ms" under it (progress bar shows the wait).
-            try:
-                if (
-                    i + 1 < len(arr)
-                    and isinstance(s, dict)
-                    and s.get("wait_ms") is None
-                    and s.get("hold_ms") is None
-                    and s.get("group_presses") is None
-                    and isinstance(arr[i + 1], dict)
-                    and arr[i + 1].get("wait_ms") is not None
-                    and str(arr[i + 1].get("wait_mode") or "soft").strip().lower() in ("soft", "hard")
-                ):
-                    press_inp = str(s.get("input") or "").strip().lower()
-                    w = arr[i + 1]
-                    wait_idx = i + 1
-                    w_mark = self.step_marks.get(wait_idx) or mark
-                    steps.append(
-                        {
-                            "type": "press_wait",
-                            "input": press_inp,
-                            "duration": int(w.get("wait_ms") or 0),
-                            "mode": str(w.get("wait_mode") or "soft"),
-                            "active": (cur == idx) or (cur == wait_idx),
-                            "completed": cur > wait_idx,
-                            "mark": w_mark,
-                        }
-                    )
-                    i += 2
-                    continue
-            except Exception:
-                pass
-
-            if s.get("wait_ms") is not None:
-                steps.append(
-                    {
-                        "type": "wait",
-                        "input": None,
-                        "duration": int(s.get("wait_ms") or 0),
-                        "mode": str(s.get("wait_mode") or "soft"),
-                        "wait_for": str(s.get("wait_for") or ""),
-                        "active": idx == cur,
-                        "completed": idx < cur,
-                        "mark": mark,
-                    }
-                )
-            elif s.get("hold_ms") is not None:
-                steps.append(
-                    {
-                        "type": "hold",
-                        "input": str(s.get("input") or ""),
-                        "duration": int(s.get("hold_ms") or 0),
-                        "active": idx == cur,
-                        "completed": idx < cur,
-                        "mark": mark,
-                    }
-                )
-            else:
-                steps.append(
-                    {
-                        "type": "press",
-                        "input": str(s.get("input") or ""),
-                        "duration": 0,
-                        "active": idx == cur,
-                        "completed": idx < cur,
-                        "mark": mark,
-                    }
-                )
-            i += 1
-        return steps
+        return ui.timeline_steps(self)
 
     def init_payload(self) -> dict[str, Any]:
-        st = self.get_status()
-        return {
-            "type": "init",
-            "combos": sorted(self.combos.keys()),
-            "active_combo": self.active_combo_name,
-            "status": {"text": st.text, "color": st.color},
-            "stats": self.stats_text(),
-            "min_time": self.min_time_text(),
-            "difficulty": self.difficulty_text(),
-            "difficulty_value": self.difficulty_score_10(),
-            "user_difficulty": self.user_difficulty_text(),
-            "user_difficulty_value": self.user_difficulty_value(),
-            "apm": self.apm_text(),
-            "apm_max": self.apm_max_text(),
-            "timeline": self.timeline_steps(),
-            "failures": self.failures_by_reason(),
-            "editor": self.get_editor_payload(),
-        }
+        return ui.init_payload(self)
 
     # -------------------------
     # Combo ender logic
@@ -2036,36 +1073,38 @@ class ComboTrackerEngine:
     # -------------------------
 
     def apply_enders_from_text(self, raw: str) -> tuple[bool, str | None]:
-        raw = (raw or "").strip()
-        if not raw:
-            self.combo_enders = {}
+        # Called from the UI thread; protect against concurrent input/tick threads.
+        with self._lock:
+            raw = (raw or "").strip()
+            if not raw:
+                self.combo_enders = {}
+                self.save_combos()
+                return True, None
+
+            parsed: dict[str, int] = {}
+            for token in self.split_inputs(raw):
+                t = token.strip()
+                if not t:
+                    continue
+
+                if ":" in t:
+                    k, v = t.split(":", 1)
+                    key = k.strip().lower()
+                    if not key:
+                        continue
+                    try:
+                        sec = float(v.strip())
+                    except ValueError:
+                        return False, f"Invalid timing for '{key}'. Use seconds, e.g. {key}:0.2"
+                    parsed[key] = max(0, int(sec * 1000))
+                else:
+                    key = t.strip().lower()
+                    if key:
+                        parsed[key] = 0
+
+            self.combo_enders = parsed
             self.save_combos()
             return True, None
-
-        parsed: dict[str, int] = {}
-        for token in self.split_inputs(raw):
-            t = token.strip()
-            if not t:
-                continue
-
-            if ":" in t:
-                k, v = t.split(":", 1)
-                key = k.strip().lower()
-                if not key:
-                    continue
-                try:
-                    sec = float(v.strip())
-                except ValueError:
-                    return False, f"Invalid timing for '{key}'. Use seconds, e.g. {key}:0.2"
-                parsed[key] = max(0, int(sec * 1000))
-            else:
-                key = t.strip().lower()
-                if key:
-                    parsed[key] = 0
-
-        self.combo_enders = parsed
-        self.save_combos()
-        return True, None
 
     def save_or_update_combo(
         self,
@@ -2080,162 +1119,148 @@ class ComboTrackerEngine:
         target_game: str | None = None,
         ww_team_id: str | None = None,
     ) -> tuple[bool, str | None]:
-        name = (name or "").strip()
-        keys_str = (inputs or "").strip()
-        if not name or not keys_str:
-            return False, "Please fill in Name and Inputs."
+        # Called from the UI thread; protect against concurrent input/tick threads.
+        with self._lock:
+            name = (name or "").strip()
+            keys_str = (inputs or "").strip()
+            if not name or not keys_str:
+                return False, "Please fill in Name and Inputs."
 
-        ok, err = self.apply_enders_from_text(enders)
-        if not ok:
-            return False, err
+            ok, err = self.apply_enders_from_text(enders)
+            if not ok:
+                return False, err
 
-        expected_ms = None
-        expected_raw = (expected_time or "").strip()
-        if expected_raw:
-            expected_ms = self._parse_expected_time_ms(expected_raw)
-            if expected_ms is None:
-                return False, "Invalid Expected time. Examples: 1.05s or 1050ms"
+            expected_ms = None
+            expected_raw = (expected_time or "").strip()
+            if expected_raw:
+                expected_ms = self._parse_expected_time_ms(expected_raw)
+                if expected_ms is None:
+                    return False, "Invalid Expected time. Examples: 1.05s or 1050ms"
 
-        user_diff_val = None
-        ud_raw = (user_difficulty or "").strip()
-        if ud_raw:
-            try:
-                user_diff_val = float(ud_raw)
-            except Exception:
-                return False, "Invalid Your difficulty. Use a number from 0 to 10."
-            if not (0.0 <= user_diff_val <= 10.0):
-                return False, "Invalid Your difficulty. Use a number from 0 to 10."
+            user_diff_val = None
+            ud_raw = (user_difficulty or "").strip()
+            if ud_raw:
+                try:
+                    user_diff_val = float(ud_raw)
+                except Exception:
+                    return False, "Invalid Your difficulty. Use a number from 0 to 10."
+                if not (0.0 <= user_diff_val <= 10.0):
+                    return False, "Invalid Your difficulty. Use a number from 0 to 10."
 
-        input_list = [k.strip().lower() for k in self.split_inputs(keys_str) if k.strip()]
-        if not input_list:
-            return False, "Please provide at least one input."
+            input_list = [k.strip().lower() for k in self.split_inputs(keys_str) if k.strip()]
+            if not input_list:
+                return False, "Please provide at least one input."
 
-        old_name = self.active_combo_name if self.active_combo_name in self.combos else None
-        if old_name and name != old_name:
-            if old_name in self.combo_stats and name not in self.combo_stats:
-                self.combo_stats[name] = self.combo_stats.pop(old_name)
-            self.combos[name] = input_list
-            if old_name != name and old_name in self.combos:
-                del self.combos[old_name]
-            if old_name in self.combo_expected_ms:
-                # Drop old key; we'll re-apply below if the UI provided a new value.
-                del self.combo_expected_ms[old_name]
-            if old_name in self.combo_user_difficulty:
-                del self.combo_user_difficulty[old_name]
-            if old_name in self.combo_step_display_mode and name not in self.combo_step_display_mode:
-                self.combo_step_display_mode[name] = self.combo_step_display_mode.pop(old_name)
-            if old_name in self.combo_key_images and name not in self.combo_key_images:
-                self.combo_key_images[name] = self.combo_key_images.pop(old_name)
-            if old_name in self.combo_target_game and name not in self.combo_target_game:
-                self.combo_target_game[name] = self.combo_target_game.pop(old_name)
-            if old_name in self.combo_ww_team and name not in self.combo_ww_team:
-                self.combo_ww_team[name] = self.combo_ww_team.pop(old_name)
-        else:
-            self.combos[name] = input_list
-
-        # Apply expected execution time (per-combo metadata)
-        if expected_ms is not None:
-            self.combo_expected_ms[name] = int(expected_ms)
-        else:
-            self.combo_expected_ms.pop(name, None)
-
-        if user_diff_val is not None:
-            self.combo_user_difficulty[name] = float(user_diff_val)
-        else:
-            self.combo_user_difficulty.pop(name, None)
-
-        # Apply step display mode (per-combo metadata)
-        mode_raw = (step_display_mode or "").strip().lower()
-        if mode_raw in ("icons", "images"):
-            self.combo_step_display_mode[name] = mode_raw
-        else:
-            self.combo_step_display_mode.pop(name, None)
-
-        # Apply key images mapping (per-combo metadata)
-        cleaned_imgs: dict[str, str] = {}
-        if isinstance(key_images, dict):
-            for k, v in key_images.items():
-                key = str(k).strip().lower()
-                url = str(v).strip()
-                if not key or not url:
-                    continue
-                cleaned_imgs[key] = url
-        if cleaned_imgs:
-            self.combo_key_images[name] = cleaned_imgs
-        else:
-            # Keep existing images if caller didn't send a dict at all; otherwise allow clearing.
-            if isinstance(key_images, dict):
-                self.combo_key_images.pop(name, None)
-
-        # Apply target game (per-combo metadata)
-        g_raw = str(target_game or "").strip().lower()
-        if g_raw in ("generic", "wuthering_waves"):
-            self.combo_target_game[name] = g_raw
-        else:
-            self.combo_target_game.pop(name, None)
-
-        # Apply WW team assignment (combo detail)
-        if g_raw == "wuthering_waves":
-            tid = str(ww_team_id or "").strip()
-            if tid and tid in self.ww_teams:
-                self.combo_ww_team[name] = tid
-                self.ww_active_team_id = tid
+            old_name = self.active_combo_name if self.active_combo_name in self.combos else None
+            if old_name and name != old_name:
+                if old_name in self.combo_stats and name not in self.combo_stats:
+                    self.combo_stats[name] = self.combo_stats.pop(old_name)
+                self.combos[name] = input_list
+                if old_name != name and old_name in self.combos:
+                    del self.combos[old_name]
+                if old_name in self.combo_expected_ms:
+                    # Drop old key; we'll re-apply below if the UI provided a new value.
+                    del self.combo_expected_ms[old_name]
+                if old_name in self.combo_user_difficulty:
+                    del self.combo_user_difficulty[old_name]
+                if old_name in self.combo_step_display_mode and name not in self.combo_step_display_mode:
+                    self.combo_step_display_mode[name] = self.combo_step_display_mode.pop(old_name)
+                if old_name in self.combo_key_images and name not in self.combo_key_images:
+                    self.combo_key_images[name] = self.combo_key_images.pop(old_name)
+                # Move any WW/game-specific per-combo metadata.
+                self.ww.rename_combo(old_name, name)
             else:
-                self.combo_ww_team.pop(name, None)
-        else:
-            self.combo_ww_team.pop(name, None)
+                self.combos[name] = input_list
 
-        self._ensure_combo_stats(name)
-        self.set_active_combo(name, emit=False)
-        self.save_combos()
+            # Apply expected execution time (per-combo metadata)
+            if expected_ms is not None:
+                self.combo_expected_ms[name] = int(expected_ms)
+            else:
+                self.combo_expected_ms.pop(name, None)
 
-        # Broadcast new global+active state
-        self._send({"type": "init", **self.init_payload()})
-        return True, None
+            if user_diff_val is not None:
+                self.combo_user_difficulty[name] = float(user_diff_val)
+            else:
+                self.combo_user_difficulty.pop(name, None)
+
+            # Apply step display mode (per-combo metadata)
+            mode_raw = (step_display_mode or "").strip().lower()
+            if mode_raw in ("icons", "images"):
+                self.combo_step_display_mode[name] = mode_raw
+            else:
+                self.combo_step_display_mode.pop(name, None)
+
+            # Apply key images mapping (per-combo metadata)
+            cleaned_imgs: dict[str, str] = {}
+            if isinstance(key_images, dict):
+                for k, v in key_images.items():
+                    key = str(k).strip().lower()
+                    url = str(v).strip()
+                    if not key or not url:
+                        continue
+                    cleaned_imgs[key] = url
+            if cleaned_imgs:
+                self.combo_key_images[name] = cleaned_imgs
+            else:
+                # Keep existing images if caller didn't send a dict at all; otherwise allow clearing.
+                if isinstance(key_images, dict):
+                    self.combo_key_images.pop(name, None)
+
+            # Apply target game + WW team assignment (combo detail)
+            g_raw = str(target_game or "").strip().lower()
+            self.ww.set_target_game(name, g_raw)
+            self.ww.apply_combo_team_assignment(name, target_game=self.ww.get_target_game(name), ww_team_id=ww_team_id)
+
+            self._ensure_combo_stats(name)
+            self.set_active_combo(name, emit=False)
+            self.save_combos()
+
+            # Broadcast new global+active state
+            self._send({"type": "init", **self.init_payload()})
+            return True, None
 
     def delete_combo(self, name: str) -> tuple[bool, str | None]:
-        name = (name or "").strip()
-        if not name or name not in self.combos:
-            return False, "Select a combo to delete."
+        with self._lock:
+            name = (name or "").strip()
+            if not name or name not in self.combos:
+                return False, "Select a combo to delete."
 
-        del self.combos[name]
-        if name in self.combo_stats:
-            del self.combo_stats[name]
-        if name in self.combo_expected_ms:
-            del self.combo_expected_ms[name]
-        if name in self.combo_user_difficulty:
-            del self.combo_user_difficulty[name]
-        if name in self.combo_step_display_mode:
-            del self.combo_step_display_mode[name]
-        if name in self.combo_key_images:
-            del self.combo_key_images[name]
-        if name in self.combo_target_game:
-            del self.combo_target_game[name]
-        if name in self.combo_ww_team:
-            del self.combo_ww_team[name]
+            del self.combos[name]
+            if name in self.combo_stats:
+                del self.combo_stats[name]
+            if name in self.combo_expected_ms:
+                del self.combo_expected_ms[name]
+            if name in self.combo_user_difficulty:
+                del self.combo_user_difficulty[name]
+            if name in self.combo_step_display_mode:
+                del self.combo_step_display_mode[name]
+            if name in self.combo_key_images:
+                del self.combo_key_images[name]
+            self.ww.delete_combo(name)
 
-        if self.active_combo_name == name:
-            self.active_combo_name = None
-            self.active_combo_tokens = []
-            self.active_combo_steps = []
-            self.reset_tracking()
+            if self.active_combo_name == name:
+                self.active_combo_name = None
+                self.active_combo_tokens = []
+                self.active_combo_steps = []
+                self.reset_tracking()
 
-        self.save_combos()
-        self._send({"type": "init", **self.init_payload()})
-        return True, None
+            self.save_combos()
+            self._send({"type": "init", **self.init_payload()})
+            return True, None
 
     # -------------------------
     # Wuthering Waves teams (presets)
     # -------------------------
 
     def set_active_ww_team(self, team_id: str):
-        tid = str(team_id or "").strip()
-        if tid and tid in self.ww_teams:
-            self.ww_active_team_id = tid
-            self.save_combos()
-            # Refresh editor payload + timeline (so icons update)
-            self._send({"type": "combo_data", **self.get_editor_payload()})
-            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        with self._lock:
+            tid = str(team_id or "").strip()
+            if tid and tid in self.ww_teams:
+                self.ww.set_active_ww_team(tid)
+                self.save_combos()
+                # Refresh editor payload + timeline (so icons update)
+                self._send({"type": "combo_data", **self.get_editor_payload()})
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
     def save_or_update_ww_team(
         self,
@@ -2247,168 +1272,126 @@ class ComboTrackerEngine:
         lmb_images: Any | None,
         ability_images: Any | None,
     ) -> tuple[bool, str | None]:
-        name = str(team_name or "").strip()
-        if not name:
-            return False, "Please provide a Team name."
+        with self._lock:
+            name = str(team_name or "").strip()
+            if not name:
+                return False, "Please provide a Team name."
 
-        tid = str(team_id or "").strip()
-        if not tid:
-            tid = uuid4().hex[:10]
+            ok, err, _tid = self.ww.save_or_update_ww_team(
+                team_id=str(team_id or "").strip(),
+                team_name=name,
+                dash_image=dash_image,
+                swap_images=swap_images,
+                lmb_images=lmb_images,
+                ability_images=ability_images,
+            )
+            if not ok:
+                return False, err
 
-        # Clean swap images
-        swap: dict[str, str] = {}
-        if isinstance(swap_images, dict):
-            for k, v in swap_images.items():
-                kk = str(k or "").strip()
-                if kk not in ("1", "2", "3"):
-                    continue
-                url = str(v or "").strip()
-                if url:
-                    swap[kk] = url
-
-        # Dash (RMB) image (shared)
-        dash = str(dash_image or "").strip()
-
-        # LMB images (per character)
-        lmb: dict[str, str] = {}
-        if isinstance(lmb_images, dict):
-            for k, v in lmb_images.items():
-                kk = str(k or "").strip()
-                if kk not in ("1", "2", "3"):
-                    continue
-                url = str(v or "").strip()
-                if url:
-                    lmb[kk] = url
-
-        # Clean ability images
-        abil: dict[str, dict[str, str]] = {}
-        if isinstance(ability_images, dict):
-            for ck, vv in ability_images.items():
-                c = str(ck or "").strip()
-                if c not in ("1", "2", "3") or not isinstance(vv, dict):
-                    continue
-                m: dict[str, str] = {}
-                for akey, av in vv.items():
-                    a = str(akey or "").strip().lower()
-                    if a not in ("e", "q", "r"):
-                        continue
-                    url = str(av or "").strip()
-                    if url:
-                        m[a] = url
-                if m:
-                    abil[c] = m
-
-        self.ww_teams[tid] = {"name": name, "dash_image": dash, "swap_images": swap, "lmb_images": lmb, "ability_images": abil}
-        self.ww_active_team_id = tid
-        self.save_combos()
-
-        # Broadcast refresh (updates team dropdown + active team)
-        self._send({"type": "init", **self.init_payload()})
-        return True, None
+            self.save_combos()
+            # Broadcast refresh (updates team dropdown + active team)
+            self._send({"type": "init", **self.init_payload()})
+            return True, None
 
     def delete_ww_team(self, team_id: str) -> tuple[bool, str | None]:
-        tid = str(team_id or "").strip()
-        if not tid or tid not in self.ww_teams:
-            return False, "Select a team to delete."
-
-        del self.ww_teams[tid]
-        # Remove any combo mappings pointing at this team
-        for cname, ct in list(self.combo_ww_team.items()):
-            if ct == tid:
-                del self.combo_ww_team[cname]
-        if self.ww_active_team_id == tid:
-            self.ww_active_team_id = None
-        self.save_combos()
-        self._send({"type": "init", **self.init_payload()})
-        return True, None
+        with self._lock:
+            ok, err = self.ww.delete_ww_team(team_id)
+            if not ok:
+                return False, err
+            self.save_combos()
+            self._send({"type": "init", **self.init_payload()})
+            return True, None
 
     def new_combo(self):
-        self.active_combo_name = None
-        self.active_combo_tokens = []
-        self.active_combo_steps = []
-        self.reset_tracking()
-        self._send({"type": "init", **self.init_payload()})
-
-    def clear_history_and_stats(self):
-        self.reset_tracking()
-        if self.active_combo_name:
-            self.combo_stats[self.active_combo_name] = {
-                "success": 0,
-                "fail": 0,
-                "best_ms": None,
-                "total_success_ms": 0,
-                "fail_by_step": {},
-                "fail_by_expected": {},
-                "fail_by_reason": {},
-                "fail_events": [],
-            }
-            self.save_combos()
-        self._send({"type": "clear_results"})
-        self._send({"type": "stat_update", "stats": self.stats_text()})
-        self._send({"type": "fail_update", "failures": self.failures_by_reason()})
-        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-        st = self.get_status()
-        self._send({"type": "status", "text": st.text, "color": st.color})
-
-    def set_active_combo(self, name: str, *, emit: bool = True):
-        name = (name or "").strip()
-        if name not in self.combos:
+        with self._lock:
             self.active_combo_name = None
             self.active_combo_tokens = []
             self.active_combo_steps = []
             self.reset_tracking()
-            if emit:
-                self._send({"type": "init", **self.init_payload()})
-            return
+            self._send({"type": "init", **self.init_payload()})
 
-        self.active_combo_name = name
-        self.active_combo_tokens = self.combos[name]
-        steps: list[dict[str, Any]] = []
-        for t in self.active_combo_tokens:
-            s = self.parse_step(t)
-            if not s:
-                continue
-            # Support composite tokens like wait(r, 1.5) -> [press r, mandatory wait]
-            if isinstance(s, dict) and s.get("composite_steps") is not None:
-                try:
-                    for sub in (s.get("composite_steps") or []):
-                        if isinstance(sub, dict) and sub:
-                            steps.append(sub)
-                except Exception:
-                    pass
-            else:
-                steps.append(s)
-        self.active_combo_steps = steps
-        self._ensure_combo_stats(name)
-
-        self.reset_tracking()
-        self.save_combos()
-
-        if emit:
-            st = self.get_status()
-            self._send({"type": "combo_data", **self.get_editor_payload()})
-            self._send({"type": "min_time", "text": self.min_time_text()})
-            self._send(
-                {
-                    "type": "difficulty_update",
-                    "text": self.difficulty_text(),
-                    "value": self.difficulty_score_10(),
+    def clear_history_and_stats(self):
+        with self._lock:
+            self.reset_tracking()
+            if self.active_combo_name:
+                self.combo_stats[self.active_combo_name] = {
+                    "success": 0,
+                    "fail": 0,
+                    "best_ms": None,
+                    "total_success_ms": 0,
+                    "fail_by_step": {},
+                    "fail_by_expected": {},
+                    "fail_by_reason": {},
+                    "fail_events": [],
                 }
-            )
-            self._send(
-                {
-                    "type": "user_difficulty_update",
-                    "text": self.user_difficulty_text(),
-                    "value": self.user_difficulty_value(),
-                }
-            )
-            self._send({"type": "apm_update", "text": self.apm_text()})
-            self._send({"type": "apm_max_update", "text": self.apm_max_text()})
+                self.save_combos()
+            self._send({"type": "clear_results"})
             self._send({"type": "stat_update", "stats": self.stats_text()})
             self._send({"type": "fail_update", "failures": self.failures_by_reason()})
             self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            st = self.get_status()
             self._send({"type": "status", "text": st.text, "color": st.color})
-            self._send({"type": "combo_list", "combos": sorted(self.combos.keys()), "active": self.active_combo_name})
+
+    def set_active_combo(self, name: str, *, emit: bool = True):
+        with self._lock:
+            name = (name or "").strip()
+            if name not in self.combos:
+                self.active_combo_name = None
+                self.active_combo_tokens = []
+                self.active_combo_steps = []
+                self.reset_tracking()
+                if emit:
+                    self._send({"type": "init", **self.init_payload()})
+                return
+
+            self.active_combo_name = name
+            self.active_combo_tokens = self.combos[name]
+            steps: list[dict[str, Any]] = []
+            for t in self.active_combo_tokens:
+                s = self.parse_step(t)
+                if not s:
+                    continue
+                # Support composite tokens like wait(r, 1.5) -> [press r, mandatory wait]
+                if isinstance(s, dict) and s.get("composite_steps") is not None:
+                    try:
+                        for sub in (s.get("composite_steps") or []):
+                            if isinstance(sub, dict) and sub:
+                                steps.append(sub)
+                    except Exception:
+                        pass
+                else:
+                    steps.append(s)
+            self.active_combo_steps = steps
+            self._ensure_combo_stats(name)
+
+            self.reset_tracking()
+            self.save_combos()
+
+            if emit:
+                st = self.get_status()
+                self._send({"type": "combo_data", **self.get_editor_payload()})
+                self._send({"type": "min_time", "text": self.min_time_text()})
+                self._send(
+                    {
+                        "type": "difficulty_update",
+                        "text": self.difficulty_text(),
+                        "value": self.difficulty_score_10(),
+                    }
+                )
+                self._send(
+                    {
+                        "type": "user_difficulty_update",
+                        "text": self.user_difficulty_text(),
+                        "value": self.user_difficulty_value(),
+                    }
+                )
+                self._send({"type": "apm_update", "text": self.apm_text()})
+                self._send({"type": "apm_max_update", "text": self.apm_max_text()})
+                self._send({"type": "stat_update", "stats": self.stats_text()})
+                self._send({"type": "fail_update", "failures": self.failures_by_reason()})
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                self._send({"type": "status", "text": st.text, "color": st.color})
+                self._send({"type": "combo_list", "combos": sorted(self.combos.keys()), "active": self.active_combo_name})
 
     # -------------------------
     # Core state machine
@@ -2787,6 +1770,11 @@ class ComboTrackerEngine:
     # -------------------------
 
     def process_press(self, input_name: str):
+        # Thread-safe wrapper
+        with self._lock:
+            return self._process_press_unlocked(input_name)
+
+    def _process_press_unlocked(self, input_name: str):
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return
@@ -3477,6 +2465,11 @@ class ComboTrackerEngine:
             self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
     def process_release(self, input_name: str):
+        # Thread-safe wrapper
+        with self._lock:
+            return self._process_release_unlocked(input_name)
+
+    def _process_release_unlocked(self, input_name: str):
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return
@@ -3550,9 +2543,21 @@ class ComboTrackerEngine:
         self._complete_hold(now, auto=False)
 
     def tick(self):
+        # Thread-safe wrapper
+        with self._lock:
+            return self._tick_unlocked()
+
+    def _tick_unlocked(self):
         """
         Advance time-based steps (waits / group internal waits) without requiring another input event.
         This allows wait tiles to complete/turn green automatically when the timer elapses.
+
+        Why this exists:
+        - `process_press()` only runs when the player presses something.
+        - But we want waits to "finish" in the UI even if the player pauses and does not press the next key.
+        - `ui_server.py` runs a lightweight tick loop (~50Hz) that calls `engine.tick()`.
+
+        This method intentionally does **not** start a combo; it only advances timers for an already-started attempt.
         """
         try:
             if not self.active_combo_steps:

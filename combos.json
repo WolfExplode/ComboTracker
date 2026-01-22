@@ -144,7 +144,6 @@
     "e": 1000,
     "q": 1000,
     "r": 1000,
-    "rmb": 200,
     "space": 1000
   },
   "combo_stats": {
@@ -1398,124 +1397,936 @@
     },
     "Zani Pheobe Rover Rotation": {
       "success": 0,
-      "fail": 11,
+      "fail": 134,
       "best_ms": null,
       "total_success_ms": 0,
       "fail_by_step": {
-        "16": 1,
-        "2": 6,
-        "4": 3,
-        "6": 1
+        "2": 54,
+        "4": 33,
+        "10": 2,
+        "6": 16,
+        "11": 5,
+        "7": 18,
+        "8": 3,
+        "13": 1,
+        "14": 2
       },
       "fail_by_expected": {
-        "rmb": 1,
-        "e": 6,
-        "lmb": 3,
-        "2": 1
+        "e": 56,
+        "lmb": 33,
+        "2": 17,
+        "3": 5,
+        "hold(e,\u2265350ms)": 18,
+        "r": 3,
+        "any-order(lmb|lmb|rmb|lmb|q|rmb)": 2
       },
       "fail_by_reason": {
-        "out of order": 8,
-        "wrong input": 3
+        "wrong input": 57,
+        "out of order": 35,
+        "missed input": 18,
+        "pressed too fast": 7,
+        "hold too short": 17
       },
       "fail_events": [
         {
-          "ts": 1769026643,
-          "attempt": 1,
-          "step_index": 16,
-          "expected": "rmb",
-          "actual": "2",
-          "reason": "out of order",
-          "elapsed_ms": 7996
+          "ts": 1769053386,
+          "attempt": 12,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 70ms",
+          "reason": "hold too short",
+          "elapsed_ms": 646
         },
         {
-          "ts": 1769026758,
-          "attempt": 2,
+          "ts": 1769053387,
+          "attempt": 13,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 92ms",
+          "reason": "hold too short",
+          "elapsed_ms": 666
+        },
+        {
+          "ts": 1769053952,
+          "attempt": 14,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 546
+        },
+        {
+          "ts": 1769053982,
+          "attempt": 15,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 172
+        },
+        {
+          "ts": 1769053985,
+          "attempt": 16,
           "step_index": 2,
           "expected": "e",
           "actual": "space",
           "reason": "wrong input",
-          "elapsed_ms": 216
+          "elapsed_ms": 272
         },
         {
-          "ts": 1769032060,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "out of order",
-          "elapsed_ms": 266
+          "ts": 1769054230,
+          "attempt": 17,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 102ms",
+          "reason": "hold too short",
+          "elapsed_ms": 2732
         },
         {
-          "ts": 1769032065,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "out of order",
-          "elapsed_ms": 242
+          "ts": 1769054234,
+          "attempt": 18,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 122ms",
+          "reason": "hold too short",
+          "elapsed_ms": 2424
         },
         {
-          "ts": 1769032088,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "out of order",
-          "elapsed_ms": 450
-        },
-        {
-          "ts": 1769032122,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "out of order",
-          "elapsed_ms": 186
-        },
-        {
-          "ts": 1769032177,
-          "attempt": 1,
-          "step_index": 4,
-          "expected": "lmb",
+          "ts": 1769054256,
+          "attempt": 19,
+          "step_index": 13,
+          "expected": "2",
           "actual": "e",
           "reason": "out of order",
-          "elapsed_ms": 2874
+          "elapsed_ms": 21091
         },
         {
-          "ts": 1769032238,
+          "ts": 1769054426,
+          "attempt": 20,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 70ms",
+          "reason": "hold too short",
+          "elapsed_ms": 2216
+        },
+        {
+          "ts": 1769054478,
+          "attempt": 1,
+          "step_index": 11,
+          "expected": "3",
+          "actual": "r",
+          "reason": "missed input",
+          "elapsed_ms": 7816
+        },
+        {
+          "ts": 1769054571,
           "attempt": 1,
           "step_index": 6,
           "expected": "2",
           "actual": "space",
           "reason": "wrong input",
-          "elapsed_ms": 7604
+          "elapsed_ms": 12988
         },
         {
-          "ts": 1769032239,
+          "ts": 1769054753,
+          "attempt": 1,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 596
+        },
+        {
+          "ts": 1769054905,
+          "attempt": 1,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 1162
+        },
+        {
+          "ts": 1769055271,
+          "attempt": 1,
+          "step_index": 11,
+          "expected": "3",
+          "actual": "2",
+          "reason": "out of order",
+          "elapsed_ms": 8208
+        },
+        {
+          "ts": 1769055279,
           "attempt": 2,
           "step_index": 4,
           "expected": "lmb",
-          "actual": "r",
-          "reason": "out of order",
-          "elapsed_ms": 796
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 7044
         },
         {
-          "ts": 1769032366,
+          "ts": 1769055286,
           "attempt": 3,
           "step_index": 2,
           "expected": "e",
           "actual": "space",
           "reason": "wrong input",
-          "elapsed_ms": 380
+          "elapsed_ms": 374
         },
         {
-          "ts": 1769032611,
+          "ts": 1769055479,
           "attempt": 1,
           "step_index": 4,
           "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 506
+        },
+        {
+          "ts": 1769055479,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "e",
           "actual": "r",
           "reason": "out of order",
-          "elapsed_ms": 119598
+          "elapsed_ms": 192
+        },
+        {
+          "ts": 1769056570,
+          "attempt": 1,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "missed input",
+          "elapsed_ms": 812
+        },
+        {
+          "ts": 1769056571,
+          "attempt": 2,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 460
+        },
+        {
+          "ts": 1769056647,
+          "attempt": 1,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "e",
+          "reason": "missed input",
+          "elapsed_ms": 5130
+        },
+        {
+          "ts": 1769056651,
+          "attempt": 2,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "e",
+          "reason": "missed input",
+          "elapsed_ms": 2450
+        },
+        {
+          "ts": 1769056657,
+          "attempt": 3,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "1",
+          "reason": "out of order",
+          "elapsed_ms": 1370
+        },
+        {
+          "ts": 1769056660,
+          "attempt": 4,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "e",
+          "reason": "missed input",
+          "elapsed_ms": 1610
+        },
+        {
+          "ts": 1769056676,
+          "attempt": 1,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "e",
+          "reason": "out of order",
+          "elapsed_ms": 3492
+        },
+        {
+          "ts": 1769056683,
+          "attempt": 2,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 110ms",
+          "reason": "hold too short",
+          "elapsed_ms": 5226
+        },
+        {
+          "ts": 1769056721,
+          "attempt": 1,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 1518
+        },
+        {
+          "ts": 1769056748,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 608
+        },
+        {
+          "ts": 1769056752,
+          "attempt": 3,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "e",
+          "reason": "missed input",
+          "elapsed_ms": 1248
+        },
+        {
+          "ts": 1769056753,
+          "attempt": 4,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "e",
+          "reason": "missed input",
+          "elapsed_ms": 850
+        },
+        {
+          "ts": 1769056758,
+          "attempt": 5,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "e",
+          "reason": "missed input",
+          "elapsed_ms": 3840
+        },
+        {
+          "ts": 1769056763,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 172
+        },
+        {
+          "ts": 1769056770,
+          "attempt": 7,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 568
+        },
+        {
+          "ts": 1769056772,
+          "attempt": 8,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 984
+        },
+        {
+          "ts": 1769056781,
+          "attempt": 9,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 576
+        },
+        {
+          "ts": 1769056873,
+          "attempt": 10,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 172ms",
+          "reason": "hold too short",
+          "elapsed_ms": 1068
+        },
+        {
+          "ts": 1769056888,
+          "attempt": 11,
+          "step_index": 14,
+          "expected": "any-order(lmb|lmb|rmb|lmb|q|rmb)",
+          "actual": "released @ 119ms",
+          "reason": "hold too short",
+          "elapsed_ms": 12766
+        },
+        {
+          "ts": 1769056890,
+          "attempt": 12,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 344ms",
+          "reason": "hold too short",
+          "elapsed_ms": 1004
+        },
+        {
+          "ts": 1769056965,
+          "attempt": 1,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 182
+        },
+        {
+          "ts": 1769056968,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 318
+        },
+        {
+          "ts": 1769057060,
+          "attempt": 3,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "q",
+          "reason": "out of order",
+          "elapsed_ms": 1006
+        },
+        {
+          "ts": 1769057061,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 350
+        },
+        {
+          "ts": 1769057096,
+          "attempt": 5,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 29563
+        },
+        {
+          "ts": 1769057102,
+          "attempt": 6,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 1456
+        },
+        {
+          "ts": 1769057123,
+          "attempt": 7,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 546
+        },
+        {
+          "ts": 1769057134,
+          "attempt": 8,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 388
+        },
+        {
+          "ts": 1769057153,
+          "attempt": 9,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 228
+        },
+        {
+          "ts": 1769057194,
+          "attempt": 10,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 472
+        },
+        {
+          "ts": 1769057295,
+          "attempt": 11,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 778
+        },
+        {
+          "ts": 1769057299,
+          "attempt": 12,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 202
+        },
+        {
+          "ts": 1769057444,
+          "attempt": 13,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 386
+        },
+        {
+          "ts": 1769057447,
+          "attempt": 14,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 364
+        },
+        {
+          "ts": 1769057561,
+          "attempt": 15,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 342
+        },
+        {
+          "ts": 1769057726,
+          "attempt": 1,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 916
+        },
+        {
+          "ts": 1769058535,
+          "attempt": 1,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 334ms",
+          "reason": "hold too short",
+          "elapsed_ms": 1074
+        },
+        {
+          "ts": 1769058537,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 480
+        },
+        {
+          "ts": 1769058560,
+          "attempt": 3,
+          "step_index": 10,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 21774
+        },
+        {
+          "ts": 1769058593,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 178
+        },
+        {
+          "ts": 1769058595,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 262
+        },
+        {
+          "ts": 1769058622,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 172
+        },
+        {
+          "ts": 1769058623,
+          "attempt": 7,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 224
+        },
+        {
+          "ts": 1769058840,
+          "attempt": 1,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 606
+        },
+        {
+          "ts": 1769058842,
+          "attempt": 2,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 252ms",
+          "reason": "hold too short",
+          "elapsed_ms": 808
+        },
+        {
+          "ts": 1769059210,
+          "attempt": 1,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 932
+        },
+        {
+          "ts": 1769059211,
+          "attempt": 2,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 414
+        },
+        {
+          "ts": 1769059212,
+          "attempt": 3,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 408
+        },
+        {
+          "ts": 1769059228,
+          "attempt": 4,
+          "step_index": 14,
+          "expected": "any-order(lmb|lmb|rmb|lmb|q|rmb)",
+          "actual": "released @ 99ms",
+          "reason": "hold too short",
+          "elapsed_ms": 15408
+        },
+        {
+          "ts": 1769059274,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 182
+        },
+        {
+          "ts": 1769059277,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 812
+        },
+        {
+          "ts": 1769059290,
+          "attempt": 7,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 496
+        },
+        {
+          "ts": 1769059298,
+          "attempt": 8,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 604
+        },
+        {
+          "ts": 1769059324,
+          "attempt": 9,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "e",
+          "reason": "out of order",
+          "elapsed_ms": 1526
+        },
+        {
+          "ts": 1769059427,
+          "attempt": 1,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 680
+        },
+        {
+          "ts": 1769059448,
+          "attempt": 1,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "released @ 200ms",
+          "reason": "hold too short",
+          "elapsed_ms": 1394
+        },
+        {
+          "ts": 1769059524,
+          "attempt": 2,
+          "step_index": 11,
+          "expected": "3",
+          "actual": "e",
+          "reason": "missed input",
+          "elapsed_ms": 75851
+        },
+        {
+          "ts": 1769059550,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 238
+        },
+        {
+          "ts": 1769059563,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 414
+        },
+        {
+          "ts": 1769059640,
+          "attempt": 5,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 74458
+        },
+        {
+          "ts": 1769059686,
+          "attempt": 1,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "r",
+          "reason": "missed input",
+          "elapsed_ms": 3300
+        },
+        {
+          "ts": 1769059723,
+          "attempt": 2,
+          "step_index": 8,
+          "expected": "r",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 35313
+        },
+        {
+          "ts": 1769059854,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 772
+        },
+        {
+          "ts": 1769059858,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 375
+        },
+        {
+          "ts": 1769059860,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 566
+        },
+        {
+          "ts": 1769059867,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 175
+        },
+        {
+          "ts": 1769059927,
+          "attempt": 7,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 518
+        },
+        {
+          "ts": 1769060043,
+          "attempt": 8,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 66972
+        },
+        {
+          "ts": 1769060046,
+          "attempt": 9,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 296
+        },
+        {
+          "ts": 1769060181,
+          "attempt": 10,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 210
+        },
+        {
+          "ts": 1769060293,
+          "attempt": 11,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 726
+        },
+        {
+          "ts": 1769060426,
+          "attempt": 12,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 60682
+        },
+        {
+          "ts": 1769060443,
+          "attempt": 13,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 264
+        },
+        {
+          "ts": 1769060450,
+          "attempt": 14,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 210
+        },
+        {
+          "ts": 1769060592,
+          "attempt": 15,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "e",
+          "reason": "out of order",
+          "elapsed_ms": 75363
+        },
+        {
+          "ts": 1769060607,
+          "attempt": 16,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 424
+        },
+        {
+          "ts": 1769060649,
+          "attempt": 17,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 1046
+        },
+        {
+          "ts": 1769060650,
+          "attempt": 18,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 596
+        },
+        {
+          "ts": 1769060661,
+          "attempt": 19,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 202
+        },
+        {
+          "ts": 1769060674,
+          "attempt": 20,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 232
+        },
+        {
+          "ts": 1769060834,
+          "attempt": 21,
+          "step_index": 7,
+          "expected": "hold(e,\u2265350ms)",
+          "actual": "3",
+          "reason": "out of order",
+          "elapsed_ms": 954
+        },
+        {
+          "ts": 1769060835,
+          "attempt": 22,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "pressed too fast",
+          "elapsed_ms": 374
         }
       ]
     }

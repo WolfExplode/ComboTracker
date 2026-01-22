@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Combo Trainer</title>
     <link rel="stylesheet" href="style.css">
+<base target="_blank">
 </head>
 <body>
     <div class="container">
@@ -97,6 +98,11 @@
                         <input type="checkbox" id="stepDisplayToggle">
                         <span class="toggle-slider"></span>
                     </label>
+                     <span class="toggle-label">Auto scroll</span>
+                     <label class="toggle-switch" title="Auto scroll combo steps as you advance">
+                         <input type="checkbox" id="autoScrollToggle">
+                         <span class="toggle-slider"></span>
+                     </label>
                 </div>
             </div>
             <details class="collapsible" id="keyImagesDetails">
@@ -114,8 +120,10 @@
                     <div id="wwAbilityEditor" class="ww-ability-editor"></div>
                 </div>
             </details>
-            <div id="comboTimeline" class="timeline">
-                <!-- Steps will be rendered here -->
+            <div id="comboTimelineViewport" class="timeline-viewport">
+                <div id="comboTimeline" class="timeline timeline-track">
+                    <!-- Steps will be rendered here -->
+                </div>
             </div>
         </section>
 

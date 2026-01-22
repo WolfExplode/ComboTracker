@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import os
 import threading
 import time
 from http.server import SimpleHTTPRequestHandler
@@ -10,6 +12,8 @@ import websockets
 from pynput import keyboard, mouse
 
 from combo_engine import ComboTrackerEngine
+
+logger = logging.getLogger(__name__)
 
 
 HOST_HTTP = "localhost"
@@ -53,7 +57,8 @@ def make_threadsafe_emitter(loop: asyncio.AbstractEventLoop):
         try:
             asyncio.run_coroutine_threadsafe(broadcast_dict(payload), loop)
         except Exception:
-            pass
+            # Don't let UI emit plumbing crash the engine, but keep breadcrumbs.
+            logger.debug("Emitter failed to schedule broadcast", exc_info=True)
 
     return emit
 
@@ -165,7 +170,21 @@ def start_input_listeners():
 engine = ComboTrackerEngine()
 
 
+def setup_logging():
+    """
+    Minimal app-level logging.
+    Use `COMBOTRACKER_LOG_LEVEL` env var (e.g. DEBUG/INFO/WARNING).
+    """
+    level_name = str(os.environ.get("COMBOTRACKER_LOG_LEVEL") or "INFO").strip().upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
+
 def main():
+    setup_logging()
     # Static UI
     http_thread = threading.Thread(target=serve_static, daemon=True)
     http_thread.start()
@@ -180,11 +199,16 @@ def main():
     # Tick loop: advance time-based steps (waits / group waits) without requiring another input event.
     # This makes wait tiles complete/turn green automatically when their timer elapses.
     def tick_loop():
+        last_log = 0.0
         while True:
             try:
                 engine.tick()
             except Exception:
-                pass
+                # Avoid spamming logs at ~50Hz if something starts throwing.
+                now = time.time()
+                if now - last_log >= 5.0:
+                    last_log = now
+                    logger.exception("engine.tick() failed")
             time.sleep(0.02)  # ~50Hz
 
     tick_thread = threading.Thread(target=tick_loop, daemon=True)
