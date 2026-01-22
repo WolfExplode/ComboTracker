@@ -68,10 +68,10 @@ function normalizeTargetGame(v) {
 function ensureWwAbilityShape(obj) {
     const out = { "1": {}, "2": {}, "3": {} };
     if (!obj || typeof obj !== 'object') return out;
-    ['1','2','3'].forEach(c => {
+    ['1', '2', '3'].forEach(c => {
         const m = obj[c];
         if (m && typeof m === 'object') {
-            ['e','q','r'].forEach(a => {
+            ['e', 'q', 'r'].forEach(a => {
                 const url = (m[a] || '').toString().trim();
                 if (url) out[c][a] = url;
             });
@@ -83,7 +83,7 @@ function ensureWwAbilityShape(obj) {
 function ensureWwSwapShape(obj) {
     const out = { "1": "", "2": "", "3": "" };
     if (!obj || typeof obj !== 'object') return out;
-    ['1','2','3'].forEach(k => {
+    ['1', '2', '3'].forEach(k => {
         const url = (obj[k] || '').toString().trim();
         if (url) out[k] = url;
     });
@@ -93,7 +93,7 @@ function ensureWwSwapShape(obj) {
 function ensureWwLmbShape(obj) {
     const out = { "1": "", "2": "", "3": "" };
     if (!obj || typeof obj !== 'object') return out;
-    ['1','2','3'].forEach(k => {
+    ['1', '2', '3'].forEach(k => {
         const url = (obj[k] || '').toString().trim();
         if (url) out[k] = url;
     });
@@ -131,8 +131,8 @@ function readWwAbilityFromUI() {
         const c = (inp.getAttribute('data-char') || '').trim();
         const a = (inp.getAttribute('data-ability') || '').trim().toLowerCase();
         const url = (inp.value || '').toString().trim();
-        if (!['1','2','3'].includes(c)) return;
-        if (!['e','q','r'].includes(a)) return;
+        if (!['1', '2', '3'].includes(c)) return;
+        if (!['e', 'q', 'r'].includes(a)) return;
         if (url) next[c][a] = url;
     });
     currentWwAbilityImages = next;
@@ -145,7 +145,7 @@ function readWwSwapFromUI() {
     const next = { "1": "", "2": "", "3": "" };
     inputs.forEach(inp => {
         const c = (inp.getAttribute('data-swap') || '').trim();
-        if (!['1','2','3'].includes(c)) return;
+        if (!['1', '2', '3'].includes(c)) return;
         const url = (inp.value || '').toString().trim();
         next[c] = url;
     });
@@ -159,7 +159,7 @@ function readWwLmbFromUI() {
     const next = { "1": "", "2": "", "3": "" };
     inputs.forEach(inp => {
         const c = (inp.getAttribute('data-lmb') || '').trim();
-        if (!['1','2','3'].includes(c)) return;
+        if (!['1', '2', '3'].includes(c)) return;
         next[c] = (inp.value || '').toString().trim();
     });
     currentWwLmbImages = next;
@@ -234,8 +234,8 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
     dashBox.appendChild(dashControls);
     container.appendChild(dashBox);
 
-    const abilities = ['e','q','r'];
-    ['1','2','3'].forEach(c => {
+    const abilities = ['e', 'q', 'r'];
+    ['1', '2', '3'].forEach(c => {
         const box = document.createElement('div');
         box.className = 'ww-ability-char';
 
@@ -689,7 +689,7 @@ function setEditorFields(editor) {
         toggleEl.checked = (m === 'images');
         currentStepDisplayMode = toggleEl.checked ? 'images' : 'icons';
     }
-    currentKeyImages = (editor.key_images && typeof editor.key_images === 'object') ? {...editor.key_images} : {};
+    currentKeyImages = (editor.key_images && typeof editor.key_images === 'object') ? { ...editor.key_images } : {};
     renderKeyImagesEditor();
 
     // New: target game
@@ -975,7 +975,7 @@ function updateTimeline(steps) {
                         // Display as:
                         // R
                         // animation time 1500ms
-                        child.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${item.duration}ms`)}${cornerKeyHtml(k)}`;
+                        child.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`${item.duration}ms`)}${cornerKeyHtml(k)}`;
                         maybeSwapChar((k || '').toString().trim().toLowerCase());
                     } else {
                         let label = 'wait';
@@ -985,6 +985,7 @@ function updateTimeline(steps) {
                     child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
                 } else if (item.type === 'press_wait') {
                     child.classList.add('press-wait');
+                    if (item.duration <= 100) child.classList.add('short-wait');
                     const k = (item.input || '').toString().trim().toLowerCase();
                     child.innerHTML = `${primaryHtml(k)}${secondaryHtml(`${item.duration}ms`)}${cornerKeyHtml(k)}`;
                     child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
@@ -1024,21 +1025,23 @@ function updateTimeline(steps) {
             if (m === 'missed') div.classList.add('mark-missed');
             if (m === 'wrong') div.classList.add('mark-wrong');
         }
-        
+
         if (step.type === 'press_wait') {
             // A key immediately followed by a wait gate, rendered as one tile:
             // key (big) + "100ms" (small) + wait progress fill.
             div.classList.add('press-wait');
+            if (step.duration <= 100) div.classList.add('short-wait');
             const k = (step.input || '').toString().trim().toLowerCase();
             div.innerHTML = `${primaryHtml(k)}${secondaryHtml(`${step.duration}ms`)}${cornerKeyHtml(k)}`;
             div.style.setProperty('--wait-pct', step.completed ? '100%' : '0%');
             maybeSwapChar(k);
         } else if (step.type === 'wait') {
             div.classList.add('wait');
+            if (step.duration <= 100) div.classList.add('short-wait');
             const mode = (step.mode || 'soft').toLowerCase();
             if (mode === 'mandatory') {
                 const k = (step.wait_for || '').toString().trim();
-                div.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`animation time ${step.duration}ms`)}${cornerKeyHtml(k)}`;
+                div.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`${step.duration}ms`)}${cornerKeyHtml(k)}`;
                 maybeSwapChar((k || '').toString().trim().toLowerCase());
             } else {
                 let label = 'wait';
@@ -1060,10 +1063,10 @@ function updateTimeline(steps) {
             div.innerHTML = `${primaryHtml(k)}${cornerKeyHtml(k)}`;
             maybeSwapChar(k);
         }
-        
+
         if (step.active) div.classList.add('active');
         if (step.completed) div.classList.add('completed');
-        
+
         timeline.appendChild(div);
     });
 
@@ -1086,19 +1089,19 @@ function addResultRow(data) {
     const body = document.getElementById('resultsBody');
     const row = document.createElement('div');
     row.className = 'result-row';
-    
+
     if (data.split_ms === 'FAIL') {
         row.classList.add('fail');
     } else {
         row.classList.add('success');
     }
-    
+
     row.innerHTML = `
         <span>${escapeHtml(data.input)}</span>
         <span>${data.split_ms}</span>
         <span>${data.total_ms}</span>
     `;
-    
+
     body.appendChild(row);
     scrollToBottom('resultsTable');
 }
@@ -1114,7 +1117,7 @@ function clearAttemptLog() {
 function updateFailures(failures) {
     const body = document.getElementById('failBody');
     body.innerHTML = '';
-    
+
     const labels = {
         'pressed too fast': 'pressed too fast (during wait)',
         'missed input': 'missed input (skipped step)',
@@ -1163,7 +1166,7 @@ document.getElementById('saveBtn').onclick = () => {
 };
 
 document.getElementById('newBtn').onclick = () => {
-    ws.send(JSON.stringify({type: 'new_combo'}));
+    ws.send(JSON.stringify({ type: 'new_combo' }));
 };
 
 // Delete combo (two-click confirm)
@@ -1171,16 +1174,16 @@ attachTwoClickConfirm(document.getElementById('deleteBtn'), {
     confirmText: 'Confirm delete',
     onConfirm: () => {
         const name = document.getElementById('comboSelector')?.value;
-        if (name) ws.send(JSON.stringify({type: 'delete_combo', name}));
+        if (name) ws.send(JSON.stringify({ type: 'delete_combo', name }));
     }
 });
 
 document.getElementById('clearBtn').onclick = () => {
-    ws.send(JSON.stringify({type: 'clear_history'}));
+    ws.send(JSON.stringify({ type: 'clear_history' }));
 };
 
 document.getElementById('comboSelector').onchange = (e) => {
-    ws.send(JSON.stringify({type: 'select_combo', name: e.target.value}));
+    ws.send(JSON.stringify({ type: 'select_combo', name: e.target.value }));
 };
 
 // Helper functions

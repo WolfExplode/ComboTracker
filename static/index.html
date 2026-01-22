@@ -1,80 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Combo Trainer</title>
     <link rel="stylesheet" href="style.css">
-<base target="_blank">
+    <base target="_blank">
 </head>
+
 <body>
     <div class="container">
-        
+
         <!-- SECTION 1: Combo -->
         <section class="section">
-            <h2>Combo Input</h2>
-            <div class="form-grid">
-                <label>Selected:</label>
-                <div class="two-col-row">
-                    <select id="comboSelector">
-                        <option value="">— Select Combo —</option>
-                    </select>
-                    <input type="text" id="comboName" placeholder="Combo name">
+            <details open class="section-details">
+                <summary>
+                    <h2>Combo Input</h2>
+                </summary>
+                <div class="form-grid">
+                    <label>Selected:</label>
+                    <div class="two-col-row">
+                        <select id="comboSelector">
+                            <option value="">— Select Combo —</option>
+                        </select>
+                        <input type="text" id="comboName" placeholder="Combo name">
+                    </div>
+
+                    <label>Manage:</label>
+                    <div class="two-col-buttons">
+                        <button id="saveBtn" type="button">Save / Update</button>
+                        <button id="newBtn" type="button">New Combo</button>
+                        <button id="deleteBtn" type="button" class="danger">Delete</button>
+                    </div>
+
+                    <label>Inputs:</label>
+                    <textarea id="comboInputs" rows="3"
+                        placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
+
+                    <div class="help-text">
+                        LMB, RMB, MMB for mouse. Hold: hold(space,0.2) or space{200ms}. Wait (soft): wait:0.5 (or
+                        wait_soft:0.5). Hard wait: wait_hard:0.5 (early press drops combo).
+                        Any-order group: [q, e] means press BOTH q and e in any order.
+                        Animation lock: wait(r, 1.5) means press r, then mandatory wait ≥ 1.5s (inputs ignored).
+                        Combined: [wait(r, 1.5), q, e] means press r/q/e in any order; r triggers the animation lock
+                        inside
+                        the group.
+                    </div>
+
+                    <label>Expected time:</label>
+                    <input type="text" id="comboExpectedTime" placeholder="e.g., 1.05s or 1050ms">
+
+                    <label>Your difficulty:</label>
+                    <input type="text" id="comboUserDifficulty" placeholder="0–10 (optional)">
+
+                    <label>Combo Enders:</label>
+                    <input type="text" id="comboEnders" placeholder="q:0.2, e:0.2, lmb, 1, 2, 3">
                 </div>
-
-                <label>Manage:</label>
-                <div class="two-col-buttons">
-                    <button id="saveBtn" type="button">Save / Update</button>
-                    <button id="newBtn" type="button">New Combo</button>
-                    <button id="deleteBtn" type="button" class="danger">Delete</button>
-                </div>
-
-                <label>Inputs:</label>
-                <textarea id="comboInputs" rows="3" placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
-                
-                <div class="help-text">
-                    LMB, RMB, MMB for mouse. Hold: hold(space,0.2) or space{200ms}. Wait (soft): wait:0.5 (or wait_soft:0.5). Hard wait: wait_hard:0.5 (early press drops combo).
-                    Any-order group: [q, e] means press BOTH q and e in any order.
-                    Animation lock: wait(r, 1.5) means press r, then mandatory wait ≥ 1.5s (inputs ignored).
-                    Combined: [wait(r, 1.5), q, e] means press r/q/e in any order; r triggers the animation lock inside the group.
-                </div>
-
-                <label>Expected time:</label>
-                <input type="text" id="comboExpectedTime" placeholder="e.g., 1.05s or 1050ms">
-
-                <label>Your difficulty:</label>
-                <input type="text" id="comboUserDifficulty" placeholder="0–10 (optional)">
-
-                <label>Combo Enders:</label>
-                <input type="text" id="comboEnders" placeholder="q:0.2, e:0.2, lmb, 1, 2, 3">
-            </div>
+            </details>
         </section>
 
         <!-- SECTION 2: Target game -->
         <section class="section">
-            <h3>Target game</h3>
-            <div class="form-grid">
-                <label>Game:</label>
-                <select id="targetGameSelect">
-                    <option value="generic">Generic</option>
-                    <option value="wuthering_waves">Wuthering Waves</option>
-                </select>
+            <details open class="section-details">
+                <summary>
+                    <h3>Target game</h3>
+                </summary>
+                <div class="form-grid">
+                    <label>Game:</label>
+                    <select id="targetGameSelect">
+                        <option value="generic">Generic</option>
+                        <option value="wuthering_waves">Wuthering Waves</option>
+                    </select>
 
-                <label id="wwTeamLabel" class="hidden">Team:</label>
-                <div id="wwTeamControls" class="hidden">
-                    <div class="ww-team-row">
-                        <select id="wwTeamSelect">
-                            <option value="">— New Team —</option>
-                        </select>
-                        <input type="text" id="wwTeamName" placeholder="Team name">
-                    </div>
-                    <div class="ww-team-buttons">
-                        <button id="saveTeamBtn" type="button">Save / Update</button>
-                        <button id="newTeamBtn" type="button">New Team</button>
-                        <button id="deleteTeamBtn" type="button" class="danger">Delete</button>
+                    <label id="wwTeamLabel" class="hidden">Team:</label>
+                    <div id="wwTeamControls" class="hidden">
+                        <div class="ww-team-row">
+                            <select id="wwTeamSelect">
+                                <option value="">— New Team —</option>
+                            </select>
+                            <input type="text" id="wwTeamName" placeholder="Team name">
+                        </div>
+                        <div class="ww-team-buttons">
+                            <button id="saveTeamBtn" type="button">Save / Update</button>
+                            <button id="newTeamBtn" type="button">New Team</button>
+                            <button id="deleteTeamBtn" type="button" class="danger">Delete</button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </details>
         </section>
 
         <!-- SECTION 3: Status & Stats -->
@@ -89,7 +103,7 @@
         </section>
 
         <!-- SECTION 4: Visual Combo Timeline -->
-        <section class="section">
+        <section class="section timeline-section">
             <div class="combo-steps-header">
                 <h2 style="margin: 0;">Combo Steps</h2>
                 <div class="combo-steps-controls">
@@ -98,18 +112,19 @@
                         <input type="checkbox" id="stepDisplayToggle">
                         <span class="toggle-slider"></span>
                     </label>
-                     <span class="toggle-label">Auto scroll</span>
-                     <label class="toggle-switch" title="Auto scroll combo steps as you advance">
-                         <input type="checkbox" id="autoScrollToggle">
-                         <span class="toggle-slider"></span>
-                     </label>
+                    <span class="toggle-label">Auto scroll</span>
+                    <label class="toggle-switch" title="Auto scroll combo steps as you advance">
+                        <input type="checkbox" id="autoScrollToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
             </div>
             <details class="collapsible" id="keyImagesDetails">
                 <summary>Key images</summary>
                 <div class="collapsible-body">
                     <div class="help-text" style="margin: 0 0 8px 0;">
-                        Paste an image URL per key (leave blank to use the default icon/text). Keys are parsed from Inputs.
+                        Paste an image URL per key (leave blank to use the default icon/text). Keys are parsed from
+                        Inputs.
                     </div>
                     <div id="keyImagesEditor" class="key-images-editor"></div>
                 </div>
@@ -159,4 +174,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

@@ -38,10 +38,11 @@ body {
     border-radius: var(--border-radius);
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-h2, h3 {
+h2,
+h3 {
     margin-bottom: 15px;
     color: var(--text-primary);
 }
@@ -66,7 +67,9 @@ label {
     color: var(--text-secondary);
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
     background: var(--bg-primary);
     color: var(--text-primary);
     border: 1px solid #444;
@@ -77,7 +80,9 @@ input, textarea, select {
     transition: var(--transition);
 }
 
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
     outline: none;
     border-color: var(--accent-blue);
     box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
@@ -233,12 +238,12 @@ button.danger:hover {
     transition: var(--transition);
 }
 
-.toggle-switch input:checked + .toggle-slider {
+.toggle-switch input:checked+.toggle-slider {
     background: rgba(74, 158, 255, 0.28);
     border-color: rgba(74, 158, 255, 0.55);
 }
 
-.toggle-switch input:checked + .toggle-slider:before {
+.toggle-switch input:checked+.toggle-slider:before {
     transform: translateX(19px);
 }
 
@@ -249,7 +254,7 @@ button.danger:hover {
     background: rgba(0, 0, 0, 0.10);
 }
 
-.collapsible > summary {
+.collapsible>summary {
     cursor: pointer;
     padding: 10px 12px;
     list-style: none;
@@ -257,18 +262,18 @@ button.danger:hover {
     color: var(--text-secondary);
 }
 
-.collapsible > summary::-webkit-details-marker {
+.collapsible>summary::-webkit-details-marker {
     display: none;
 }
 
-.collapsible > summary:after {
+.collapsible>summary:after {
     content: "▾";
     float: right;
     opacity: 0.8;
     transition: transform 140ms ease;
 }
 
-.collapsible[open] > summary:after {
+.collapsible[open]>summary:after {
     transform: rotate(180deg);
 }
 
@@ -278,6 +283,56 @@ button.danger:hover {
 
 .hidden {
     display: none !important;
+}
+
+/* Collapsible Sections (New) */
+.section-details>summary {
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    outline: none;
+}
+
+.section-details>summary::-webkit-details-marker {
+    display: none;
+}
+
+.section-details>summary::after {
+    content: "▼";
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    height: fit-content;
+    margin: auto;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    /* or accent color? */
+    transition: transform 0.2s;
+    opacity: 0.5;
+    pointer-events: none;
+    /* Allow click to pass through if placed weirdly */
+}
+
+.section-details[open]>summary::after {
+    transform: rotate(180deg);
+}
+
+/* Remove default margins from headers inside summary to control spacing better 
+   or let them be. The h2 has a border-bottom, we want that to persist. */
+.section-details>summary h2,
+.section-details>summary h3 {
+    margin-top: 0;
+    padding-right: 30px;
+    /* Make room for arrow */
+}
+
+/* When collapsed, we might want less margin bottom on the header? */
+.section-details:not([open])>summary h2,
+.section-details:not([open])>summary h3 {
+    margin-bottom: 0;
+    border-bottom: none;
+    /* Optional: cleaner look when collapsed */
 }
 
 /* Wuthering Waves team controls */
@@ -406,24 +461,59 @@ select {
     text-align: center;
 }
 
-.status-ready { background: var(--bg-primary); color: var(--text-secondary); }
-.status-neutral { background: var(--bg-primary); color: var(--text-secondary); }
-.status-recording { background: rgba(74, 255, 136, 0.15); color: var(--accent-green); }
-.status-success { background: rgba(74, 255, 136, 0.25); color: var(--accent-green); }
-.status-fail { background: rgba(255, 74, 74, 0.25); color: var(--accent-red); }
-.status-wait { background: rgba(255, 221, 74, 0.15); color: var(--accent-yellow); }
+.status-ready {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
 
-.time-display, .stats-display {
+.status-neutral {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
+
+.status-recording {
+    background: rgba(74, 255, 136, 0.15);
+    color: var(--accent-green);
+}
+
+.status-success {
+    background: rgba(74, 255, 136, 0.25);
+    color: var(--accent-green);
+}
+
+.status-fail {
+    background: rgba(255, 74, 74, 0.25);
+    color: var(--accent-red);
+}
+
+.status-wait {
+    background: rgba(255, 221, 74, 0.15);
+    color: var(--accent-yellow);
+}
+
+.time-display,
+.stats-display {
     color: var(--text-secondary);
     font-size: 0.9rem;
     text-align: center;
 }
 
 /* Difficulty color coding */
-.diff-easy { color: var(--accent-green); }
-.diff-med { color: var(--accent-yellow); }
-.diff-hard { color: #ff9a4a; }
-.diff-insane { color: var(--accent-red); }
+.diff-easy {
+    color: var(--accent-green);
+}
+
+.diff-med {
+    color: var(--accent-yellow);
+}
+
+.diff-hard {
+    color: #ff9a4a;
+}
+
+.diff-insane {
+    color: var(--accent-red);
+}
 
 /* Timeline Base */
 .timeline-viewport {
@@ -436,13 +526,11 @@ select {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-        to right,
-        rgba(26, 26, 26, 1) 0%,
-        rgba(26, 26, 26, 0) 18%,
-        rgba(26, 26, 26, 0) 82%,
-        rgba(26, 26, 26, 1) 100%
-    );
+    background: linear-gradient(to right,
+            rgba(26, 26, 26, 1) 0%,
+            rgba(26, 26, 26, 0) 18%,
+            rgba(26, 26, 26, 0) 82%,
+            rgba(26, 26, 26, 1) 100%);
     pointer-events: none;
     z-index: 2;
 }
@@ -553,12 +641,14 @@ select {
     font-family: 'Fira Code', monospace;
     font-size: 12px;
     position: relative;
-    white-space: pre-line; /* allow \n in wait/hold labels to render as line breaks */
+    white-space: pre-line;
+    /* allow \n in wait/hold labels to render as line breaks */
     min-height: 58px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center; /* center-center */
+    justify-content: center;
+    /* center-center */
     line-height: 1.2;
 }
 
@@ -691,66 +781,69 @@ select {
     display: inline-block;
 }
 
-.hold-label { margin-top: 4px; }
+.hold-label {
+    margin-top: 4px;
+}
 
 .step.wait {
     border-color: var(--accent-yellow);
     --wait-pct: 0%;
-    background: linear-gradient(
-        to right,
-        rgba(255, 221, 74, 0.22) 0%,
-        rgba(255, 221, 74, 0.22) var(--wait-pct),
-        var(--bg-primary) var(--wait-pct),
-        var(--bg-primary) 100%
-    );
+    background: linear-gradient(to right,
+            rgba(255, 221, 74, 0.22) 0%,
+            rgba(255, 221, 74, 0.22) var(--wait-pct),
+            var(--bg-primary) var(--wait-pct),
+            var(--bg-primary) 100%);
 }
 
 /* If the combo completes successfully, completed should always win (green), even for wait tiles. */
 .step.wait.completed,
 .step.press-wait.completed {
     border-color: var(--accent-green);
-    background: linear-gradient(
-        to right,
-        rgba(74, 255, 136, 0.22) 0%,
-        rgba(74, 255, 136, 0.22) var(--wait-pct),
-        var(--bg-primary) var(--wait-pct),
-        var(--bg-primary) 100%
-    );
+    background: linear-gradient(to right,
+            rgba(74, 255, 136, 0.22) 0%,
+            rgba(74, 255, 136, 0.22) var(--wait-pct),
+            var(--bg-primary) var(--wait-pct),
+            var(--bg-primary) 100%);
 }
 
 /* Press + wait (animation time right after a key): keep the yellow fill, but don't use a bright yellow border */
 .step.press-wait {
-    border-color: rgba(255, 221, 74, 0.22); /* subtle */
+    border-color: rgba(255, 221, 74, 0.22);
+    /* subtle */
     --wait-pct: 0%;
-    background: linear-gradient(
-        to right,
-        rgba(255, 221, 74, 0.22) 0%,
-        rgba(255, 221, 74, 0.22) var(--wait-pct),
-        var(--bg-primary) var(--wait-pct),
-        var(--bg-primary) 100%
-    );
+    background: linear-gradient(to right,
+            rgba(255, 221, 74, 0.22) 0%,
+            rgba(255, 221, 74, 0.22) var(--wait-pct),
+            var(--bg-primary) var(--wait-pct),
+            var(--bg-primary) 100%);
 }
 
 .step.hold {
     border-color: var(--accent-blue);
     border-style: dashed;
     --hold-pct: 0%;
-    background: linear-gradient(
-        to right,
-        rgba(74, 255, 136, 0.22) 0%,
-        rgba(74, 255, 136, 0.22) var(--hold-pct),
-        var(--bg-primary) var(--hold-pct),
-        var(--bg-primary) 100%
-    );
+    background: linear-gradient(to right,
+            rgba(74, 255, 136, 0.22) 0%,
+            rgba(74, 255, 136, 0.22) var(--hold-pct),
+            var(--bg-primary) var(--hold-pct),
+            var(--bg-primary) 100%);
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
 }
 
 /* Tables */
-.results-table, .fail-table {
+.results-table,
+.fail-table {
     max-height: 300px;
     overflow-y: auto;
     border: 1px solid #333;
@@ -767,11 +860,13 @@ select {
     top: 0;
 }
 
-#resultsBody, #failBody {
+#resultsBody,
+#failBody {
     display: contents;
 }
 
-.result-row, .fail-row {
+.result-row,
+.fail-row {
     display: grid;
     grid-template-columns: 1fr 100px 100px;
     padding: 6px 10px;
@@ -780,12 +875,13 @@ select {
     transition: var(--transition);
 }
 
-.result-row:hover, .fail-row:hover {
+.result-row:hover,
+.fail-row:hover {
     background: var(--bg-hover);
 }
 
 .result-row:nth-child(odd) {
-    background: rgba(255,255,255,0.02);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .result-row.success {
@@ -876,4 +972,115 @@ select {
 .timeline-viewport.auto-scroll-on .corner-key {
     position: static !important;
     margin-left: auto !important;
+}
+
+/* ============================================================================
+   OBS OVERLAY MODE: Pure black background for Section 4
+   ============================================================================ */
+
+/* Make the timeline section container pure black */
+.timeline-section {
+    background: #000000 !important;
+    /* Pure black for OBS blending */
+    --bg-primary: #000000;
+    /* Set local variable so steps inherit black base */
+    padding: 20px;
+    /* Keep padding but remove rounded corners if needed */
+    border-radius: 0;
+    /* Optional: remove rounded corners for clean edges */
+}
+
+/* Remove transparency from collapsible panels inside timeline section */
+.timeline-section .collapsible {
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    /* Subtle borders */
+}
+
+.timeline-section .collapsible-body {
+    background: transparent !important;
+}
+
+/* Ensure the viewport and timeline track are transparent */
+.timeline-section .timeline-viewport,
+.timeline-section .timeline {
+    background: transparent !important;
+}
+
+/* Make standard step borders brighter for OBS visibility */
+.timeline-section .step {
+    border-color: #808080;
+    /* Brighter grey (vs #444) for visibility against black */
+}
+
+/* RESTORE COLORED HUES for specific states (override the default grey above) */
+.timeline-section .step.wait,
+.timeline-section .step.press-wait {
+    border-color: var(--accent-yellow);
+}
+
+/* Short waits (<= 100ms): Less intense yellow border */
+.timeline-section .step.press-wait.short-wait,
+.timeline-section .step.wait.short-wait {
+    border-color: rgba(255, 221, 74, 0.35);
+}
+
+.timeline-section .step.hold {
+    border-color: var(--accent-blue);
+}
+
+.timeline-section .step.completed,
+.timeline-section .step.mark-ok {
+    border-color: var(--accent-green);
+}
+
+.timeline-section .step.mark-missed,
+.timeline-section .step.mark-wrong,
+.timeline-section .step.mark-early {
+    border-color: var(--accent-red);
+}
+
+.timeline-section .step.active {
+    border-color: var(--accent-blue);
+}
+
+
+/* Make primary text (keys) pure white */
+.timeline-section .step .step-primary,
+.timeline-section .step .mouse-icon {
+    color: #ffffff;
+}
+
+/* Make secondary text (wait times etc) brighter */
+.timeline-section .step .step-secondary {
+    color: #d0d0d0;
+    /* Brighter than standard #a0a0a0 */
+}
+
+/* Make corner keys (small indicators) brighter */
+.timeline-section .step .corner-key {
+    color: #bbbbbb;
+}
+
+/* Keep group containers transparent so black shows through */
+.timeline-section .step-group {
+    background: rgba(0, 0, 0, 0.2) !important;
+    /* Very subtle dark background */
+    border-color: rgba(200, 200, 200, 0.3) !important;
+    /* Lighter dashed border */
+}
+
+/* Ensure header and controls are transparent */
+.timeline-section .combo-steps-header,
+.timeline-section .combo-steps-controls {
+    background: transparent !important;
+}
+
+/* Update the viewport fade gradient to black for OBS blending */
+.timeline-section .timeline-viewport::before {
+    background: linear-gradient(to right,
+            rgba(0, 0, 0, 1) 0%,
+            rgba(0, 0, 0, 0) 18%,
+            rgba(0, 0, 0, 0) 82%,
+            rgba(0, 0, 0, 1) 100%) !important;
 }
