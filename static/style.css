@@ -546,7 +546,8 @@ select {
 
 /* Auto-scroll timeline */
 .timeline-viewport.auto-scroll-on {
-    height: 100px;
+    height: 120px;
+    /* Restored to fit vertical stack */
     display: block;
 }
 
@@ -560,8 +561,8 @@ select {
     flex-wrap: nowrap !important;
     gap: 10px;
     align-items: center !important;
-    height: auto;
-    min-height: 0;
+    height: 100%;
+    /* Fill the container height */
     padding: 0 50%;
     margin: 0;
     transition: transform 0.15s ease-out;
@@ -850,6 +851,15 @@ select {
     border-radius: 4px;
 }
 
+.timeline-viewport.auto-scroll-on .step,
+.timeline-viewport.auto-scroll-on .step-group,
+.timeline-viewport.auto-scroll-on .step-group-items,
+.timeline-viewport.auto-scroll-on .step.group-item {
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+    white-space: nowrap !important;
+}
+
 .table-header {
     display: grid;
     grid-template-columns: 1fr 100px 100px;
@@ -934,32 +944,40 @@ select {
     justify-content: flex-start !important;
 }
 
-/* CRITICAL: Change step from column to row and kill all wrapping */
+/* CRITICAL: Change step from column to row and kill all wrapping, but keep some height */
 .timeline-viewport.auto-scroll-on .step {
-    flex-direction: row !important;
+    flex-direction: column !important;
+    /* Stack text under key */
+    justify-content: center !important;
     flex-wrap: nowrap !important;
     white-space: nowrap !important;
-    min-height: auto !important;
+    min-height: 60px !important;
+    /* Restore some height */
     min-width: 0 !important;
-    gap: 6px !important;
-    padding: 4px 10px !important;
+    gap: 2px !important;
+    /* Small gap between key and text */
+    padding: 6px 18px !important;
+    /* More padding */
+    display: inline-flex !important;
+    align-items: center !important;
 }
 
 /* Force every single child element to be inline and never wrap */
 .timeline-viewport.auto-scroll-on .step * {
-    display: inline-block !important;
     white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
     margin: 0 !important;
     padding: 0 !important;
-    line-height: 1 !important;
+    /* Removed line-height: 1 override which might be squishing text */
 }
 
 /* Text elements need specific sizing to prevent overflow */
 .timeline-viewport.auto-scroll-on .step-secondary {
-    font-size: 10px !important;
-    max-width: 60px !important;
+    font-size: 11px !important;
+    /* Slightly larger */
+    max-width: none !important;
+    /* Allow width to flow */
+    margin: 0 !important;
+    /* No margin needed for vertical stack */
 }
 
 /* Keep group items compact */
@@ -969,9 +987,15 @@ select {
 }
 
 /* Ensure corner keys don't break layout */
+/* Ensure corner keys don't break layout and appear ON TOP of the image */
 .timeline-viewport.auto-scroll-on .corner-key {
-    position: static !important;
-    margin-left: auto !important;
+    position: absolute !important;
+    /* Restore absolute positioning to put it in the corner */
+    top: 2px !important;
+    right: 4px !important;
+    margin: 0 !important;
+    order: unset !important;
+    /* Remove flex order since we are removing it from flow */
 }
 
 /* ============================================================================

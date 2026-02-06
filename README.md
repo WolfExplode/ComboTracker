@@ -76,22 +76,32 @@ Two equivalent syntaxes:
 
 The hold step is complete when you’ve held the key for at least the required duration.
 
-### Wait steps (soft vs hard)
-Wait steps are “minimum delay gates”:
-- **Soft wait (default)**: early presses are ignored; once the time has passed, the next correct input counts.
-  - `wait:0.2`
-  - `wait_soft:0.2`
-- **Hard wait**: pressing too early can drop the combo (useful for games where early input consumes/cancels and desyncs you).
-  - `wait_hard:0.2`
+### Wait steps vs Animation Locks
+There are two ways to define waits, depending on whether you want to **enforce timing** or **ignore inputs** (spam-safe).
 
-### Mandatory animation waits (inputs ignored)
-Some abilities have an animation lock where **extra inputs do nothing in-game** (and should not end the combo).
+#### 1. Delay Gates (`wait:...`) — Enforce Timing
+Use this when you want to learn *not* to press the next button too fast.
+- The tracker **monitors** your inputs during the wait.
+- If you press the *next* correct key too early, it is flagged as a **Timing Error** (marked "Early").
+- **Hard Request**: `wait_hard:0.2` will **fail/drop** the combo if you press early.
+- **Soft Request**: `wait:0.2` (default) will just warn you.
 
-Use:
-- `wait(r, 1.5)` to mean: press `r`, then **mandatory** wait ≥ 1.5s (inputs during the lock are ignored).
+Syntax:
+- `r, wait:0.5` (Press R, then wait 0.5s before next input)
 
-Example:
-`e, 3, wait(r, 1.5), [q, e], 2`
+#### 2. Animation Locks (`wait(key, duration)`) — Spam Safe
+Use this when the game locks your character in an animation (e.g. Ultimates).
+- The tracker **ignores all inputs** during the wait.
+- You can spam buttons safely; the combo **will not fail** even if you press the wrong keys or press early.
+
+Syntax:
+- `wait(r, 3.65s)` (Press R, then strictly ignore everything for 3.65s)
+
+---
+
+### Comparison
+- **`r, wait:3.65`** = You *must* wait. Pressing the next key early is a mistake.
+- **`wait(r, 3.65)`** = You *are forced* to wait. Pressing anything early is ignored (safe).
 
 Durations accept:
 - Seconds: `0.2`, `0.2s`

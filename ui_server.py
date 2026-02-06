@@ -112,7 +112,16 @@ async def ws_handler(websocket, _path=None):
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "select_team":
-                engine.set_active_ww_team(str(msg.get("team_id") or ""))
+                # Stateless team selection: accepts target_game parameter
+                target_game = str(msg.get("target_game") or "").strip().lower()
+                engine.select_team_stateless(
+                    team_id=str(msg.get("team_id") or ""),
+                    target_game=target_game
+                )
+            elif mtype == "update_target_game":
+                # Stateless target game update (doesn't persist to JSON)
+                target_game = str(msg.get("target_game") or "").strip().lower()
+                engine.update_target_game_stateless(target_game)
             elif mtype == "delete_team":
                 ok, err = engine.delete_ww_team(str(msg.get("team_id") or ""))
                 if not ok and err:

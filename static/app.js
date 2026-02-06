@@ -50,9 +50,6 @@ let autoScrollEnabled = false;
 
 // Per-combo game config
 let currentTargetGame = 'generic'; // "generic" | "wuthering_waves"
-let targetGameDirty = false;
-let targetGameDirtyComboName = '';
-let targetGameDirtyValue = 'generic';
 let currentWwAbilityImages = { "1": {}, "2": {}, "3": {} }; // char -> {e/q/r -> url}
 let currentWwSwapImages = { "1": "", "2": "", "3": "" }; // swap key images for 1/2/3 (from team)
 let currentWwLmbImages = { "1": "", "2": "", "3": "" }; // per-character LMB images (from team)
@@ -223,9 +220,8 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
     setPreview(dashPreview, dashInput.value);
 
     dashInput.addEventListener('input', () => {
-        currentWwDashImage = (dashInput.value || '').toString().trim();
-        setPreview(dashPreview, currentWwDashImage);
-        if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+        currentWwDashImage = dashInput.value.trim();
+        setPreview(dashPreview, dashInput.value);
     });
 
     dashControls.appendChild(dashInput);
@@ -234,961 +230,797 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
     dashBox.appendChild(dashControls);
     container.appendChild(dashBox);
 
-    const abilities = ['e', 'q', 'r'];
+    // For each character slot (1/2/3)
     ['1', '2', '3'].forEach(c => {
-        const box = document.createElement('div');
-        box.className = 'ww-ability-char';
+        const charBox = document.createElement('div');
+        charBox.className = 'ww-ability-char';
 
-        // Character swap image (stored in currentKeyImages[c])
-        const swapRow = document.createElement('div');
-        swapRow.className = 'ww-ability-row';
+        const charTitle = document.createElement('div');
+        charTitle.className = 'ww-ability-key';
+        charTitle.textContent = `Char ${c}`;
 
-        const swapKey = document.createElement('div');
-        swapKey.className = 'ww-ability-key';
-        swapKey.textContent = `Character ${c}`;
+        charBox.appendChild(charTitle);
 
-        const swapControls = document.createElement('div');
-        swapControls.className = 'ww-ability-controls';
-
-        const swapInput = document.createElement('input');
-        swapInput.type = 'text';
-        swapInput.placeholder = 'https://... or 😀';
-        swapInput.setAttribute('data-swap', c);
-        swapInput.value = (currentWwSwapImages && currentWwSwapImages[c]) ? String(currentWwSwapImages[c]) : '';
-
-        const swapPreview = document.createElement('div');
-        swapPreview.className = 'ww-ability-preview';
-        setPreview(swapPreview, swapInput.value);
-
-        swapInput.addEventListener('input', () => {
-            const val = (swapInput.value || '').toString().trim();
-            currentWwSwapImages[c] = val;
-            setPreview(swapPreview, val);
-            if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
-        });
-
-        swapControls.appendChild(swapInput);
-        swapControls.appendChild(swapPreview);
-        swapRow.appendChild(swapKey);
-        swapRow.appendChild(swapControls);
-
-        // LMB (normal attack) image (per character)
+        // LMB (basic attack)
         const lmbRow = document.createElement('div');
         lmbRow.className = 'ww-ability-row';
-
-        const lmbKey = document.createElement('div');
-        lmbKey.className = 'ww-ability-key';
-        lmbKey.textContent = 'LMB';
-
-        const lmbControls = document.createElement('div');
-        lmbControls.className = 'ww-ability-controls';
+        const lmbLabel = document.createElement('span');
+        lmbLabel.textContent = 'LMB';
+        lmbLabel.className = 'ww-ability-label';
 
         const lmbInput = document.createElement('input');
         lmbInput.type = 'text';
-        lmbInput.placeholder = 'https://... or 😀';
         lmbInput.setAttribute('data-lmb', c);
-        lmbInput.value = (currentWwLmbImages && currentWwLmbImages[c]) ? String(currentWwLmbImages[c]) : '';
+        lmbInput.placeholder = 'https://... or ⚔️';
+        lmbInput.value = (currentWwLmbImages[c] || '').toString();
 
         const lmbPreview = document.createElement('div');
         lmbPreview.className = 'ww-ability-preview';
         setPreview(lmbPreview, lmbInput.value);
 
         lmbInput.addEventListener('input', () => {
-            currentWwLmbImages[c] = (lmbInput.value || '').toString().trim();
-            setPreview(lmbPreview, currentWwLmbImages[c]);
-            if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+            currentWwLmbImages[c] = lmbInput.value.trim();
+            setPreview(lmbPreview, lmbInput.value);
         });
 
-        lmbControls.appendChild(lmbInput);
-        lmbControls.appendChild(lmbPreview);
-        lmbRow.appendChild(lmbKey);
-        lmbRow.appendChild(lmbControls);
+        lmbRow.appendChild(lmbLabel);
+        lmbRow.appendChild(lmbInput);
+        lmbRow.appendChild(lmbPreview);
+        charBox.appendChild(lmbRow);
 
-        abilities.forEach(a => {
+        // Swap icon (1/2/3 keys)
+        const swapRow = document.createElement('div');
+        swapRow.className = 'ww-ability-row';
+        const swapLabel = document.createElement('span');
+        swapLabel.textContent = c;
+        swapLabel.className = 'ww-ability-label';
+
+        const swapInput = document.createElement('input');
+        swapInput.type = 'text';
+        swapInput.setAttribute('data-swap', c);
+        swapInput.placeholder = 'https://... or 🔄';
+        swapInput.value = (currentWwSwapImages[c] || '').toString();
+
+        const swapPreview = document.createElement('div');
+        swapPreview.className = 'ww-ability-preview';
+        setPreview(swapPreview, swapInput.value);
+
+        swapInput.addEventListener('input', () => {
+            currentWwSwapImages[c] = swapInput.value.trim();
+            setPreview(swapPreview, swapInput.value);
+        });
+
+        swapRow.appendChild(swapLabel);
+        swapRow.appendChild(swapInput);
+        swapRow.appendChild(swapPreview);
+        charBox.appendChild(swapRow);
+
+        // Abilities (E/Q/R)
+        ['E', 'Q', 'R'].forEach(a => {
             const row = document.createElement('div');
             row.className = 'ww-ability-row';
 
-            const k = document.createElement('div');
-            k.className = 'ww-ability-key';
-            k.textContent = a.toUpperCase();
-
-            const controls = document.createElement('div');
-            controls.className = 'ww-ability-controls';
+            const label = document.createElement('span');
+            label.textContent = a;
+            label.className = 'ww-ability-label';
 
             const input = document.createElement('input');
             input.type = 'text';
-            input.placeholder = 'https://... or 😀';
             input.setAttribute('data-char', c);
-            input.setAttribute('data-ability', a);
-            input.value = (currentWwAbilityImages?.[c]?.[a]) ? String(currentWwAbilityImages[c][a]) : '';
+            input.setAttribute('data-ability', a.toLowerCase());
+            input.placeholder = 'https://... or emoji';
+            const key = a.toLowerCase();
+            input.value = ((currentWwAbilityImages[c] || {})[key] || '').toString();
 
             const preview = document.createElement('div');
             preview.className = 'ww-ability-preview';
             setPreview(preview, input.value);
 
             input.addEventListener('input', () => {
-                const val = (input.value || '').toString().trim();
                 if (!currentWwAbilityImages[c]) currentWwAbilityImages[c] = {};
-                if (val) currentWwAbilityImages[c][a] = val;
-                else if (currentWwAbilityImages[c]) delete currentWwAbilityImages[c][a];
-                setPreview(preview, val);
-                if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+                const v = input.value.trim();
+                if (v) {
+                    currentWwAbilityImages[c][key] = v;
+                } else {
+                    delete currentWwAbilityImages[c][key];
+                }
+                setPreview(preview, input.value);
             });
 
-            controls.appendChild(input);
-            controls.appendChild(preview);
-            row.appendChild(k);
-            row.appendChild(controls);
-            box.appendChild(row);
+            row.appendChild(label);
+            row.appendChild(input);
+            row.appendChild(preview);
+            charBox.appendChild(row);
         });
 
-        box.appendChild(swapRow);
-        box.appendChild(lmbRow);
-        container.appendChild(box);
+        container.appendChild(charBox);
     });
 }
 
-// Split by commas, but do NOT split commas that are inside (), {}, or [].
-function splitInputsSafe(s) {
-    const str = (s || '').toString();
-    const out = [];
-    let buf = '';
-    let paren = 0;
-    let brace = 0;
-    let bracket = 0;
+// Extract keys from inputs text
+function extractKeysFromInputs() {
+    const txt = (document.getElementById('comboInputs')?.value || '').toString();
+    if (!txt.trim()) return [];
 
-    for (const ch of str) {
-        if (ch === '(') paren++;
-        else if (ch === ')') paren = Math.max(0, paren - 1);
-        else if (ch === '{') brace++;
-        else if (ch === '}') brace = Math.max(0, brace - 1);
-        else if (ch === '[') bracket++;
-        else if (ch === ']') bracket = Math.max(0, bracket - 1);
-
-        if (ch === ',' && paren === 0 && brace === 0 && bracket === 0) {
-            const token = buf.trim();
-            if (token) out.push(token);
-            buf = '';
-            continue;
-        }
-        buf += ch;
-    }
-    const token = buf.trim();
-    if (token) out.push(token);
-    return out;
-}
-
-function extractKeysFromToken(token) {
-    const t = (token || '').toString().trim();
-    if (!t) return [];
-    const tl = t.toLowerCase().trim();
-
-    // wait(r, 1.5) -> key "r"
-    if (tl.startsWith('wait(') && tl.endsWith(')') && tl.length >= 6) {
-        const inner = t.slice(5, -1);
-        const parts = splitInputsSafe(inner);
-        const k = (parts[0] || '').toString().trim().toLowerCase();
-        return k ? [k] : [];
-    }
-
-    // [q, e] or [wait(r, 1.5), q, e]
-    if (tl.startsWith('[') && tl.endsWith(']') && tl.length >= 3) {
-        const inner = t.slice(1, -1);
-        const parts = splitInputsSafe(inner);
-        const out = [];
-        parts.forEach(p => out.push(...extractKeysFromToken(p)));
-        return out;
-    }
-
-    // wait:0.2 / wait_soft:0.2 / wait_hard:0.2 are timing gates, not keys
-    if (tl.startsWith('wait:') || tl.startsWith('wait_soft:') || tl.startsWith('wait_hard:')) {
-        return [];
-    }
-
-    // hold(space, 0.3) -> key "space"
-    if (tl.startsWith('hold(') && tl.endsWith(')') && tl.length >= 7) {
-        const inner = t.slice(5, -1);
-        const parts = splitInputsSafe(inner);
-        const k = (parts[0] || '').toString().trim().toLowerCase();
-        return k ? [k] : [];
-    }
-
-    // space{200ms} -> key "space"
-    if (tl.includes('{') && tl.endsWith('}')) {
-        const base = t.split('{', 1)[0].trim().toLowerCase();
-        return base ? [base] : [];
-    }
-
-    // Plain key token
-    return [tl];
-}
-
-function uniqueKeysFromInputsText(inputsText) {
+    const parts = txt.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
     const keys = new Set();
-    const tokens = splitInputsSafe(inputsText || '');
-    tokens.forEach(tok => {
-        extractKeysFromToken(tok).forEach(k => {
-            const key = (k || '').toString().trim().toLowerCase();
-            if (key) keys.add(key);
-        });
+
+    parts.forEach(part => {
+        // hold(key,time) or key{time}
+        let m = part.match(/^hold\(\s*([^,]+)\s*,/i);
+        if (m) {
+            keys.add(m[1].trim());
+            return;
+        }
+        m = part.match(/^([^{]+)\{/);
+        if (m) {
+            keys.add(m[1].trim());
+            return;
+        }
+        // wait(...) -> skip
+        if (/^wait[_a-z]*[:(\s]/i.test(part)) return;
+        // [group] -> extract items
+        m = part.match(/^\[(.+)\]$/);
+        if (m) {
+            const group = m[1];
+            group.split(',').forEach(gi => {
+                const gg = gi.trim();
+                let mm = gg.match(/^hold\(\s*([^,]+)\s*,/i);
+                if (mm) {
+                    keys.add(mm[1].trim());
+                    return;
+                }
+                mm = gg.match(/^([^{]+)\{/);
+                if (mm) {
+                    keys.add(mm[1].trim());
+                    return;
+                }
+                mm = gg.match(/^wait\(\s*([^,]+)\s*,/i);
+                if (mm) {
+                    keys.add(mm[1].trim());
+                    return;
+                }
+                if (!/^wait[_a-z]*[:(\s]/i.test(gg)) {
+                    keys.add(gg);
+                }
+            });
+            return;
+        }
+        // Plain key
+        keys.add(part);
     });
-    return keys;
+
+    return Array.from(keys).sort();
 }
 
 function readKeyImagesFromUI() {
     const container = document.getElementById('keyImagesEditor');
     if (!container) return;
-    const rows = container.querySelectorAll('.key-image-row');
+    const inputs = container.querySelectorAll('input[data-key]');
     const next = {};
-    rows.forEach(row => {
-        const k = (row.getAttribute('data-key') || '').toString().trim().toLowerCase();
-        const input = row.querySelector('input.key-image-url');
-        if (!k || !input) return;
-        const url = (input.value || '').toString().trim();
-        if (url) next[k] = url;
+    inputs.forEach(inp => {
+        const k = (inp.getAttribute('data-key') || '').trim().toLowerCase();
+        const url = (inp.value || '').toString().trim();
+        if (k && url) next[k] = url;
     });
     currentKeyImages = next;
 }
 
 function renderKeyImagesEditor() {
-    // Preserve any in-progress edits before re-render
-    readKeyImagesFromUI();
+    // Generic mode only
+    if (currentTargetGame === 'wuthering_waves') return;
 
+    readKeyImagesFromUI();
     const container = document.getElementById('keyImagesEditor');
     if (!container) return;
     container.innerHTML = '';
 
-    if (currentTargetGame === 'wuthering_waves') {
-        // In WW mode, we hide this panel anyway; keep the editor empty.
+    const keys = extractKeysFromInputs();
+    if (keys.length === 0) {
+        container.innerHTML = '<div class="help-text">Enter inputs above to see key image fields.</div>';
         return;
     }
 
-    const inputsText = document.getElementById('comboInputs')?.value || '';
-    const unique = uniqueKeysFromInputsText(inputsText);
-
-    const allKeys = new Set([...Object.keys(currentKeyImages || {}), ...unique]);
-    const sorted = Array.from(allKeys).sort((a, b) => a.localeCompare(b));
-
-    if (sorted.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'help-text';
-        empty.textContent = 'No keys detected yet. Add Inputs above to generate key fields.';
-        container.appendChild(empty);
-        return;
-    }
-
-    sorted.forEach(key => {
+    keys.forEach(k => {
         const row = document.createElement('div');
         row.className = 'key-image-row';
-        row.setAttribute('data-key', key);
-        if (!unique.has(key)) row.classList.add('unused');
 
-        const keyEl = document.createElement('div');
-        keyEl.className = 'key-image-key';
-        keyEl.textContent = key.toUpperCase();
+        const label = document.createElement('span');
+        label.className = 'key-image-label';
+        label.textContent = k.toUpperCase();
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'key-image-url';
-        input.placeholder = 'https://...';
-        input.value = (currentKeyImages && currentKeyImages[key]) ? String(currentKeyImages[key]) : '';
+        input.setAttribute('data-key', k);
+        input.placeholder = 'https://... or emoji';
+        input.value = (currentKeyImages[k] || '').toString();
 
         const preview = document.createElement('div');
         preview.className = 'key-image-preview';
-
-        const updatePreview = () => {
-            const val = (input.value || '').toString().trim();
-            if (val) {
-                if (/^https?:\/\//i.test(val)) {
-                    preview.innerHTML = `<img class="key-image-preview" alt="${escapeHtml(key)}" referrerpolicy="no-referrer" src="${escapeHtml(val)}" style="display:block; width:32px; height:32px; object-fit:contain; border:0; background:transparent;" />`;
-                } else {
-                    preview.innerHTML = `<span class="key-step-emoji">${escapeHtml(val)}</span>`;
-                }
-                preview.style.display = 'flex';
-                preview.style.alignItems = 'center';
-                preview.style.justifyContent = 'center';
+        const v = (currentKeyImages[k] || '').toString().trim();
+        if (v) {
+            preview.style.display = 'flex';
+            if (/^https?:\/\//i.test(v)) {
+                preview.innerHTML = `<img src="${escapeHtml(v)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:24px;height:24px;object-fit:contain;" />`;
             } else {
-                preview.innerHTML = '';
-                preview.style.display = 'none';
+                preview.innerHTML = `<span>${escapeHtml(v)}</span>`;
             }
-        };
-        updatePreview();
+        } else {
+            preview.style.display = 'none';
+        }
 
         input.addEventListener('input', () => {
-            const val = (input.value || '').toString().trim();
-            if (val) currentKeyImages[key] = val;
-            else delete currentKeyImages[key];
-            updatePreview();
-            if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+            const url = input.value.trim();
+            if (url) {
+                currentKeyImages[k] = url;
+                preview.style.display = 'flex';
+                if (/^https?:\/\//i.test(url)) {
+                    preview.innerHTML = `<img src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:24px;height:24px;object-fit:contain;" />`;
+                } else {
+                    preview.innerHTML = `<span>${escapeHtml(url)}</span>`;
+                }
+            } else {
+                delete currentKeyImages[k];
+                preview.style.display = 'none';
+            }
         });
 
-        row.appendChild(keyEl);
+        row.appendChild(label);
         row.appendChild(input);
         row.appendChild(preview);
         container.appendChild(row);
     });
 }
 
-// Hold progress (client-side animation)
-let holdAnim = {
-    active: false,
-    requiredMs: 0,
-    startedAt: 0
-};
-let holdRafId = null;
+// Editor fields update (from backend)
+function setEditorFields(data) {
+    document.getElementById('comboName').value = data.name || '';
+    document.getElementById('comboInputs').value = data.inputs || '';
+    document.getElementById('comboEnders').value = data.enders || '';
+    document.getElementById('comboExpectedTime').value = data.expected_time || '';
+    document.getElementById('comboUserDifficulty').value = data.user_difficulty || '';
 
-// Wait progress (client-side animation)
-let waitAnim = {
-    active: false,
-    requiredMs: 0,
-    startedAt: 0
-};
-let waitRafId = null;
+    currentStepDisplayMode = (data.step_display_mode || 'icons').toString().trim().toLowerCase();
+    if (!['icons', 'images'].includes(currentStepDisplayMode)) currentStepDisplayMode = 'icons';
+    const toggle = document.getElementById('stepDisplayToggle');
+    if (toggle) toggle.checked = (currentStepDisplayMode === 'images');
 
-function stopHoldAnimation() {
-    holdAnim.active = false;
-    if (holdRafId !== null) {
-        cancelAnimationFrame(holdRafId);
-        holdRafId = null;
+    currentKeyImages = (typeof data.key_images === 'object' && data.key_images !== null) ? { ...data.key_images } : {};
+
+    // Target game & WW data
+    currentTargetGame = normalizeTargetGame(data.target_game || 'generic');
+    const gameSelect = document.getElementById('targetGameSelect');
+    if (gameSelect) gameSelect.value = currentTargetGame;
+
+    // WW teams list
+    currentWwTeams = Array.isArray(data.ww_teams) ? [...data.ww_teams] : [];
+    const teamSelect = document.getElementById('wwTeamSelect');
+    if (teamSelect) {
+        teamSelect.innerHTML = '<option value="">— New Team —</option>';
+        currentWwTeams.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name;
+            teamSelect.appendChild(opt);
+        });
     }
+
+    // Selected team (from combo assignment or active team)
+    currentWwTeamId = (data.ww_team_id || '').toString().trim();
+    if (teamSelect) teamSelect.value = currentWwTeamId;
+
+    const teamNameEl = document.getElementById('wwTeamName');
+    if (teamNameEl) teamNameEl.value = (data.ww_team_name || '').toString();
+
+    currentWwDashImage = (data.ww_team_dash_image || '').toString().trim();
+    currentWwSwapImages = ensureWwSwapShape(data.ww_team_swap_images);
+    currentWwLmbImages = ensureWwLmbShape(data.ww_team_lmb_images);
+    currentWwAbilityImages = ensureWwAbilityShape(data.ww_team_ability_images);
+
+    syncGameUIVisibility();
+    renderWwAbilityEditor({ preserveEdits: false });
 }
 
-function tickHoldAnimation() {
-    if (!holdAnim.active) {
-        holdRafId = null;
-        return;
-    }
-    const stepEl = document.querySelector('.step.hold.active');
-    if (!stepEl) {
-        // Timeline might be re-rendering; try again next frame.
-        holdRafId = requestAnimationFrame(tickHoldAnimation);
-        return;
-    }
-
-    const elapsed = performance.now() - holdAnim.startedAt;
-    const req = Math.max(1, holdAnim.requiredMs || 1);
-    const pct = Math.max(0, Math.min(100, (elapsed / req) * 100));
-    stepEl.style.setProperty('--hold-pct', `${pct}%`);
-
-    if (pct >= 100) {
-        // Time's up; stop animating to save cycles (bar stays full).
-        holdRafId = null;
-        return;
-    }
-
-    holdRafId = requestAnimationFrame(tickHoldAnimation);
-}
-
-function startHoldAnimation(requiredMs) {
-    holdAnim.active = true;
-    holdAnim.requiredMs = Math.max(1, Number(requiredMs) || 1);
-    holdAnim.startedAt = performance.now();
-    if (holdRafId === null) {
-        holdRafId = requestAnimationFrame(tickHoldAnimation);
-    }
-}
-
-function stopWaitAnimation() {
-    waitAnim.active = false;
-    if (waitRafId !== null) {
-        cancelAnimationFrame(waitRafId);
-        waitRafId = null;
-    }
-}
-
-function tickWaitAnimation() {
-    if (!waitAnim.active) {
-        waitRafId = null;
-        return;
-    }
-    const stepEl = document.querySelector('.step.wait.active, .step.press-wait.active');
-    if (!stepEl) {
-        // Timeline might be re-rendering; try again next frame.
-        waitRafId = requestAnimationFrame(tickWaitAnimation);
-        return;
-    }
-
-    const elapsed = performance.now() - waitAnim.startedAt;
-    const req = Math.max(1, Number(waitAnim.requiredMs) || 1);
-    const pct = Math.max(0, Math.min(100, (elapsed / req) * 100));
-    stepEl.style.setProperty('--wait-pct', `${pct}%`);
-
-    if (pct >= 100) {
-        // Time's up; stop animating to save cycles (bar stays full).
-        waitRafId = null;
-        return;
-    }
-
-    waitRafId = requestAnimationFrame(tickWaitAnimation);
-}
-
-function startWaitAnimation(requiredMs) {
-    waitAnim.active = true;
-    waitAnim.requiredMs = Math.max(1, Number(requiredMs) || 1);
-    waitAnim.startedAt = performance.now();
-    if (waitRafId === null) {
-        waitRafId = requestAnimationFrame(tickWaitAnimation);
-    }
-}
-
-// Status updates
+// Status display
 function updateStatus(text, color) {
-    const statusEl = document.getElementById('statusDisplay');
-    statusEl.textContent = text;
-    // Expected: ready|recording|success|fail|wait|neutral
-    statusEl.className = `status-${color || 'neutral'}`;
+    const el = document.getElementById('statusDisplay');
+    if (!el) return;
+    el.textContent = text || 'Status: Ready';
+    el.className = 'status-' + (color || 'neutral');
 }
 
-// Stats display
-function updateStats(statsText) {
-    document.getElementById('statsDisplay').textContent = statsText;
+// Stats
+function updateStats(text) {
+    const el = document.getElementById('statsDisplay');
+    if (el) el.textContent = text || 'Stats: —';
 }
 
 function updateMinTime(text) {
-    document.getElementById('minTimeDisplay').textContent = text;
+    const el = document.getElementById('minTimeDisplay');
+    if (el) el.textContent = text || 'Fastest possible: —';
 }
 
 function updateDifficulty(text) {
-    document.getElementById('difficultyDisplay').textContent = text;
+    const el = document.getElementById('difficultyDisplay');
+    if (el) el.textContent = text || 'Difficulty: —';
 }
 
 function updateUserDifficulty(text) {
-    document.getElementById('userDifficultyDisplay').textContent = text;
-}
-
-function setDifficultyColor(el, value) {
-    if (!el) return;
-    el.classList.remove('diff-easy', 'diff-med', 'diff-hard', 'diff-insane');
-    const v = Number(value);
-    if (!Number.isFinite(v)) return;
-    if (v < 3) el.classList.add('diff-easy');
-    else if (v < 6) el.classList.add('diff-med');
-    else if (v < 8) el.classList.add('diff-hard');
-    else el.classList.add('diff-insane');
+    const el = document.getElementById('userDifficultyDisplay');
+    if (el) el.textContent = text || 'Your difficulty: —';
 }
 
 function updateAPM(text) {
-    document.getElementById('apmDisplay').textContent = text;
+    const el = document.getElementById('apmDisplay');
+    if (el) el.textContent = text || 'Practical APM: —';
 }
 
 function updateAPMMax(text) {
-    document.getElementById('apmMaxDisplay').textContent = text;
+    const el = document.getElementById('apmMaxDisplay');
+    if (el) el.textContent = text || 'Theoretical max APM: —';
 }
 
-function setEditorFields(editor) {
-    document.getElementById('comboName').value = editor.name || '';
-    document.getElementById('comboInputs').value = editor.inputs || '';
-    document.getElementById('comboEnders').value = editor.enders || '';
-    document.getElementById('comboExpectedTime').value = editor.expected_time || '';
-    document.getElementById('comboUserDifficulty').value = editor.user_difficulty || '';
-
-    // New: step display configuration
-    const toggleEl = document.getElementById('stepDisplayToggle');
-    if (toggleEl) {
-        const m = (editor.step_display_mode || 'icons').toString().trim().toLowerCase();
-        toggleEl.checked = (m === 'images');
-        currentStepDisplayMode = toggleEl.checked ? 'images' : 'icons';
-    }
-    currentKeyImages = (editor.key_images && typeof editor.key_images === 'object') ? { ...editor.key_images } : {};
-    renderKeyImagesEditor();
-
-    // New: target game
-    const backendTargetGame = normalizeTargetGame(editor.target_game || 'generic');
-    const editorName = (editor.name || '').toString();
-    // If the user changed target game locally but hasn't saved yet, don't let a backend refresh
-    // (e.g. selecting a WW team) snap the UI back to generic.
-    if (targetGameDirty && targetGameDirtyComboName === editorName) {
-        currentTargetGame = normalizeTargetGame(targetGameDirtyValue);
-    } else {
-        currentTargetGame = backendTargetGame;
-        targetGameDirty = false;
-        targetGameDirtyComboName = '';
-        targetGameDirtyValue = 'generic';
-    }
-    const gameEl = document.getElementById('targetGameSelect');
-    if (gameEl) gameEl.value = currentTargetGame;
-
-    // WW-specific config
-    currentWwTeams = Array.isArray(editor.ww_teams) ? editor.ww_teams : [];
-    currentWwTeamId = (editor.ww_team_id || '').toString();
-    const teamSel = document.getElementById('wwTeamSelect');
-    if (teamSel) {
-        teamSel.innerHTML = '<option value="">— New Team —</option>';
-        (currentWwTeams || []).forEach(t => {
-            const id = (t.id || '').toString();
-            const name = (t.name || '').toString();
-            if (!id) return;
-            const opt = document.createElement('option');
-            opt.value = id;
-            opt.textContent = name || id;
-            teamSel.appendChild(opt);
-        });
-        teamSel.value = currentWwTeamId || '';
-    }
-    const teamNameEl = document.getElementById('wwTeamName');
-    if (teamNameEl) teamNameEl.value = (editor.ww_team_name || '').toString();
-
-    currentWwSwapImages = ensureWwSwapShape(editor.ww_team_swap_images || {});
-    currentWwLmbImages = ensureWwLmbShape(editor.ww_team_lmb_images || {});
-    currentWwDashImage = (editor.ww_team_dash_image || '').toString();
-    currentWwAbilityImages = ensureWwAbilityShape(editor.ww_team_ability_images || {});
-    renderWwAbilityEditor({ preserveEdits: false });
-    syncGameUIVisibility();
+function setDifficultyColor(el, val) {
+    if (!el) return;
+    el.classList.remove('difficulty-low', 'difficulty-medium', 'difficulty-high', 'difficulty-extreme');
+    if (val == null) return;
+    const v = parseFloat(val);
+    if (isNaN(v)) return;
+    if (v < 3.5) el.classList.add('difficulty-low');
+    else if (v < 6.0) el.classList.add('difficulty-medium');
+    else if (v < 8.5) el.classList.add('difficulty-high');
+    else el.classList.add('difficulty-extreme');
 }
 
-function attachTwoClickConfirm(btn, {
-    confirmText = 'Click again to confirm',
-    timeoutMs = 2500,
-    onConfirm
-} = {}) {
-    if (!btn) return;
-    let timer = null;
-    const originalText = btn.textContent;
-    const reset = () => {
-        if (timer) clearTimeout(timer);
-        timer = null;
-        btn.dataset.confirming = '';
-        btn.textContent = originalText;
-    };
-    btn.addEventListener('click', (e) => {
-        // If another handler called stopPropagation, don't do anything weird.
-        if (btn.disabled) return;
-        if (btn.dataset.confirming === '1') {
-            reset();
-            if (typeof onConfirm === 'function') onConfirm();
-            return;
-        }
-        // First click: arm confirmation
-        btn.dataset.confirming = '1';
-        btn.textContent = confirmText;
-        timer = setTimeout(reset, timeoutMs);
-    });
+// Attempt log
+function clearAttemptLog() {
+    document.getElementById('resultsBody').innerHTML = '';
 }
 
-function resetAutoScroll() {
-    const track = document.getElementById('comboTimeline');
-    if (track) {
-        track.style.transform = '';
-        track.style.paddingLeft = '';
-        track.style.paddingRight = '';
-    }
-}
-
-function setAutoScrollEnabled(enabled) {
-    autoScrollEnabled = !!enabled;
-    const viewport = document.getElementById('comboTimelineViewport');
-    if (viewport) {
-        viewport.classList.toggle('auto-scroll-on', autoScrollEnabled);
-        if (!autoScrollEnabled) {
-            resetAutoScroll();
-        }
-    }
-}
-
-function applyAutoScroll() {
-    if (!autoScrollEnabled) return;
-
-    const viewport = document.getElementById('comboTimelineViewport');
-    const track = document.getElementById('comboTimeline');
-    if (!viewport || !track) return;
-
-    const activeEl = track.querySelector('.step.active, .step-group.active');
-    if (!activeEl) {
-        track.style.transform = 'translateX(0)';
-        return;
-    }
-
-    const viewportWidth = viewport.offsetWidth;
-    const activeRect = activeEl.getBoundingClientRect();
-    const trackRect = track.getBoundingClientRect();
-
-    const activeCenter = (activeRect.left - trackRect.left) + (activeRect.width / 2);
-    const targetOffset = viewportWidth / 2;
-
-    track.style.transform = `translateX(${targetOffset - activeCenter}px)`;
-}
-
-// Timeline visualization
-function updateTimeline(steps) {
-    lastTimelineSteps = steps;
-    const timeline = document.getElementById('comboTimeline');
-    timeline.innerHTML = '';
-    const BASE_STEP_WIDTH_PX = 80; // 100ms hold == 1x base width
-
-    const ctx = {
-        game: currentTargetGame,
-        char: '1',
-    };
-
-    const isSwapKey = (k) => (k === '1' || k === '2' || k === '3');
-    const maybeSwapChar = (k) => {
-        if (ctx.game !== 'wuthering_waves') return;
-        if (isSwapKey(k)) ctx.char = k;
-    };
-
-    const escapeAttr = (text) => {
-        return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-    };
-
-    const isProbablyUrl = (val) => {
-        const s = (val || '').toString().trim();
-        return /^https?:\/\//i.test(s);
-    };
-
-    const resolveIconValue = (key) => {
-        if (currentStepDisplayMode !== 'images') return null;
-        const k = (key || '').toString().trim().toLowerCase();
-        if (!k) return null;
-
-        // WW: E/Q/R are character-specific.
-        if (ctx.game === 'wuthering_waves' && (k === 'e' || k === 'q' || k === 'r')) {
-            const c = (ctx.char || '1').toString();
-            const url = currentWwAbilityImages?.[c]?.[k];
-            if (url) return url;
-        }
-
-        // WW: swap keys 1/2/3 can have images (team preset)
-        if (ctx.game === 'wuthering_waves' && (k === '1' || k === '2' || k === '3')) {
-            const url = (currentWwSwapImages && currentWwSwapImages[k]) ? currentWwSwapImages[k] : '';
-            if (url) return url;
-        }
-
-        // WW: LMB (normal attack) is per character
-        if (ctx.game === 'wuthering_waves' && k === 'lmb') {
-            const c = (ctx.char || '1').toString();
-            const url = (currentWwLmbImages && currentWwLmbImages[c]) ? currentWwLmbImages[c] : '';
-            if (url) return url;
-        }
-
-        // WW: RMB is always dash icon (shared)
-        if (ctx.game === 'wuthering_waves' && k === 'rmb') {
-            const url = (currentWwDashImage || '').toString().trim();
-            if (url) return url;
-        }
-
-        // Fallback: generic per-key mapping
-        const url = currentKeyImages ? currentKeyImages[k] : null;
-        return url || null;
-    };
-
-    const keyImageHtml = (key) => {
-        const k = (key || '').toString().trim().toLowerCase();
-        const val = resolveIconValue(k);
-        if (!val) return null;
-        if (isProbablyUrl(val)) {
-            return `<span class="key-img-wrap" aria-label="${escapeHtml(k)}" title="${escapeHtml(k)}"><img class="key-step-image" src="${escapeAttr(val)}" alt="${escapeAttr(k)}" loading="lazy" referrerpolicy="no-referrer"/></span>`;
-        }
-        // Emoji / text icon
-        return `<span class="key-img-wrap" aria-label="${escapeHtml(k)}" title="${escapeHtml(k)}"><span class="key-step-emoji">${escapeHtml(val)}</span></span>`;
-    };
-
-    const cornerKeyHtml = (key) => {
-        // Only show the corner key label in image mode (helps identify what the icon represents).
-        if (currentStepDisplayMode !== 'images') return '';
-        const k = (key || '').toString().trim();
-        if (!k) return '';
-        return `<span class="corner-key">${escapeHtml(k)}</span>`;
-    };
-
-    const mouseIconHtml = (key) => {
-        const k = (key || '').toString().trim().toLowerCase();
-        if (k !== 'lmb' && k !== 'rmb' && k !== 'mmb') return null;
-        const isLeft = k === 'lmb';
-        const isRight = k === 'rmb';
-        const isMid = k === 'mmb';
-        const label = isLeft ? 'LMB' : (isRight ? 'RMB' : 'MMB');
-        // Inline SVG so this works offline with no external assets.
-        // We highlight the clicked button area.
-        return `
-            <span class="mouse-icon" aria-label="${label}" title="${label}">
-                <svg viewBox="0 0 64 64" role="img" focusable="false">
-                    <rect x="18" y="6" width="28" height="52" rx="14" ry="14" fill="none" stroke="currentColor" stroke-width="3"/>
-                    <line x1="32" y1="6" x2="32" y2="26" stroke="currentColor" stroke-width="3" opacity="0.55"/>
-                    ${isLeft ? `<path d="M18 20 C18 12, 24 6, 32 6 L32 26 L18 26 Z" fill="currentColor" opacity="0.35"/>` : ``}
-                    ${isRight ? `<path d="M46 20 C46 12, 40 6, 32 6 L32 26 L46 26 Z" fill="currentColor" opacity="0.35"/>` : ``}
-                    ${isMid ? `<rect x="29" y="12" width="6" height="10" rx="3" fill="currentColor" opacity="0.4"/>` : ``}
-                </svg>
-            </span>
-        `;
-    };
-
-    const primaryHtml = (raw) => {
-        const t = (raw || '').toString().trim();
-        const img = keyImageHtml(t);
-        if (img) return img;
-        const icon = mouseIconHtml(t);
-        if (icon) return icon;
-        // Single-character keys (letters/numbers) get a larger glyph.
-        if (t.length === 1) return `<span class="step-primary">${escapeHtml(t.toUpperCase())}</span>`;
-        // Fallback: normal text.
-        return `<span class="step-primary step-primary-small">${escapeHtml(t)}</span>`;
-    };
-
-    const secondaryHtml = (raw) => {
-        const t = (raw || '').toString();
-        if (!t) return '';
-        return `<span class="step-secondary">${escapeHtml(t)}</span>`;
-    };
-
-    const applyHoldWidth = (el, durationMs) => {
-        const ms = Number(durationMs);
-        const mult = (Number.isFinite(ms) && ms > 0) ? (ms / 100.0) : 1;
-        const w = Math.max(BASE_STEP_WIDTH_PX, BASE_STEP_WIDTH_PX * mult);
-        el.style.width = `${w}px`;
-    };
-
-    steps.forEach((step) => {
-
-        // Group container (renders multiple step tiles inside one grouped block)
-        if (step.type === 'group') {
-            const group = document.createElement('div');
-            group.className = 'step-group';
-
-            // Per-step performance coloring (sent by backend as step.mark)
-            if (step.mark) {
-                const m = String(step.mark).toLowerCase();
-                if (m === 'ok') group.classList.add('mark-ok');
-                if (m === 'early') group.classList.add('mark-early');
-                if (m === 'missed') group.classList.add('mark-missed');
-                if (m === 'wrong') group.classList.add('mark-wrong');
-            }
-            if (step.active) group.classList.add('active');
-            if (step.completed) group.classList.add('completed');
-
-            const itemsWrap = document.createElement('div');
-            itemsWrap.className = 'step-group-items';
-
-            (step.items || []).forEach(item => {
-                const child = document.createElement('div');
-                child.className = 'step group-item';
-
-                // Reuse existing step classes/labels
-                if (item.type === 'wait') {
-                    child.classList.add('wait');
-                    const mode = (item.mode || 'soft').toLowerCase();
-                    if (mode === 'mandatory') {
-                        const k = (item.wait_for || '').toString().trim();
-                        // Display as:
-                        // R
-                        // animation time 1500ms
-                        child.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`${item.duration}ms`)}${cornerKeyHtml(k)}`;
-                        maybeSwapChar((k || '').toString().trim().toLowerCase());
-                    } else {
-                        let label = 'wait';
-                        if (mode === 'hard') label = 'wait hard';
-                        child.innerHTML = `${primaryHtml(label)}${secondaryHtml(`≥${item.duration}ms`)}`;
-                    }
-                    child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
-                } else if (item.type === 'press_wait') {
-                    child.classList.add('press-wait');
-                    if (item.duration <= 100) child.classList.add('short-wait');
-                    const k = (item.input || '').toString().trim().toLowerCase();
-                    child.innerHTML = `${primaryHtml(k)}${secondaryHtml(`${item.duration}ms`)}${cornerKeyHtml(k)}`;
-                    child.style.setProperty('--wait-pct', item.completed ? '100%' : '0%');
-                    maybeSwapChar(k);
-                } else if (item.type === 'hold') {
-                    child.classList.add('hold');
-                    const k = (item.input || '').toString().trim().toLowerCase();
-                    child.innerHTML = `${primaryHtml(k)}${secondaryHtml(`hold ${item.duration}ms`)}${cornerKeyHtml(k)}`;
-                    applyHoldWidth(child, item.duration);
-                    child.style.setProperty('--hold-pct', item.completed ? '100%' : '0%');
-                    maybeSwapChar(k);
-                } else {
-                    const k = (item.input || '').toString().trim().toLowerCase();
-                    child.innerHTML = `${primaryHtml(k)}${cornerKeyHtml(k)}`;
-                    maybeSwapChar(k);
-                }
-
-                if (item.active) child.classList.add('active');
-                if (item.completed) child.classList.add('completed');
-
-                itemsWrap.appendChild(child);
-            });
-
-            group.appendChild(itemsWrap);
-            timeline.appendChild(group);
-            return;
-        }
-
-        const div = document.createElement('div');
-        div.className = 'step';
-
-        // Per-step performance coloring (sent by backend as step.mark)
-        if (step.mark) {
-            const m = String(step.mark).toLowerCase();
-            if (m === 'ok') div.classList.add('mark-ok');
-            if (m === 'early') div.classList.add('mark-early');
-            if (m === 'missed') div.classList.add('mark-missed');
-            if (m === 'wrong') div.classList.add('mark-wrong');
-        }
-
-        if (step.type === 'press_wait') {
-            // A key immediately followed by a wait gate, rendered as one tile:
-            // key (big) + "100ms" (small) + wait progress fill.
-            div.classList.add('press-wait');
-            if (step.duration <= 100) div.classList.add('short-wait');
-            const k = (step.input || '').toString().trim().toLowerCase();
-            div.innerHTML = `${primaryHtml(k)}${secondaryHtml(`${step.duration}ms`)}${cornerKeyHtml(k)}`;
-            div.style.setProperty('--wait-pct', step.completed ? '100%' : '0%');
-            maybeSwapChar(k);
-        } else if (step.type === 'wait') {
-            div.classList.add('wait');
-            if (step.duration <= 100) div.classList.add('short-wait');
-            const mode = (step.mode || 'soft').toLowerCase();
-            if (mode === 'mandatory') {
-                const k = (step.wait_for || '').toString().trim();
-                div.innerHTML = `${primaryHtml(k || ' ')}${secondaryHtml(`${step.duration}ms`)}${cornerKeyHtml(k)}`;
-                maybeSwapChar((k || '').toString().trim().toLowerCase());
-            } else {
-                let label = 'wait';
-                if (mode === 'hard') label = 'wait hard';
-                div.innerHTML = `${primaryHtml(label)}${secondaryHtml(`≥${step.duration}ms`)}`;
-            }
-            // Whole-tile fill progress (default 0%, completed = 100%)
-            div.style.setProperty('--wait-pct', step.completed ? '100%' : '0%');
-        } else if (step.type === 'hold') {
-            div.classList.add('hold');
-            const k = (step.input || '').toString().trim().toLowerCase();
-            div.innerHTML = `${primaryHtml(k)}${secondaryHtml(`hold ${step.duration}ms`)}${cornerKeyHtml(k)}`;
-            applyHoldWidth(div, step.duration);
-            // Whole-tile fill progress (default 0%, completed = 100%)
-            div.style.setProperty('--hold-pct', step.completed ? '100%' : '0%');
-            maybeSwapChar(k);
-        } else {
-            const k = (step.input || '').toString().trim().toLowerCase();
-            div.innerHTML = `${primaryHtml(k)}${cornerKeyHtml(k)}`;
-            maybeSwapChar(k);
-        }
-
-        if (step.active) div.classList.add('active');
-        if (step.completed) div.classList.add('completed');
-
-        timeline.appendChild(div);
-    });
-
-    if (autoScrollEnabled) {
-        requestAnimationFrame(applyAutoScroll);
-    }
-}
-
-// Results table
 function addAttemptSeparator(name, attempt) {
     const body = document.getElementById('resultsBody');
-    const row = document.createElement('div');
-    row.className = 'result-row separator';
-    row.textContent = `—— ${name} | Attempt ${attempt} ——`;
-    body.appendChild(row);
-    scrollToBottom('resultsTable');
+    if (!body) return;
+    const sep = document.createElement('div');
+    sep.className = 'attempt-separator';
+    sep.textContent = `Attempt ${attempt}: ${name}`;
+    body.appendChild(sep);
+    scrollToBottom(body.parentElement);
 }
 
 function addResultRow(data) {
     const body = document.getElementById('resultsBody');
+    if (!body) return;
     const row = document.createElement('div');
-    row.className = 'result-row';
+    row.className = 'table-row';
 
-    if (data.split_ms === 'FAIL') {
-        row.classList.add('fail');
-    } else {
-        row.classList.add('success');
-    }
+    const cellInput = document.createElement('span');
+    cellInput.textContent = (data.input || '').toUpperCase();
+    row.appendChild(cellInput);
 
-    row.innerHTML = `
-        <span>${escapeHtml(data.input)}</span>
-        <span>${data.split_ms}</span>
-        <span>${data.total_ms}</span>
-    `;
+    const cellSplit = document.createElement('span');
+    cellSplit.textContent = (data.split_ms != null) ? data.split_ms.toString() : '—';
+    row.appendChild(cellSplit);
+
+    const cellTotal = document.createElement('span');
+    cellTotal.textContent = (data.total_ms != null) ? data.total_ms.toString() : '—';
+    row.appendChild(cellTotal);
 
     body.appendChild(row);
-    scrollToBottom('resultsTable');
-}
-
-function clearAttemptLog() {
-    const body = document.getElementById('resultsBody');
-    if (body) {
-        body.innerHTML = '';
-    }
+    scrollToBottom(body.parentElement);
 }
 
 // Failure analysis
 function updateFailures(failures) {
     const body = document.getElementById('failBody');
+    if (!body) return;
     body.innerHTML = '';
 
-    const labels = {
-        'pressed too fast': 'pressed too fast (during wait)',
-        'missed input': 'missed input (skipped step)',
-        'out of order': 'out of order (jumped ahead)',
-        'already passed': 'already passed (pressed old step)',
-        'wrong input': 'wrong input',
-        'too early': 'too early',
-        'hold too short': 'hold too short'
-    };
-
-    const entries = Object.entries(failures || {})
-        .map(([reason, count]) => [String(reason || ''), Number(count) || 0])
-        .filter(([, count]) => count > 0)
-        .sort((a, b) => b[1] - a[1]);
+    if (!failures || typeof failures !== 'object') return;
+    const entries = Object.entries(failures).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) return;
 
     entries.forEach(([reason, count]) => {
         const row = document.createElement('div');
-        row.className = 'fail-row';
-        const label = labels[reason.toLowerCase()] || reason;
-        row.innerHTML = `
-            <span>${escapeHtml(label)}</span>
-            <span>${count}</span>
-        `;
+        row.className = 'table-row';
+
+        const cellReason = document.createElement('span');
+        cellReason.textContent = reason;
+        row.appendChild(cellReason);
+
+        const cellCount = document.createElement('span');
+        cellCount.textContent = count.toString();
+        row.appendChild(cellCount);
+
         body.appendChild(row);
     });
 }
 
-// Button handlers (send commands to Python)
-document.getElementById('saveBtn').onclick = () => {
-    readKeyImagesFromUI();
-    readWwAbilityFromUI();
-    readWwSwapFromUI();
-    const useImages = !!document.getElementById('stepDisplayToggle')?.checked;
-    ws.send(JSON.stringify({
-        type: 'save_combo',
-        name: document.getElementById('comboName').value,
-        inputs: document.getElementById('comboInputs').value,
-        enders: document.getElementById('comboEnders').value,
-        expected_time: document.getElementById('comboExpectedTime').value,
-        user_difficulty: document.getElementById('comboUserDifficulty').value,
-        step_display_mode: useImages ? 'images' : 'icons',
-        key_images: (currentTargetGame === 'wuthering_waves') ? {} : (currentKeyImages || {}),
-        target_game: currentTargetGame || 'generic',
-        ww_team_id: (currentTargetGame === 'wuthering_waves') ? (currentWwTeamId || '') : ''
-    }));
-};
+// Hold / Wait animations (global UI state, not per-combo)
+let holdAnimationStart = 0;
+let holdAnimationRequired = 0;
+let holdAnimationInterval = null;
 
-document.getElementById('newBtn').onclick = () => {
-    ws.send(JSON.stringify({ type: 'new_combo' }));
-};
+function startHoldAnimation(required_ms) {
+    stopHoldAnimation();
+    holdAnimationStart = performance.now();
+    holdAnimationRequired = required_ms || 0;
+    holdAnimationInterval = setInterval(() => {
+        const elapsed = performance.now() - holdAnimationStart;
+        const pct = Math.min(100, (elapsed / holdAnimationRequired) * 100);
+        updateStatus(`Holding... ${Math.round(pct)}%`, 'recording');
+        if (pct >= 100) stopHoldAnimation();
+    }, 16);
+}
 
-// Delete combo (two-click confirm)
-attachTwoClickConfirm(document.getElementById('deleteBtn'), {
-    confirmText: 'Confirm delete',
-    onConfirm: () => {
-        const name = document.getElementById('comboSelector')?.value;
-        if (name) ws.send(JSON.stringify({ type: 'delete_combo', name }));
+function stopHoldAnimation() {
+    if (holdAnimationInterval) {
+        clearInterval(holdAnimationInterval);
+        holdAnimationInterval = null;
     }
-});
+}
 
-document.getElementById('clearBtn').onclick = () => {
-    ws.send(JSON.stringify({ type: 'clear_history' }));
-};
+let waitAnimationStart = 0;
+let waitAnimationRequired = 0;
+let waitAnimationInterval = null;
 
-document.getElementById('comboSelector').onchange = (e) => {
-    ws.send(JSON.stringify({ type: 'select_combo', name: e.target.value }));
-};
+function startWaitAnimation(required_ms) {
+    stopWaitAnimation();
+    waitAnimationStart = performance.now();
+    waitAnimationRequired = required_ms || 0;
+    waitAnimationInterval = setInterval(() => {
+        const elapsed = performance.now() - waitAnimationStart;
+        const pct = Math.min(100, (elapsed / waitAnimationRequired) * 100);
+        updateStatus(`Waiting... ${Math.round(pct)}%`, 'wait');
+        if (pct >= 100) stopWaitAnimation();
+    }, 16);
+}
 
-// Helper functions
-function scrollToBottom(elementId) {
-    const el = document.getElementById(elementId);
+function stopWaitAnimation() {
+    if (waitAnimationInterval) {
+        clearInterval(waitAnimationInterval);
+        waitAnimationInterval = null;
+    }
+}
+
+// Timeline rendering
+function updateTimeline(steps) {
+    lastTimelineSteps = steps;
+    const container = document.getElementById('comboTimeline');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!steps || steps.length === 0) {
+        container.innerHTML = '<div class="help-text">No combo selected</div>';
+        return;
+    }
+
+    steps.forEach((s, idx) => {
+        const tile = document.createElement('div');
+        tile.className = 'timeline-step';
+        if (s.active) tile.classList.add('timeline-step-active');
+        if (s.completed) tile.classList.add('timeline-step-completed');
+        if (s.mark === 'success') tile.classList.add('timeline-step-success');
+        if (s.mark === 'fail') tile.classList.add('timeline-step-fail');
+
+        if (s.type === 'group') {
+            tile.classList.add('timeline-step-group');
+            const header = document.createElement('div');
+            header.className = 'group-header';
+            header.textContent = 'Any Order';
+            tile.appendChild(header);
+
+            const items = document.createElement('div');
+            items.className = 'group-items';
+            (s.items || []).forEach(it => {
+                const itEl = document.createElement('div');
+                itEl.className = 'group-item';
+                if (it.active) itEl.classList.add('group-item-active');
+                if (it.completed) itEl.classList.add('group-item-completed');
+                itEl.textContent = renderStepLabel(it);
+                items.appendChild(itEl);
+            });
+            tile.appendChild(items);
+
+            const progress = document.createElement('div');
+            progress.className = 'group-progress';
+            const done = (s.progress || {}).done || 0;
+            const total = (s.progress || {}).total || 1;
+            progress.textContent = `${done} / ${total}`;
+            tile.appendChild(progress);
+        } else {
+            const content = renderStepContent(s);
+            tile.appendChild(content);
+        }
+
+        container.appendChild(tile);
+    });
+
+    if (autoScrollEnabled) {
+        requestAnimationFrame(() => applyAutoScroll());
+    }
+}
+
+function renderStepLabel(s) {
+    const inp = (s.input || '').toString().toUpperCase();
+    const dur = s.duration || 0;
+    if (s.type === 'wait') {
+        if (s.mode === 'mandatory' && s.wait_for) {
+            return `${s.wait_for.toUpperCase()} (${dur}ms)`;
+        }
+        return `Wait ${dur}ms`;
+    }
+    if (s.type === 'hold') return `Hold ${inp} ${dur}ms`;
+    if (s.type === 'press_wait') return `${inp} + ${dur}ms`;
+    return inp;
+}
+
+function renderStepContent(s) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'step-content';
+
+    const useImages = (currentStepDisplayMode === 'images') || !!document.getElementById('stepDisplayToggle')?.checked;
+    const inp = (s.input || '').toString().toLowerCase();
+    const label = (s.input || '').toString().toUpperCase();
+
+    if (useImages && currentTargetGame === 'wuthering_waves') {
+        // WW mode: use team images
+        if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
+            const key = s.wait_for.toLowerCase();
+            const img = getWwImage(key);
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = key.toUpperCase();
+            }
+            const dur = document.createElement('div');
+            dur.className = 'step-duration';
+            dur.textContent = `${s.duration}ms`;
+            wrapper.appendChild(dur);
+        } else if (s.type === 'hold') {
+            const img = getWwImage(inp);
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = label;
+            }
+            const dur = document.createElement('div');
+            dur.className = 'step-duration';
+            dur.textContent = `Hold ${s.duration}ms`;
+            wrapper.appendChild(dur);
+        } else if (s.type === 'press_wait') {
+            const img = getWwImage(inp);
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = label;
+            }
+            const dur = document.createElement('div');
+            dur.className = 'step-duration';
+            dur.textContent = `+${s.duration}ms`;
+            wrapper.appendChild(dur);
+        } else if (s.type === 'wait') {
+            wrapper.textContent = `Wait ${s.duration}ms`;
+        } else {
+            const img = getWwImage(inp);
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = label;
+            }
+        }
+    } else if (useImages && currentTargetGame === 'generic') {
+        // Generic mode: use key images
+        if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
+            const key = s.wait_for.toLowerCase();
+            const img = currentKeyImages[key];
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = key.toUpperCase();
+            }
+            const dur = document.createElement('div');
+            dur.className = 'step-duration';
+            dur.textContent = `${s.duration}ms`;
+            wrapper.appendChild(dur);
+        } else if (s.type === 'hold') {
+            const img = currentKeyImages[inp];
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = label;
+            }
+            const dur = document.createElement('div');
+            dur.className = 'step-duration';
+            dur.textContent = `Hold ${s.duration}ms`;
+            wrapper.appendChild(dur);
+        } else if (s.type === 'press_wait') {
+            const img = currentKeyImages[inp];
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = label;
+            }
+            const dur = document.createElement('div');
+            dur.className = 'step-duration';
+            dur.textContent = `+${s.duration}ms`;
+            wrapper.appendChild(dur);
+        } else if (s.type === 'wait') {
+            wrapper.textContent = `Wait ${s.duration}ms`;
+        } else {
+            const img = currentKeyImages[inp];
+            if (img) {
+                wrapper.appendChild(createImageElement(img));
+            } else {
+                wrapper.textContent = label;
+            }
+        }
+    } else {
+        // Icon mode (default)
+        wrapper.textContent = renderStepLabel(s);
+    }
+
+    return wrapper;
+}
+
+function getWwImage(key) {
+    const k = key.toLowerCase();
+    // Check if it's a swap key (1/2/3)
+    if (['1', '2', '3'].includes(k)) {
+        return currentWwSwapImages[k] || null;
+    }
+    // Check if it's RMB (dash)
+    if (k === 'rmb') {
+        return currentWwDashImage || null;
+    }
+    // Check if it's LMB for a specific character (not implemented yet, but could be lmb:1, lmb:2, etc.)
+    if (k === 'lmb') {
+        // For now, just return any LMB image we have
+        return currentWwLmbImages['1'] || currentWwLmbImages['2'] || currentWwLmbImages['3'] || null;
+    }
+    // Check if it's an ability (e/q/r) - need to determine which character
+    // For now, just check all characters
+    if (['e', 'q', 'r'].includes(k)) {
+        for (const c of ['1', '2', '3']) {
+            if (currentWwAbilityImages[c] && currentWwAbilityImages[c][k]) {
+                return currentWwAbilityImages[c][k];
+            }
+        }
+    }
+    return null;
+}
+
+function createImageElement(url) {
+    const img = document.createElement('div');
+    img.className = 'step-image-wrapper';
+    if (/^https?:\/\//i.test(url)) {
+        img.innerHTML = `<img class="step-image" src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
+    } else {
+        img.innerHTML = `<span class="step-emoji">${escapeHtml(url)}</span>`;
+    }
+    return img;
+}
+
+function setAutoScrollEnabled(enabled) {
+    autoScrollEnabled = !!enabled;
+}
+
+function applyAutoScroll() {
+    if (!autoScrollEnabled) return;
+    const viewport = document.getElementById('comboTimelineViewport');
+    if (!viewport) return;
+    const active = viewport.querySelector('.timeline-step-active');
+    if (!active) return;
+
+    const vpRect = viewport.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const vpCenter = vpRect.left + (vpRect.width / 2);
+    const activeCenter = activeRect.left + (activeRect.width / 2);
+    const offset = activeCenter - vpCenter;
+
+    viewport.scrollBy({ left: offset, behavior: 'smooth' });
+}
+
+// Two-click confirm pattern
+function attachTwoClickConfirm(btn, opts) {
+    let armed = false;
+    let timer = null;
+    const origText = btn.textContent;
+    btn.addEventListener('click', () => {
+        if (armed) {
+            armed = false;
+            clearTimeout(timer);
+            btn.textContent = origText;
+            if (opts.onConfirm) opts.onConfirm();
+        } else {
+            armed = true;
+            btn.textContent = opts.confirmText || 'Confirm?';
+            timer = setTimeout(() => {
+                armed = false;
+                btn.textContent = origText;
+            }, 3000);
+        }
+    });
+}
+
+// Combo selector
+const comboSelector = document.getElementById('comboSelector');
+if (comboSelector) {
+    comboSelector.addEventListener('change', () => {
+        const name = comboSelector.value;
+        if (name) {
+            ws.send(JSON.stringify({ type: 'select_combo', name }));
+        }
+    });
+}
+
+// Save/Update button
+const saveBtn = document.getElementById('saveBtn');
+if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+        readKeyImagesFromUI();
+        readWwAbilityFromUI();
+        readWwSwapFromUI();
+        readWwLmbFromUI();
+        readWwDashFromUI();
+
+        const name = (document.getElementById('comboName')?.value || '').toString();
+        const inputs = (document.getElementById('comboInputs')?.value || '').toString();
+        const enders = (document.getElementById('comboEnders')?.value || '').toString();
+        const expectedTime = (document.getElementById('comboExpectedTime')?.value || '').toString();
+        const userDifficulty = (document.getElementById('comboUserDifficulty')?.value || '').toString();
+        const toggle = document.getElementById('stepDisplayToggle');
+        const mode = toggle?.checked ? 'images' : 'icons';
+
+        ws.send(JSON.stringify({
+            type: 'save_combo',
+            name,
+            inputs,
+            enders,
+            expected_time: expectedTime,
+            user_difficulty: userDifficulty,
+            step_display_mode: mode,
+            key_images: currentKeyImages,
+            target_game: currentTargetGame,
+            ww_team_id: currentWwTeamId || ''
+        }));
+    });
+}
+
+// New combo button
+const newBtn = document.getElementById('newBtn');
+if (newBtn) {
+    newBtn.addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'new_combo' }));
+    });
+}
+
+// Delete combo button
+const deleteBtn = document.getElementById('deleteBtn');
+if (deleteBtn) {
+    attachTwoClickConfirm(deleteBtn, {
+        confirmText: 'Confirm delete',
+        onConfirm: () => {
+            const name = (document.getElementById('comboName')?.value || '').toString();
+            if (name) {
+                ws.send(JSON.stringify({ type: 'delete_combo', name }));
+            }
+        }
+    });
+}
+
+// Clear history button
+const clearBtn = document.getElementById('clearBtn');
+if (clearBtn) {
+    attachTwoClickConfirm(clearBtn, {
+        confirmText: 'Clear all',
+        onConfirm: () => {
+            ws.send(JSON.stringify({ type: 'clear_history' }));
+        }
+    });
+}
+
+function scrollToBottom(el) {
+    if (!el) return;
     el.scrollTop = el.scrollHeight;
 }
 
@@ -1245,9 +1077,11 @@ const targetGameEl = document.getElementById('targetGameSelect');
 if (targetGameEl) {
     targetGameEl.addEventListener('change', () => {
         currentTargetGame = normalizeTargetGame(targetGameEl.value);
-        targetGameDirty = true;
-        targetGameDirtyComboName = (document.getElementById('comboName')?.value || '').toString();
-        targetGameDirtyValue = currentTargetGame;
+        // Send target game change to backend immediately for stateless operation
+        ws.send(JSON.stringify({
+            type: 'update_target_game',
+            target_game: currentTargetGame
+        }));
         syncGameUIVisibility();
         renderWwAbilityEditor({ preserveEdits: true });
         if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
@@ -1258,7 +1092,12 @@ const wwTeamSelectEl = document.getElementById('wwTeamSelect');
 if (wwTeamSelectEl) {
     wwTeamSelectEl.addEventListener('change', () => {
         currentWwTeamId = (wwTeamSelectEl.value || '').toString();
-        ws.send(JSON.stringify({ type: 'select_team', team_id: currentWwTeamId }));
+        // Send both team_id AND target_game for stateless operation
+        ws.send(JSON.stringify({
+            type: 'select_team',
+            team_id: currentWwTeamId,
+            target_game: currentTargetGame
+        }));
     });
 }
 

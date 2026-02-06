@@ -1302,6 +1302,51 @@ class ComboTrackerEngine:
             self._send({"type": "init", **self.init_payload()})
             return True, None
 
+    def select_team_stateless(self, team_id: str, target_game: str):
+        """
+        Stateless team selection - doesn't persist combo assignment, just updates UI.
+        Used when changing teams before saving a combo.
+        """
+        with self._lock:
+            tid = str(team_id or "").strip()
+            game = str(target_game or "generic").strip().lower()
+            
+            # Only process if target game is WW and team exists
+            if game == "wuthering_waves" and tid and tid in self.ww.ww_teams:
+                self.ww.set_active_ww_team(tid)
+                # Don't save combos.json - this is stateless
+                # Just refresh the UI with team images
+                self._send({"type": "combo_data", **self.get_editor_payload()})
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            elif game == "wuthering_waves" and not tid:
+                # Clear team selection (New Team mode)
+                self._send({"type": "combo_data", **self.get_editor_payload()})
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+    def update_target_game_stateless(self, target_game: str):
+        """
+        Stateless target game update - doesn't persist, just updates UI.
+        Used when changing game before saving a combo.
+        """
+        with self._lock:
+            # We don't actually need to persist anything here
+            # The frontend already has the target_game value
+            # But we do need to send back the correct editor payload
+            # based on the new target game
+            game = str(target_game or "generic").strip().lower()
+            if game not in ("generic", "wuthering_waves"):
+                game = "generic"
+            
+            # Send back updated editor payload with correct teams/images for this game
+            # The get_editor_payload uses combo_name which may not be saved yet
+            # So we need to temporarily set the target_game for the active combo
+            # WITHOUT persisting it
+            payload = self.get_editor_payload()
+            # Override target_game in payload to match what frontend selected
+            payload["target_game"] = game
+            self._send({"type": "combo_data", **payload})
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
     def new_combo(self):
         with self._lock:
             self.active_combo_name = None

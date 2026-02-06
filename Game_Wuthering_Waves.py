@@ -229,4 +229,3 @@ class WutheringWavesGame:
         if self.ww_active_team_id == tid:
             self.ww_active_team_id = None
         return True, None
-
