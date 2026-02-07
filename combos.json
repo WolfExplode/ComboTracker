@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "Agusta",
+  "last_active_combo": "Zani Pheobe Rover Rotation",
   "combos": {
     "Zani 1": [
       "f",
@@ -143,6 +143,15 @@
       "e",
       "3",
       "e"
+    ],
+    "Aemeath": [
+      "[f, {e, r}]",
+      "[1,2,3]",
+      "f",
+      "{e, r}"
+    ],
+    "test": [
+      "[1, 3, f, e, r, {1, 2, 3}]"
     ]
   },
   "combo_enders": {
@@ -1743,12 +1752,12 @@
     },
     "Zani Pheobe Rover Rotation": {
       "success": 0,
-      "fail": 263,
+      "fail": 265,
       "best_ms": null,
       "total_success_ms": 0,
       "fail_by_step": {
-        "2": 120,
-        "4": 57,
+        "2": 121,
+        "4": 58,
         "10": 6,
         "6": 32,
         "11": 13,
@@ -1759,8 +1768,8 @@
         "12": 1
       },
       "fail_by_expected": {
-        "e": 126,
-        "lmb": 57,
+        "e": 127,
+        "lmb": 58,
         "2": 34,
         "3": 13,
         "hold(e,\u2265350ms)": 20,
@@ -1769,31 +1778,13 @@
         "any-order(r|q|e)": 1
       },
       "fail_by_reason": {
-        "wrong input": 102,
+        "wrong input": 104,
         "out of order": 90,
         "missed input": 34,
         "pressed too fast": 16,
         "hold too short": 21
       },
       "fail_events": [
-        {
-          "ts": 1769062770,
-          "attempt": 6,
-          "step_index": 4,
-          "expected": "lmb",
-          "actual": "2",
-          "reason": "pressed too fast",
-          "elapsed_ms": 446
-        },
-        {
-          "ts": 1769062773,
-          "attempt": 7,
-          "step_index": 4,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "out of order",
-          "elapsed_ms": 2152
-        },
         {
           "ts": 1769062777,
           "attempt": 8,
@@ -2675,24 +2666,42 @@
           "actual": "space",
           "reason": "wrong input",
           "elapsed_ms": 70205
+        },
+        {
+          "ts": 1770435276,
+          "attempt": 1,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 208
+        },
+        {
+          "ts": 1770435441,
+          "attempt": 2,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 698
         }
       ]
     },
     "Agusta": {
       "success": 2,
-      "fail": 18,
+      "fail": 36,
       "best_ms": 1543,
       "total_success_ms": 3841,
       "fail_by_step": {
-        "1": 16,
+        "1": 34,
         "2": 2
       },
       "fail_by_expected": {
         "a": 12,
-        "rmb": 6
+        "rmb": 24
       },
       "fail_by_reason": {
-        "wrong input": 17,
+        "wrong input": 35,
         "out of order": 1
       },
       "fail_events": [
@@ -2857,6 +2866,1445 @@
           "actual": "r",
           "reason": "wrong input",
           "elapsed_ms": 40
+        },
+        {
+          "ts": 1770410209,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 608
+        },
+        {
+          "ts": 1770410210,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 52
+        },
+        {
+          "ts": 1770410210,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 30
+        },
+        {
+          "ts": 1770410216,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 52
+        },
+        {
+          "ts": 1770410220,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 50
+        },
+        {
+          "ts": 1770410223,
+          "attempt": 6,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 312
+        },
+        {
+          "ts": 1770410226,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 62
+        },
+        {
+          "ts": 1770410228,
+          "attempt": 8,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 90
+        },
+        {
+          "ts": 1770410241,
+          "attempt": 9,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 74
+        },
+        {
+          "ts": 1770410248,
+          "attempt": 10,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 72
+        },
+        {
+          "ts": 1770410249,
+          "attempt": 11,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 358
+        },
+        {
+          "ts": 1770410252,
+          "attempt": 12,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 8
+        },
+        {
+          "ts": 1770410252,
+          "attempt": 13,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 1
+        },
+        {
+          "ts": 1770410260,
+          "attempt": 14,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 104
+        },
+        {
+          "ts": 1770410261,
+          "attempt": 15,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 666
+        },
+        {
+          "ts": 1770410263,
+          "attempt": 16,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 94
+        },
+        {
+          "ts": 1770410265,
+          "attempt": 17,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 70
+        },
+        {
+          "ts": 1770410268,
+          "attempt": 18,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 92
+        }
+      ]
+    },
+    "Aemeath": {
+      "success": 12,
+      "fail": 175,
+      "best_ms": 344,
+      "total_success_ms": 37438,
+      "fail_by_step": {
+        "0": 162,
+        "1": 12,
+        "2": 1
+      },
+      "fail_by_expected": {
+        "any-order(f|seq(e \u2192 r))": 105,
+        "r": 25,
+        "any-order(1|2|3)": 12,
+        "any-order(seq(f \u2192 e)|seq(e \u2192 r))": 28,
+        "e": 4,
+        "f": 1
+      },
+      "fail_by_reason": {
+        "wrong input": 146,
+        "wrong input during sequence": 29
+      },
+      "fail_events": [
+        {
+          "ts": 1770434052,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 3711
+        },
+        {
+          "ts": 1770434053,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 4469
+        },
+        {
+          "ts": 1770434054,
+          "attempt": 20,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 44
+        },
+        {
+          "ts": 1770434054,
+          "attempt": 20,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 496
+        },
+        {
+          "ts": 1770434055,
+          "attempt": 20,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 1700
+        },
+        {
+          "ts": 1770434056,
+          "attempt": 21,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 424
+        },
+        {
+          "ts": 1770434056,
+          "attempt": 21,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 960
+        },
+        {
+          "ts": 1770434058,
+          "attempt": 22,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 456
+        },
+        {
+          "ts": 1770434059,
+          "attempt": 24,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 100
+        },
+        {
+          "ts": 1770434059,
+          "attempt": 24,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 140
+        },
+        {
+          "ts": 1770434059,
+          "attempt": 24,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 640
+        },
+        {
+          "ts": 1770434060,
+          "attempt": 25,
+          "step_index": 0,
+          "expected": "E",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 76
+        },
+        {
+          "ts": 1770434061,
+          "attempt": 26,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 152
+        },
+        {
+          "ts": 1770434061,
+          "attempt": 27,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 454
+        },
+        {
+          "ts": 1770434062,
+          "attempt": 27,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 940
+        },
+        {
+          "ts": 1770434062,
+          "attempt": 28,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 172
+        },
+        {
+          "ts": 1770434062,
+          "attempt": 28,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 444
+        },
+        {
+          "ts": 1770434064,
+          "attempt": 29,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "space",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 526
+        },
+        {
+          "ts": 1770434067,
+          "attempt": 29,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 3520
+        },
+        {
+          "ts": 1770434214,
+          "attempt": 8,
+          "step_index": 2,
+          "expected": "f",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 1546
+        },
+        {
+          "ts": 1770434215,
+          "attempt": 10,
+          "step_index": 0,
+          "expected": "any-order(seq(f \u2192 e)|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 56
+        },
+        {
+          "ts": 1770434255,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 5226
+        },
+        {
+          "ts": 1770434261,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 3986
+        },
+        {
+          "ts": 1770434263,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 820
+        },
+        {
+          "ts": 1770434268,
+          "attempt": 8,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 4379
+        },
+        {
+          "ts": 1770434271,
+          "attempt": 9,
+          "step_index": 0,
+          "expected": "R",
+          "actual": "e",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 2012
+        },
+        {
+          "ts": 1770434274,
+          "attempt": 12,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 883
+        },
+        {
+          "ts": 1770434275,
+          "attempt": 12,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 2604
+        },
+        {
+          "ts": 1770434276,
+          "attempt": 12,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 2782
+        },
+        {
+          "ts": 1770434278,
+          "attempt": 13,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 848
+        },
+        {
+          "ts": 1770434278,
+          "attempt": 13,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 1027
+        },
+        {
+          "ts": 1770434278,
+          "attempt": 13,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 1182
+        },
+        {
+          "ts": 1770434278,
+          "attempt": 13,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 1314
+        },
+        {
+          "ts": 1770434279,
+          "attempt": 14,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 272
+        },
+        {
+          "ts": 1770434279,
+          "attempt": 14,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 434
+        },
+        {
+          "ts": 1770434281,
+          "attempt": 15,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 1750
+        },
+        {
+          "ts": 1770434283,
+          "attempt": 16,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 1747
+        },
+        {
+          "ts": 1770434283,
+          "attempt": 16,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "r",
+          "reason": "wrong input",
+          "elapsed_ms": 1904
+        },
+        {
+          "ts": 1770434284,
+          "attempt": 17,
+          "step_index": 1,
+          "expected": "any-order(1|2|3)",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 898
+        },
+        {
+          "ts": 1770434286,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 1981
+        },
+        {
+          "ts": 1770434286,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 2020
+        },
+        {
+          "ts": 1770434286,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 2087
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 3196
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 3234
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 3294
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 3478
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 3482
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 3529
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 3688
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 3692
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 3754
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 3865
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 3869
+        },
+        {
+          "ts": 1770434287,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 3948
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 4042
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 4053
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 4103
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 4182
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 4275
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 4408
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 4412
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 4497
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 4599
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 4603
+        },
+        {
+          "ts": 1770434288,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 4691
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 5285
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 5296
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 5347
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 5529
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 5533
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 5579
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 5695
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 5699
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 5781
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 5893
+        },
+        {
+          "ts": 1770434289,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 5896
+        },
+        {
+          "ts": 1770434290,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 5984
+        },
+        {
+          "ts": 1770434290,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 6621
+        },
+        {
+          "ts": 1770434290,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 6651
+        },
+        {
+          "ts": 1770434290,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 6703
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 7167
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 7191
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 7227
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 7461
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 7465
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 7531
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 7704
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 7708
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 7792
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 7875
+        },
+        {
+          "ts": 1770434291,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 7885
+        },
+        {
+          "ts": 1770434292,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 8315
+        },
+        {
+          "ts": 1770434292,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 8318
+        },
+        {
+          "ts": 1770434292,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 8379
+        },
+        {
+          "ts": 1770434292,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 8743
+        },
+        {
+          "ts": 1770434292,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 8763
+        },
+        {
+          "ts": 1770434292,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 8829
+        },
+        {
+          "ts": 1770434295,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "1",
+          "reason": "wrong input",
+          "elapsed_ms": 11319
+        },
+        {
+          "ts": 1770434295,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 11665
+        },
+        {
+          "ts": 1770434295,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(f|seq(e \u2192 r))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 11796
+        }
+      ]
+    },
+    "test": {
+      "success": 1,
+      "fail": 37,
+      "best_ms": 4662,
+      "total_success_ms": 4662,
+      "fail_by_step": {
+        "0": 37
+      },
+      "fail_by_expected": {
+        "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))": 36,
+        "2": 1
+      },
+      "fail_by_reason": {
+        "wrong input": 36,
+        "wrong input during sequence": 1
+      },
+      "fail_events": [
+        {
+          "ts": 1770434386,
+          "attempt": 2,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 718
+        },
+        {
+          "ts": 1770434387,
+          "attempt": 6,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 12
+        },
+        {
+          "ts": 1770434387,
+          "attempt": 7,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 252
+        },
+        {
+          "ts": 1770434388,
+          "attempt": 11,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 1
+        },
+        {
+          "ts": 1770434388,
+          "attempt": 12,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 304
+        },
+        {
+          "ts": 1770434390,
+          "attempt": 16,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "2",
+          "reason": "wrong input",
+          "elapsed_ms": 679
+        },
+        {
+          "ts": 1770434392,
+          "attempt": 17,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "3",
+          "reason": "wrong input",
+          "elapsed_ms": 1404
+        },
+        {
+          "ts": 1770434394,
+          "attempt": 18,
+          "step_index": 0,
+          "expected": "2",
+          "actual": "3",
+          "reason": "wrong input during sequence",
+          "elapsed_ms": 1494
+        },
+        {
+          "ts": 1770434434,
+          "attempt": 18,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 41733
+        },
+        {
+          "ts": 1770434442,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 244
+        },
+        {
+          "ts": 1770434444,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 2244
+        },
+        {
+          "ts": 1770434444,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 2922
+        },
+        {
+          "ts": 1770434445,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 3401
+        },
+        {
+          "ts": 1770434445,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 3904
+        },
+        {
+          "ts": 1770434446,
+          "attempt": 19,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 4145
+        },
+        {
+          "ts": 1770434447,
+          "attempt": 20,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 716
+        },
+        {
+          "ts": 1770434448,
+          "attempt": 20,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 1588
+        },
+        {
+          "ts": 1770434448,
+          "attempt": 20,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 1860
+        },
+        {
+          "ts": 1770434448,
+          "attempt": 21,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 366
+        },
+        {
+          "ts": 1770434449,
+          "attempt": 21,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 722
+        },
+        {
+          "ts": 1770434449,
+          "attempt": 22,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 74
+        },
+        {
+          "ts": 1770434450,
+          "attempt": 23,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 72
+        },
+        {
+          "ts": 1770434450,
+          "attempt": 23,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 862
+        },
+        {
+          "ts": 1770434514,
+          "attempt": 23,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 64681
+        },
+        {
+          "ts": 1770434516,
+          "attempt": 23,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 66007
+        },
+        {
+          "ts": 1770434523,
+          "attempt": 23,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 73763
+        },
+        {
+          "ts": 1770434524,
+          "attempt": 24,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 248
+        },
+        {
+          "ts": 1770434528,
+          "attempt": 24,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 3658
+        },
+        {
+          "ts": 1770434532,
+          "attempt": 24,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 7858
+        },
+        {
+          "ts": 1770435093,
+          "attempt": 1,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 90
+        },
+        {
+          "ts": 1770435094,
+          "attempt": 2,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 38
+        },
+        {
+          "ts": 1770435097,
+          "attempt": 2,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 3930
+        },
+        {
+          "ts": 1770435099,
+          "attempt": 2,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 5126
+        },
+        {
+          "ts": 1770435104,
+          "attempt": 3,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "e",
+          "reason": "wrong input",
+          "elapsed_ms": 1844
+        },
+        {
+          "ts": 1770435105,
+          "attempt": 3,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 2154
+        },
+        {
+          "ts": 1770435116,
+          "attempt": 3,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 13661
+        },
+        {
+          "ts": 1770435139,
+          "attempt": 3,
+          "step_index": 0,
+          "expected": "any-order(1|3|f|e|r|seq(1 \u2192 2 \u2192 3))",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 36201
         }
       ]
     }
@@ -2875,7 +4323,9 @@
     "Zani 2": "images",
     "Zani 1": "images",
     "Zani Pheobe Rover Rotation": "images",
-    "Agusta": "images"
+    "Agusta": "images",
+    "Aemeath": "images",
+    "test": "icons"
   },
   "combo_key_images": {},
   "combo_target_game": {
@@ -2883,7 +4333,9 @@
     "Zani 2": "wuthering_waves",
     "Zani 1": "wuthering_waves",
     "Zani Pheobe Rover Rotation": "wuthering_waves",
-    "Agusta": "wuthering_waves"
+    "Agusta": "wuthering_waves",
+    "Aemeath": "wuthering_waves",
+    "test": "wuthering_waves"
   },
   "ww_teams": {
     "986f16f581": {
@@ -2947,6 +4399,37 @@
           "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconShouanrenC1.png"
         }
       }
+    },
+    "c70c25857f": {
+      "name": "Aemeath, Lynae, Mornye",
+      "dash_image": "\ud83d\udca8",
+      "swap_images": {
+        "1": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_53_UI.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_60_UI.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_61_UI.png"
+      },
+      "lmb_images": {
+        "1": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorKnife.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorGun.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorSword.png"
+      },
+      "ability_images": {
+        "1": {
+          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconAimisiB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34025_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconAimisiC1.png"
+        },
+        "2": {
+          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconLinNaiB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34021_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconLinNaiC1.png"
+        },
+        "3": {
+          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconMoNingB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34022_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconMoNingC1.png"
+        }
+      }
     }
   },
   "ww_active_team_id": "cd717b20ac",
@@ -2955,6 +4438,8 @@
     "Zani 1": "986f16f581",
     "Zani 3": "986f16f581",
     "Agusta": "cd717b20ac",
-    "Zani 2": "986f16f581"
+    "Zani 2": "986f16f581",
+    "Aemeath": "c70c25857f",
+    "test": "c70c25857f"
   }
 }

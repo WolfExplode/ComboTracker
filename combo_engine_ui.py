@@ -209,7 +209,7 @@ def user_difficulty_text(engine) -> str:
     return f"Your difficulty: {d:g} / 10"
 
 
-def get_editor_payload(engine) -> dict[str, Any]:
+def get_editor_payload(engine, target_game_override: str | None = None) -> dict[str, Any]:
     name = engine.active_combo_name or ""
     inputs = ", ".join(engine.active_combo_tokens) if engine.active_combo_tokens else ""
 
@@ -248,7 +248,7 @@ def get_editor_payload(engine) -> dict[str, Any]:
             # shallow copy for safety
             key_images = dict(m)
 
-    ww_payload = engine.ww.editor_payload(name)
+    ww_payload = engine.ww.editor_payload(name, target_game_override=target_game_override)
     return {
         "name": name,
         "inputs": inputs,
@@ -288,6 +288,51 @@ def get_status(engine) -> Status:
                 mw_for = str(mw.get("wait_for") or "").strip().upper()
                 if mw_for:
                     opts = [mw_for] + opts
+
+
+            # Include hold keys
+            hold_meta = step.get("group_hold_meta")
+            if isinstance(hold_meta, dict):
+                hold_keys = []
+                for _sig, meta in hold_meta.items():
+                    k = str((meta or {}).get("input") or "").strip().upper()
+                    if k:
+                        hold_keys.append(k)
+                if hold_keys:
+                    opts = opts + hold_keys
+
+            # Include sequence start keys
+            seq_meta = step.get("group_seq_meta")
+            if isinstance(seq_meta, dict):
+                seq_keys = []
+                # Use seq_order_ids for stable ordering if available
+                seq_order_ids = step.get("group_seq_order_ids")
+                seq_list = []
+                
+                if seq_order_ids and isinstance(seq_order_ids, list):
+                    for sid in seq_order_ids:
+                        if sid in seq_meta:
+                            seq_list.append(seq_meta[sid])
+                else:
+                    seq_list = list(seq_meta.values())
+
+                for meta in seq_list:
+                    if not isinstance(meta, dict):
+                        continue
+                    steps = meta.get("sequence_steps") or []
+                    # Find first input-capable step (skip pure waits)
+                    for s in steps:
+                        if not isinstance(s, dict):
+                            continue
+                        if s.get("wait_ms") is not None:
+                            continue
+                        inp = str(s.get("input") or "").strip().upper()
+                        if inp:
+                            seq_keys.append(inp)
+                        break
+                if seq_keys:
+                    opts = opts + seq_keys
+
             if opts:
                 quoted = ", ".join([f"'{o}'" for o in opts])
                 return Status(f"Ready! Press {quoted} to start.", "ready")
@@ -461,6 +506,90 @@ def timeline_steps(engine) -> list[dict[str, Any]]:
                             "completed": comp,
                         }
                     )
+                elif kind == "sequence":
+                    # Sequential subgroup within an any-order group
+                    total += 1
+                    seq_steps_data = it.get("sequence_steps") or []
+                    seq_id = it.get("sequence_id") or ""
+                    
+                    # Get sequence state from group_seq_meta
+                    seq_meta = s.get("group_seq_meta") or {}
+                    seq_state = seq_meta.get(seq_id) if isinstance(seq_meta, dict) else None
+                    seq_index = 0
+                    seq_started = False
+                    if isinstance(seq_state, dict):
+                        seq_index = int(seq_state.get("sequence_index") or 0)
+                        seq_started = bool(seq_state.get("sequence_started") or False)
+                    
+                    # Get done counts for this sequence
+                    seq_done_counts = s.get("group_seq_done_counts") or {}
+                    seq_active = bool(s.get("group_seq_active"))
+                    seq_id_active = str(s.get("group_seq_id") or "")
+
+                    # Fix: Override static metadata with runtime state from the group step
+                    if seq_active and seq_id_active == seq_id:
+                        seq_index = int(s.get("group_seq_index") or 0)
+                        seq_started = True
+                    elif int(seq_done_counts.get(seq_id, 0)) > 0:
+                        seq_index = len(seq_steps_data)
+                        seq_started = True
+                    
+                    # Build sequence items
+                    seq_items = []
+                    for seq_i, seq_step in enumerate(seq_steps_data):
+                        if not isinstance(seq_step, dict):
+                            continue
+                        seq_inp = str(seq_step.get("input") or "").strip().lower()
+                        seq_hold_ms = seq_step.get("hold_ms")
+                        seq_wait_ms = seq_step.get("wait_ms")
+                        
+                        is_active = seq_started and (idx == cur) and seq_active and (seq_id_active == seq_id) and (seq_i == seq_index)
+                        is_completed = (seq_started and (seq_i < seq_index)) or (idx < cur)
+                        
+                        if seq_wait_ms is not None:
+                            seq_mode = str(seq_step.get("wait_mode") or "soft").strip().lower()
+                            seq_wait_for = str(seq_step.get("wait_for") or "").strip().lower()
+                            seq_items.append({
+                                "type": "wait",
+                                "mode": seq_mode,
+                                "wait_for": seq_wait_for,
+                                "duration": int(seq_wait_ms),
+                                "active": is_active,
+                                "completed": is_completed,
+                            })
+                        elif seq_hold_ms is not None:
+                            seq_items.append({
+                                "type": "hold",
+                                "input": seq_inp,
+                                "duration": int(seq_hold_ms),
+                                "active": is_active,
+                                "completed": is_completed,
+                            })
+                        else:
+                            seq_items.append({
+                                "type": "press",
+                                "input": seq_inp,
+                                "duration": 0,
+                                "active": is_active,
+                                "completed": is_completed,
+                            })
+                    
+                    # Check if sequence is completed
+                    seq_comp = (int(seq_done_counts.get(seq_id, 0)) >= 1) or (idx < cur)
+                    if seq_comp:
+                        done_count += 1
+                    
+                    items_payload.append({
+                        "type": "sequence",
+                        "sequence_id": seq_id,
+                        "items": seq_items,
+                        "active": (idx == cur) and seq_active and (seq_id_active == seq_id),
+                        "completed": seq_comp,
+                        "progress": {
+                            "done": seq_index if seq_started else 0,
+                            "total": len(seq_steps_data)
+                        },
+                    })
 
             # Fallback (shouldn't happen): derive a stable order.
             if not items_payload:
@@ -554,6 +683,71 @@ def timeline_steps(engine) -> list[dict[str, Any]]:
                     "progress": {"done": int(done_count), "total": int(total)},
                 }
             )
+            i += 1
+            continue
+
+        # Sequential subgroups: {step1, step2, ...}
+        # These render as a nested sequence within the timeline.
+        if s.get("is_sequence"):
+            seq_steps_data = s.get("sequence_steps") or []
+            seq_index = int(s.get("sequence_index") or 0)
+            seq_started = bool(s.get("sequence_started") or False)
+            
+            # Build the visual representation of sequence items
+            seq_items = []
+            for seq_i, seq_step in enumerate(seq_steps_data):
+                if not isinstance(seq_step, dict):
+                    continue
+                
+                seq_inp = str(seq_step.get("input") or "").strip().lower()
+                seq_hold_ms = seq_step.get("hold_ms")
+                seq_wait_ms = seq_step.get("wait_ms")
+                
+                # Determine if this sub-step is active/completed
+                # Active: sequence started and current position matches
+                # Completed: sequence started and we've passed this position
+                is_active = seq_started and (idx == cur) and (seq_i == seq_index)
+                is_completed = seq_started and (seq_i < seq_index) or (idx < cur)
+                
+                if seq_wait_ms is not None:
+                    seq_mode = str(seq_step.get("wait_mode") or "soft").strip().lower()
+                    seq_wait_for = str(seq_step.get("wait_for") or "").strip().lower()
+                    seq_items.append({
+                        "type": "wait",
+                        "mode": seq_mode,
+                        "wait_for": seq_wait_for,
+                        "duration": int(seq_wait_ms),
+                        "active": is_active,
+                        "completed": is_completed,
+                    })
+                elif seq_hold_ms is not None:
+                    seq_items.append({
+                        "type": "hold",
+                        "input": seq_inp,
+                        "duration": int(seq_hold_ms),
+                        "active": is_active,
+                        "completed": is_completed,
+                    })
+                else:
+                    seq_items.append({
+                        "type": "press",
+                        "input": seq_inp,
+                        "duration": 0,
+                        "active": is_active,
+                        "completed": is_completed,
+                    })
+            
+            steps.append({
+                "type": "sequence",
+                "active": idx == cur and seq_started,
+                "completed": idx < cur,
+                "mark": mark,
+                "items": seq_items,
+                "progress": {
+                    "done": seq_index if seq_started else 0,
+                    "total": len(seq_steps_data)
+                },
+            })
             i += 1
             continue
 
@@ -679,4 +873,3 @@ def init_payload(engine) -> dict[str, Any]:
         "failures": failures_by_reason(engine),
         "editor": get_editor_payload(engine),
     }
-

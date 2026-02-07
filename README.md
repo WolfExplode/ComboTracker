@@ -157,3 +157,7 @@ Make sure you’re running `ui_server.py` from `ComboTracker/`, or just run it n
 - Try running the Python process as admin if needed.
 
 
+
+
+## To do:
+separate the WW characters from the teams so you can mix and match. Right now we need to copy and paste the data manually, there's probably going to be duplicate data

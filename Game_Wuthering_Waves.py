@@ -86,7 +86,7 @@ class WutheringWavesGame:
     # -------------------------
     # Editor payload helpers
     # -------------------------
-    def editor_payload(self, combo_name: str) -> dict[str, Any]:
+    def editor_payload(self, combo_name: str, target_game_override: str | None = None) -> dict[str, Any]:
         """
         Build the WW-related section of the editor payload for the frontend.
         Returns keys:
@@ -100,7 +100,7 @@ class WutheringWavesGame:
         - ww_team_ability_images
         """
         name = (combo_name or "").strip()
-        target_game = self.get_target_game(name)
+        target_game = str(target_game_override).strip().lower() if target_game_override else self.get_target_game(name)
 
         ww_teams = []
         for tid, tv in self.ww_teams.items():
@@ -109,13 +109,14 @@ class WutheringWavesGame:
             ww_teams.append({"id": str(tid), "name": str(tv.get("name", "") or "Team")})
         ww_teams.sort(key=lambda x: (x.get("name") or "").lower())
 
-        # Selected team: combo assignment > active team > none
+        # Selected team: active team > combo assignment > none
+        # We prioritize the active ephemeral team to support stateless editing/switching.
         sel_team_id = ""
         if target_game == "wuthering_waves":
-            if name and name in self.combo_ww_team and self.combo_ww_team[name] in self.ww_teams:
-                sel_team_id = self.combo_ww_team[name]
-            elif self.ww_active_team_id and self.ww_active_team_id in self.ww_teams:
+            if self.ww_active_team_id and self.ww_active_team_id in self.ww_teams:
                 sel_team_id = self.ww_active_team_id
+            elif name and name in self.combo_ww_team and self.combo_ww_team[name] in self.ww_teams:
+                sel_team_id = self.combo_ww_team[name]
 
         team_name = ""
         team_swap_images: dict[str, str] = {}

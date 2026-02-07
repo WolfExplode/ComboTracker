@@ -580,33 +580,33 @@ function clearAttemptLog() {
 function addAttemptSeparator(name, attempt) {
     const body = document.getElementById('resultsBody');
     if (!body) return;
-    const sep = document.createElement('div');
-    sep.className = 'attempt-separator';
-    sep.textContent = `Attempt ${attempt}: ${name}`;
-    body.appendChild(sep);
-    scrollToBottom(body.parentElement);
+    const row = document.createElement('div');
+    row.className = 'result-row separator';
+    row.textContent = `—— ${name} | Attempt ${attempt} ——`;
+    body.appendChild(row);
+    scrollToBottom('resultsTable');
 }
 
 function addResultRow(data) {
     const body = document.getElementById('resultsBody');
     if (!body) return;
     const row = document.createElement('div');
-    row.className = 'table-row';
+    row.className = 'result-row';
 
-    const cellInput = document.createElement('span');
-    cellInput.textContent = (data.input || '').toUpperCase();
-    row.appendChild(cellInput);
+    if (data.split_ms === 'FAIL' || data.total_ms === 'FAIL') {
+        row.classList.add('fail');
+    } else {
+        row.classList.add('success');
+    }
 
-    const cellSplit = document.createElement('span');
-    cellSplit.textContent = (data.split_ms != null) ? data.split_ms.toString() : '—';
-    row.appendChild(cellSplit);
-
-    const cellTotal = document.createElement('span');
-    cellTotal.textContent = (data.total_ms != null) ? data.total_ms.toString() : '—';
-    row.appendChild(cellTotal);
+    row.innerHTML = `
+        <span>${escapeHtml(data.input || '')}</span>
+        <span>${data.split_ms != null ? data.split_ms : '—'}</span>
+        <span>${data.total_ms != null ? data.total_ms : '—'}</span>
+    `;
 
     body.appendChild(row);
-    scrollToBottom(body.parentElement);
+    scrollToBottom('resultsTable');
 }
 
 // Failure analysis
@@ -621,7 +621,7 @@ function updateFailures(failures) {
 
     entries.forEach(([reason, count]) => {
         const row = document.createElement('div');
-        row.className = 'table-row';
+        row.className = 'fail-row';
 
         const cellReason = document.createElement('span');
         cellReason.textContent = reason;
@@ -636,50 +636,92 @@ function updateFailures(failures) {
 }
 
 // Hold / Wait animations (global UI state, not per-combo)
-let holdAnimationStart = 0;
-let holdAnimationRequired = 0;
-let holdAnimationInterval = null;
+let holdAnim = { active: false, requiredMs: 0, startedAt: 0 };
+let holdRafId = null;
 
-function startHoldAnimation(required_ms) {
-    stopHoldAnimation();
-    holdAnimationStart = performance.now();
-    holdAnimationRequired = required_ms || 0;
-    holdAnimationInterval = setInterval(() => {
-        const elapsed = performance.now() - holdAnimationStart;
-        const pct = Math.min(100, (elapsed / holdAnimationRequired) * 100);
-        updateStatus(`Holding... ${Math.round(pct)}%`, 'recording');
-        if (pct >= 100) stopHoldAnimation();
-    }, 16);
-}
+let waitAnim = { active: false, requiredMs: 0, startedAt: 0 };
+let waitRafId = null;
 
 function stopHoldAnimation() {
-    if (holdAnimationInterval) {
-        clearInterval(holdAnimationInterval);
-        holdAnimationInterval = null;
+    holdAnim.active = false;
+    if (holdRafId !== null) {
+        cancelAnimationFrame(holdRafId);
+        holdRafId = null;
     }
 }
 
-let waitAnimationStart = 0;
-let waitAnimationRequired = 0;
-let waitAnimationInterval = null;
+function tickHoldAnimation() {
+    if (!holdAnim.active) {
+        holdRafId = null;
+        return;
+    }
+    const stepEl = document.querySelector('.step.hold.active');
+    if (!stepEl) {
+        // Timeline might be re-rendering; try again next frame.
+        holdRafId = requestAnimationFrame(tickHoldAnimation);
+        return;
+    }
 
-function startWaitAnimation(required_ms) {
-    stopWaitAnimation();
-    waitAnimationStart = performance.now();
-    waitAnimationRequired = required_ms || 0;
-    waitAnimationInterval = setInterval(() => {
-        const elapsed = performance.now() - waitAnimationStart;
-        const pct = Math.min(100, (elapsed / waitAnimationRequired) * 100);
-        updateStatus(`Waiting... ${Math.round(pct)}%`, 'wait');
-        if (pct >= 100) stopWaitAnimation();
-    }, 16);
+    const elapsed = performance.now() - holdAnim.startedAt;
+    const req = Math.max(1, holdAnim.requiredMs || 1);
+    const pct = Math.max(0, Math.min(100, (elapsed / req) * 100));
+    stepEl.style.setProperty('--hold-pct', `${pct}%`);
+    updateStatus(`Holding... ${Math.round(pct)}%`, 'recording');
+
+    if (pct >= 100) {
+        holdRafId = null;
+        return;
+    }
+    holdRafId = requestAnimationFrame(tickHoldAnimation);
+}
+
+function startHoldAnimation(requiredMs) {
+    stopHoldAnimation();
+    holdAnim.active = true;
+    holdAnim.requiredMs = Math.max(1, Number(requiredMs) || 1);
+    holdAnim.startedAt = performance.now();
+    holdRafId = requestAnimationFrame(tickHoldAnimation);
 }
 
 function stopWaitAnimation() {
-    if (waitAnimationInterval) {
-        clearInterval(waitAnimationInterval);
-        waitAnimationInterval = null;
+    waitAnim.active = false;
+    if (waitRafId !== null) {
+        cancelAnimationFrame(waitRafId);
+        waitRafId = null;
     }
+}
+
+function tickWaitAnimation() {
+    if (!waitAnim.active) {
+        waitRafId = null;
+        return;
+    }
+    // Select active wait steps (including press_wait which has .press-wait class)
+    const stepEl = document.querySelector('.step.wait.active, .step.press-wait.active');
+    if (!stepEl) {
+        waitRafId = requestAnimationFrame(tickWaitAnimation);
+        return;
+    }
+
+    const elapsed = performance.now() - waitAnim.startedAt;
+    const req = Math.max(1, Number(waitAnim.requiredMs) || 1);
+    const pct = Math.max(0, Math.min(100, (elapsed / req) * 100));
+    stepEl.style.setProperty('--wait-pct', `${pct}%`);
+    updateStatus(`Waiting... ${Math.round(pct)}%`, 'wait');
+
+    if (pct >= 100) {
+        waitRafId = null;
+        return;
+    }
+    waitRafId = requestAnimationFrame(tickWaitAnimation);
+}
+
+function startWaitAnimation(requiredMs) {
+    stopWaitAnimation();
+    waitAnim.active = true;
+    waitAnim.requiredMs = Math.max(1, Number(requiredMs) || 1);
+    waitAnim.startedAt = performance.now();
+    waitRafId = requestAnimationFrame(tickWaitAnimation);
 }
 
 // Timeline rendering
@@ -689,6 +731,24 @@ function updateTimeline(steps) {
     if (!container) return;
     container.innerHTML = '';
 
+    const BASE_STEP_WIDTH_PX = 80;
+    const applyHoldWidth = (el, durationMs) => {
+        const ms = Number(durationMs);
+        const mult = (Number.isFinite(ms) && ms > 0) ? (ms / 100.0) : 1;
+        const w = Math.max(BASE_STEP_WIDTH_PX, BASE_STEP_WIDTH_PX * mult);
+        el.style.width = `${w}px`;
+    };
+
+    const addCornerKey = (el, key) => {
+        if (currentStepDisplayMode !== 'images') return;
+        const k = (key || '').toString().trim();
+        if (!k) return;
+        const span = document.createElement('span');
+        span.className = 'corner-key';
+        span.textContent = k;
+        el.appendChild(span);
+    };
+
     if (!steps || steps.length === 0) {
         container.innerHTML = '<div class="help-text">No combo selected</div>';
         return;
@@ -696,40 +756,145 @@ function updateTimeline(steps) {
 
     steps.forEach((s, idx) => {
         const tile = document.createElement('div');
-        tile.className = 'timeline-step';
-        if (s.active) tile.classList.add('timeline-step-active');
-        if (s.completed) tile.classList.add('timeline-step-completed');
-        if (s.mark === 'success') tile.classList.add('timeline-step-success');
-        if (s.mark === 'fail') tile.classList.add('timeline-step-fail');
 
+        // Handle class assignment based on type
         if (s.type === 'group') {
-            tile.classList.add('timeline-step-group');
-            const header = document.createElement('div');
-            header.className = 'group-header';
-            header.textContent = 'Any Order';
-            tile.appendChild(header);
+            tile.className = 'step-group';
+            if (s.active) tile.classList.add('active');
+            if (s.completed) tile.classList.add('completed');
+            // Add performance marks if applicable to group? Usually on items.
+            if (s.mark) {
+                const m = String(s.mark).toLowerCase();
+                if (m === 'ok') tile.classList.add('mark-ok');
+                else if (m === 'early') tile.classList.add('mark-early');
+                else if (m === 'missed') tile.classList.add('mark-missed');
+                else if (m === 'wrong') tile.classList.add('mark-wrong');
+            }
 
             const items = document.createElement('div');
-            items.className = 'group-items';
+            items.className = 'step-group-items';
+
             (s.items || []).forEach(it => {
+                if (it.type === 'sequence') {
+                    // Render a mini sequence within the group
+                    const seqEl = document.createElement('div');
+                    seqEl.className = 'step group-item group-item-sequence';
+                    if (it.active) seqEl.classList.add('active');
+                    if (it.completed) seqEl.classList.add('completed');
+
+                    const seqHeader = document.createElement('div');
+                    seqHeader.className = 'mini-sequence-header';
+                    // const seqLabels = (it.items || []).map(seqIt => renderStepLabel(seqIt)); // Unused
+                    seqEl.appendChild(seqHeader);
+
+                    const seqItems = document.createElement('div');
+                    seqItems.className = 'mini-sequence-items';
+                    (it.items || []).forEach((seqIt, seqIdx) => {
+                        const seqItEl = document.createElement('div');
+                        seqItEl.className = 'mini-sequence-step';
+                        if (seqIt.active) seqItEl.classList.add('mini-sequence-step-active');
+                        if (seqIt.completed) seqItEl.classList.add('mini-sequence-step-completed');
+
+                        // Append content directly
+                        appendStepContent(seqItEl, seqIt);
+                        seqItems.appendChild(seqItEl);
+
+                        // Add arrow between steps
+                        if (seqIdx < (it.items || []).length - 1) {
+                            const arrow = document.createElement('span');
+                            arrow.className = 'mini-sequence-arrow';
+                            arrow.textContent = '→';
+                            seqItems.appendChild(arrow);
+                        }
+                    });
+                    seqEl.appendChild(seqItems);
+                    items.appendChild(seqEl);
+                } else {
+                    // Regular group item
+                    const itEl = document.createElement('div');
+                    itEl.className = 'step group-item';
+
+                    if (it.type === 'wait') {
+                        itEl.classList.add('wait');
+                        if (it.duration <= 100) itEl.classList.add('short-wait');
+                        itEl.style.setProperty('--wait-pct', it.completed ? '100%' : '0%');
+                    } else if (it.type === 'press_wait') {
+                        itEl.classList.add('press-wait');
+                        if (it.duration <= 100) itEl.classList.add('short-wait');
+                        itEl.style.setProperty('--wait-pct', it.completed ? '100%' : '0%');
+                    } else if (it.type === 'hold') {
+                        itEl.classList.add('hold');
+                        applyHoldWidth(itEl, it.duration);
+                        itEl.style.setProperty('--hold-pct', it.completed ? '100%' : '0%');
+                    }
+
+                    if (it.active) itEl.classList.add('active');
+                    if (it.completed) itEl.classList.add('completed');
+
+                    appendStepContent(itEl, it);
+                    // Also add corner key for group items
+                    if (it.input) addCornerKey(itEl, it.input);
+                    items.appendChild(itEl);
+                }
+            });
+            tile.appendChild(items);
+
+        } else if (s.type === 'sequence') {
+            // Sequential subgroup
+            tile.className = 'step-sequence';
+            if (s.active) tile.classList.add('active');
+            if (s.completed) tile.classList.add('completed');
+
+            const items = document.createElement('div');
+            items.className = 'sequence-items';
+            // style moved to CSS
+
+            (s.items || []).forEach((it, seqIdx) => {
                 const itEl = document.createElement('div');
-                itEl.className = 'group-item';
-                if (it.active) itEl.classList.add('group-item-active');
-                if (it.completed) itEl.classList.add('group-item-completed');
-                itEl.textContent = renderStepLabel(it);
+                itEl.className = 'step sequence-item';
+                if (it.active) itEl.classList.add('active');
+                if (it.completed) itEl.classList.add('completed');
+
+                // Render sequence item label
+                appendStepContent(itEl, it);
+
                 items.appendChild(itEl);
             });
             tile.appendChild(items);
 
-            const progress = document.createElement('div');
-            progress.className = 'group-progress';
-            const done = (s.progress || {}).done || 0;
-            const total = (s.progress || {}).total || 1;
-            progress.textContent = `${done} / ${total}`;
-            tile.appendChild(progress);
         } else {
-            const content = renderStepContent(s);
-            tile.appendChild(content);
+            // Normal Step
+            tile.className = 'step';
+            if (s.active) tile.classList.add('active');
+            if (s.completed) tile.classList.add('completed');
+            if (s.mark === 'success') tile.classList.add('mark-ok');
+            if (s.mark === 'fail') tile.classList.add('mark-wrong');
+            if (s.mark === 'missed') tile.classList.add('mark-missed');
+            if (s.mark === 'early') tile.classList.add('mark-early');
+
+            // Add type class (wait, hold, press-wait)
+            if (s.type) {
+                tile.classList.add(s.type.replace('_', '-'));
+            }
+
+            // check if wait/hold/press-wait logic for pct/width
+            let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
+            if (s.type === 'wait' || s.type === 'press_wait') {
+                tile.style.setProperty('--wait-pct', `${pct}%`);
+            } else if (s.type === 'hold') {
+                tile.style.setProperty('--hold-pct', `${pct}%`);
+                if (s.duration) {
+                    applyHoldWidth(tile, s.duration);
+                }
+            }
+
+            // Add corner key (except group/seq handled above)
+            let keyForCorner = '';
+            if (s.type === 'wait' && s.wait_for) keyForCorner = s.wait_for;
+            else if (s.input) keyForCorner = s.input;
+            if (keyForCorner) addCornerKey(tile, keyForCorner);
+
+            appendStepContent(tile, s);
         }
 
         container.appendChild(tile);
@@ -741,6 +906,10 @@ function updateTimeline(steps) {
 }
 
 function renderStepLabel(s) {
+    if (s.type === 'sequence') {
+        const parts = (s.items || []).map(it => renderStepLabel(it));
+        return parts.length > 0 ? `Seq: ${parts.join('→')}` : 'Seq';
+    }
     const inp = (s.input || '').toString().toUpperCase();
     const dur = s.duration || 0;
     if (s.type === 'wait') {
@@ -754,112 +923,170 @@ function renderStepLabel(s) {
     return inp;
 }
 
-function renderStepContent(s) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'step-content';
+function getMouseIconSvg(type) {
+    const t = type.toLowerCase();
+    if (t === 'lmb') {
+        return `<svg viewBox="0 0 64 64" role="img" focusable="false"><rect x="18" y="6" width="28" height="52" rx="14" ry="14" fill="none" stroke="currentColor" stroke-width="3"></rect><line x1="32" y1="6" x2="32" y2="26" stroke="currentColor" stroke-width="3" opacity="0.55"></line><path d="M18 20 C18 12, 24 6, 32 6 L32 26 L18 26 Z" fill="currentColor" opacity="0.35"></path></svg>`;
+    }
+    if (t === 'rmb') {
+        return `<svg viewBox="0 0 64 64" role="img" focusable="false"><rect x="18" y="6" width="28" height="52" rx="14" ry="14" fill="none" stroke="currentColor" stroke-width="3"></rect><line x1="32" y1="6" x2="32" y2="26" stroke="currentColor" stroke-width="3" opacity="0.55"></line><path d="M46 20 C46 12, 40 6, 32 6 L32 26 L46 26 Z" fill="currentColor" opacity="0.35"></path></svg>`;
+    }
+    if (t === 'mmb') {
+        return `<svg viewBox="0 0 64 64" role="img" focusable="false"><rect x="18" y="6" width="28" height="52" rx="14" ry="14" fill="none" stroke="currentColor" stroke-width="3"></rect><line x1="32" y1="6" x2="32" y2="26" stroke="currentColor" stroke-width="3" opacity="0.55"></line><rect x="28" y="10" width="8" height="12" rx="4" ry="4" fill="currentColor" opacity="0.35"></rect></svg>`;
+    }
+    return '';
+}
 
+function appendStepContent(parent, s) {
     const useImages = (currentStepDisplayMode === 'images') || !!document.getElementById('stepDisplayToggle')?.checked;
     const inp = (s.input || '').toString().toLowerCase();
     const label = (s.input || '').toString().toUpperCase();
 
+    // Helper to decide content
+    const appendIconOrText = (key, fallbackText) => {
+        const svg = getMouseIconSvg(key);
+        if (svg) {
+            const icon = document.createElement('span');
+            icon.className = 'mouse-icon';
+            icon.innerHTML = svg;
+            parent.appendChild(icon);
+            return;
+        }
+        const span = document.createElement('span');
+        span.className = 'step-primary';
+        span.textContent = fallbackText;
+        parent.appendChild(span);
+    };
+
     if (useImages && currentTargetGame === 'wuthering_waves') {
-        // WW mode: use team images
+        // WW mode...
         if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
             const key = s.wait_for.toLowerCase();
             const img = getWwImage(key);
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = key.toUpperCase();
+                appendIconOrText(key, key.toUpperCase());
             }
-            const dur = document.createElement('div');
-            dur.className = 'step-duration';
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
             dur.textContent = `${s.duration}ms`;
-            wrapper.appendChild(dur);
+            parent.appendChild(dur);
         } else if (s.type === 'hold') {
             const img = getWwImage(inp);
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = label;
+                appendIconOrText(inp, label);
             }
-            const dur = document.createElement('div');
-            dur.className = 'step-duration';
-            dur.textContent = `Hold ${s.duration}ms`;
-            wrapper.appendChild(dur);
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `hold ${s.duration}ms`;
+            parent.appendChild(dur);
         } else if (s.type === 'press_wait') {
             const img = getWwImage(inp);
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = label;
+                appendIconOrText(inp, label);
             }
-            const dur = document.createElement('div');
-            dur.className = 'step-duration';
-            dur.textContent = `+${s.duration}ms`;
-            wrapper.appendChild(dur);
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `${s.duration}ms`;
+            parent.appendChild(dur);
         } else if (s.type === 'wait') {
-            wrapper.textContent = `Wait ${s.duration}ms`;
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `Wait ${s.duration}ms`;
+            parent.appendChild(dur);
         } else {
             const img = getWwImage(inp);
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = label;
+                appendIconOrText(inp, label);
             }
         }
     } else if (useImages && currentTargetGame === 'generic') {
-        // Generic mode: use key images
+        // Generic mode...
         if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
             const key = s.wait_for.toLowerCase();
             const img = currentKeyImages[key];
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = key.toUpperCase();
+                appendIconOrText(key, key.toUpperCase());
             }
-            const dur = document.createElement('div');
-            dur.className = 'step-duration';
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
             dur.textContent = `${s.duration}ms`;
-            wrapper.appendChild(dur);
+            parent.appendChild(dur);
         } else if (s.type === 'hold') {
             const img = currentKeyImages[inp];
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = label;
+                appendIconOrText(inp, label);
             }
-            const dur = document.createElement('div');
-            dur.className = 'step-duration';
-            dur.textContent = `Hold ${s.duration}ms`;
-            wrapper.appendChild(dur);
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `hold ${s.duration}ms`;
+            parent.appendChild(dur);
         } else if (s.type === 'press_wait') {
             const img = currentKeyImages[inp];
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = label;
+                appendIconOrText(inp, label);
             }
-            const dur = document.createElement('div');
-            dur.className = 'step-duration';
-            dur.textContent = `+${s.duration}ms`;
-            wrapper.appendChild(dur);
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `${s.duration}ms`;
+            parent.appendChild(dur);
         } else if (s.type === 'wait') {
-            wrapper.textContent = `Wait ${s.duration}ms`;
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `Wait ${s.duration}ms`;
+            parent.appendChild(dur);
         } else {
             const img = currentKeyImages[inp];
             if (img) {
-                wrapper.appendChild(createImageElement(img));
+                parent.appendChild(createImageElement(img));
             } else {
-                wrapper.textContent = label;
+                appendIconOrText(inp, label);
             }
         }
     } else {
         // Icon mode (default)
-        wrapper.textContent = renderStepLabel(s);
+        if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
+            const key = s.wait_for.toLowerCase();
+            appendIconOrText(key, key.toUpperCase());
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `${s.duration}ms`;
+            parent.appendChild(dur);
+        } else if (s.type === 'hold') {
+            appendIconOrText(inp, label);
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `hold ${s.duration}ms`;
+            parent.appendChild(dur);
+        } else if (s.type === 'press_wait') {
+            appendIconOrText(inp, label);
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `${s.duration}ms`;
+            parent.appendChild(dur);
+        } else if (s.type === 'wait') {
+            const dur = document.createElement('span');
+            dur.className = 'step-secondary';
+            dur.textContent = `Wait ${s.duration}ms`;
+            parent.appendChild(dur);
+        } else {
+            // Plain press
+            appendIconOrText(inp, label);
+        }
     }
-
-    return wrapper;
 }
 
 function getWwImage(key) {
@@ -890,10 +1117,10 @@ function getWwImage(key) {
 }
 
 function createImageElement(url) {
-    const img = document.createElement('div');
-    img.className = 'step-image-wrapper';
+    const img = document.createElement('span');
+    img.className = 'key-img-wrap'; // Matches CSS .key-img-wrap
     if (/^https?:\/\//i.test(url)) {
-        img.innerHTML = `<img class="step-image" src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
+        img.innerHTML = `<img class="key-step-image" src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
     } else {
         img.innerHTML = `<span class="step-emoji">${escapeHtml(url)}</span>`;
     }
@@ -902,22 +1129,51 @@ function createImageElement(url) {
 
 function setAutoScrollEnabled(enabled) {
     autoScrollEnabled = !!enabled;
+    const vp = document.getElementById('comboTimelineViewport');
+    const timeline = document.getElementById('comboTimeline');
+    if (vp) {
+        if (autoScrollEnabled) {
+            vp.classList.add('auto-scroll-on');
+        } else {
+            vp.classList.remove('auto-scroll-on');
+            if (timeline) timeline.style.transform = 'none';
+        }
+    }
 }
 
 function applyAutoScroll() {
     if (!autoScrollEnabled) return;
     const viewport = document.getElementById('comboTimelineViewport');
-    if (!viewport) return;
-    const active = viewport.querySelector('.timeline-step-active');
+    const timeline = document.getElementById('comboTimeline');
+    if (!viewport || !timeline) return;
+
+    // Target the specific active step (item), not the group container
+    const active = timeline.querySelector('.step.active');
     if (!active) return;
 
     const vpRect = viewport.getBoundingClientRect();
     const activeRect = active.getBoundingClientRect();
+
     const vpCenter = vpRect.left + (vpRect.width / 2);
     const activeCenter = activeRect.left + (activeRect.width / 2);
     const offset = activeCenter - vpCenter;
 
-    viewport.scrollBy({ left: offset, behavior: 'smooth' });
+    // We must use transform for positioning as per layout
+    const style = window.getComputedStyle(timeline);
+    let currentX = 0;
+    if (style.transform && style.transform !== 'none') {
+        try {
+            // Logic to parse matrix(1, 0, 0, 1, x, y)
+            const matrix = new DOMMatrix(style.transform);
+            currentX = matrix.m41;
+        } catch (e) {
+            console.error('AutoScroll matrix parse error', e);
+        }
+    }
+
+    // Shift to left to compensate positive offset (right-side target)
+    const newX = currentX - offset;
+    timeline.style.transform = `translateX(${newX}px)`;
 }
 
 // Two-click confirm pattern

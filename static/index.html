@@ -42,6 +42,9 @@
                         LMB, RMB, MMB for mouse. Hold: hold(space,0.2) or space{200ms}. Wait (soft): wait:0.5 (or
                         wait_soft:0.5). Hard wait: wait_hard:0.5 (early press drops combo).
                         Any-order group: [q, e] means press BOTH q and e in any order.
+                        Sequential subgroup: {hold(e, 0.30), e} means do hold(e) THEN e, in that exact order.
+                        Combine them: [lmb, rmb, {hold(e, 0.30), e}] means lmb/rmb/{sequence} can be done in any order,
+                        but once the {sequence} starts, you must complete it in order.
                         Animation lock: wait(r, 1.5) means press r, then mandatory wait ≥ 1.5s (inputs ignored).
                         Combined: [wait(r, 1.5), q, e] means press r/q/e in any order; r triggers the animation lock
                         inside
