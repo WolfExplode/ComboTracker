@@ -3,6 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from states import (
+    GroupItemTracker,
+    GroupState,
+    HoldState,
+    PressState,
+    SequenceState,
+    WaitState,
+)
+
 
 @dataclass
 class Status:
@@ -40,8 +49,8 @@ def stats_text(engine) -> str:
         parts: list[str] = []
         for cnt, idx in pairs[:2]:
             label = "—"
-            if 0 <= idx < len(engine.active_combo_steps):
-                label = engine._expected_label_for_step(engine.active_combo_steps[idx])
+            if 0 <= idx < len(engine.runtime_steps):
+                label = engine._expected_label_for_step(engine.runtime_steps[idx])
             parts.append(f"#{idx+1}:{label} ({cnt})")
         if parts:
             hardest = " | Hardest: " + ", ".join(parts)
@@ -74,9 +83,9 @@ def failures_by_reason(engine) -> dict[str, int]:
 
 
 def min_time_text(engine) -> str:
-    if not engine.active_combo_steps:
+    if not engine.runtime_steps:
         return "Fastest possible: —"
-    min_ms = engine.calc_min_combo_time_ms(engine.active_combo_steps)
+    min_ms = engine.calc_min_combo_time_ms(engine.runtime_steps)
     return f"Fastest possible: {engine._format_ms(min_ms)}"
 
 
@@ -85,12 +94,12 @@ def practical_apm(engine) -> float | None:
     Practical APM uses user-entered expected execution time (ms) for the active combo.
     """
     name = engine.active_combo_name
-    if not name or not engine.active_combo_steps:
+    if not name or not engine.runtime_steps:
         return None
     expected_ms = engine.combo_expected_ms.get(name)
     if expected_ms is None or expected_ms <= 0:
         return None
-    press_count, _hold_count, _actions = engine._count_combo_actions(engine.active_combo_steps)
+    press_count, _hold_count, _actions = engine._count_combo_actions(engine.runtime_steps)
     if press_count <= 0:
         return None
     return (60000.0 / float(expected_ms)) * float(press_count)
@@ -100,12 +109,12 @@ def theoretical_max_apm(engine) -> float | None:
     """
     Theoretical max APM uses the fastest-possible combo time (sum of waits + holds).
     """
-    if not engine.active_combo_name or not engine.active_combo_steps:
+    if not engine.active_combo_name or not engine.runtime_steps:
         return None
-    min_ms = engine.calc_min_combo_time_ms(engine.active_combo_steps)
+    min_ms = engine.calc_min_combo_time_ms(engine.runtime_steps)
     if min_ms <= 0:
         return None
-    press_count, _hold_count, _actions = engine._count_combo_actions(engine.active_combo_steps)
+    press_count, _hold_count, _actions = engine._count_combo_actions(engine.runtime_steps)
     if press_count <= 0:
         return None
     return (60000.0 / float(min_ms)) * float(press_count)
@@ -129,12 +138,12 @@ def difficulty_score_10(engine) -> float | None:
     """
     Returns a 0..10 score (float) or None if there's no active combo.
     """
-    if not engine.active_combo_steps or not engine.active_combo_name:
+    if not engine.runtime_steps or not engine.active_combo_name:
         return None
 
     # --- Keys camp (Practical APM + combo length) ---
     apm = practical_apm(engine) or 0.0
-    _press_count, _hold_count, actions = engine._count_combo_actions(engine.active_combo_steps)
+    _press_count, _hold_count, actions = engine._count_combo_actions(engine.runtime_steps)
 
     # --- Normalization / scaling constants ---
     apm_norm = engine._clamp01(apm / 200.0)
@@ -145,7 +154,7 @@ def difficulty_score_10(engine) -> float | None:
     # --- Timing camp (wait + hold + simple variation points) ---
     wait_scores: list[float] = []
     hold_scores: list[float] = []
-    for s in engine.active_combo_steps:
+    for s in engine.runtime_steps:
         if not isinstance(s, dict):
             continue
         if s.get("wait_ms") is not None:
@@ -261,8 +270,42 @@ def get_editor_payload(engine, target_game_override: str | None = None) -> dict[
     }
 
 
+def _group_start_options(step: GroupState) -> list[str]:
+    """Collect allowed start keys for a group at index 0 (press, press_wait first key, anim_wait, hold, sequence first key)."""
+    opts: list[str] = []
+    for item in step.items:
+        if item.kind == "press" and isinstance(item.state, PressState):
+            k = str(item.state.expected or "").strip().upper()
+            if k and k not in opts:
+                opts.append(k)
+        elif item.kind == "press_wait" and isinstance(item.state, SequenceState) and item.state.steps:
+            first = item.state.steps[0]
+            if isinstance(first, PressState):
+                k = str(first.expected or "").strip().upper()
+                if k and k not in opts:
+                    opts.append(k)
+        elif item.kind == "anim_wait" and isinstance(item.state, WaitState):
+            k = str(item.state.wait_for or "").strip().upper()
+            if k and k not in opts:
+                opts.insert(0, k)
+        elif item.kind == "hold" and isinstance(item.state, HoldState):
+            k = str(item.state.expected or "").strip().upper()
+            if k and k not in opts:
+                opts.append(k)
+        elif item.kind == "sequence" and isinstance(item.state, SequenceState):
+            for s in item.state.steps:
+                if isinstance(s, WaitState):
+                    continue
+                if isinstance(s, PressState):
+                    k = str(s.expected or "").strip().upper()
+                    if k and k not in opts:
+                        opts.append(k)
+                    break
+    return opts
+
+
 def get_status(engine) -> Status:
-    if not engine.active_combo_steps:
+    if not engine.runtime_steps:
         return Status("Status: Select a combo to start", "neutral")
 
     step = engine._active_step()
@@ -270,90 +313,31 @@ def get_status(engine) -> Status:
         return Status("Status: Select a combo to start", "neutral")
 
     if engine.current_index == 0:
-        # Any-order group can start with any option.
-        if step.get("group_presses") is not None:
-            opts = [str(x or "").strip().upper() for x in (step.get("group_presses") or [])]
-            opts = [o for o in opts if o]
-            pw_meta = step.get("group_pw_meta")
-            if isinstance(pw_meta, dict) and pw_meta:
-                pw_keys = []
-                for _sig, meta in pw_meta.items():
-                    k = str((meta or {}).get("input") or "").strip().upper()
-                    if k:
-                        pw_keys.append(k)
-                if pw_keys:
-                    opts = pw_keys + opts
-            mw = step.get("group_mandatory_wait")
-            if isinstance(mw, dict):
-                mw_for = str(mw.get("wait_for") or "").strip().upper()
-                if mw_for:
-                    opts = [mw_for] + opts
-
-
-            # Include hold keys
-            hold_meta = step.get("group_hold_meta")
-            if isinstance(hold_meta, dict):
-                hold_keys = []
-                for _sig, meta in hold_meta.items():
-                    k = str((meta or {}).get("input") or "").strip().upper()
-                    if k:
-                        hold_keys.append(k)
-                if hold_keys:
-                    opts = opts + hold_keys
-
-            # Include sequence start keys
-            seq_meta = step.get("group_seq_meta")
-            if isinstance(seq_meta, dict):
-                seq_keys = []
-                # Use seq_order_ids for stable ordering if available
-                seq_order_ids = step.get("group_seq_order_ids")
-                seq_list = []
-                
-                if seq_order_ids and isinstance(seq_order_ids, list):
-                    for sid in seq_order_ids:
-                        if sid in seq_meta:
-                            seq_list.append(seq_meta[sid])
-                else:
-                    seq_list = list(seq_meta.values())
-
-                for meta in seq_list:
-                    if not isinstance(meta, dict):
-                        continue
-                    steps = meta.get("sequence_steps") or []
-                    # Find first input-capable step (skip pure waits)
-                    for s in steps:
-                        if not isinstance(s, dict):
-                            continue
-                        if s.get("wait_ms") is not None:
-                            continue
-                        inp = str(s.get("input") or "").strip().upper()
-                        if inp:
-                            seq_keys.append(inp)
-                        break
-                if seq_keys:
-                    opts = opts + seq_keys
-
+        if isinstance(step, GroupState):
+            opts = _group_start_options(step)
             if opts:
                 quoted = ", ".join([f"'{o}'" for o in opts])
                 return Status(f"Ready! Press {quoted} to start.", "ready")
             return Status("Ready! Press the first input to start.", "ready")
-
-        start_key = str(step.get("input") or "").upper()
-        if step.get("hold_ms") is None:
+        if isinstance(step, PressState):
+            start_key = str(step.expected or "").upper()
             return Status(f"Ready! Press '{start_key}' to start.", "ready")
-        return Status(
-            f"Ready! Hold '{start_key}' for {int(step.get('hold_ms') or 0)}ms to start.",
-            "ready",
-        )
+        if isinstance(step, HoldState):
+            start_key = str(step.expected or "").upper()
+            return Status(
+                f"Ready! Hold '{start_key}' for {int(step.required_ms or 0)}ms to start.",
+                "ready",
+            )
+        if isinstance(step, (SequenceState, WaitState)):
+            return Status("Ready! Press the first input to start.", "ready")
 
     if engine.wait_in_progress:
         req = engine._format_hold_requirement(int(engine.wait_required_ms or 0))
-        # If this is a mandatory animation lock, make it explicit.
         mode = "soft"
         try:
             s = engine._active_step()
-            if isinstance(s, dict) and s.get("wait_ms") is not None:
-                mode = str(s.get("wait_mode") or "soft").strip().lower() or "soft"
+            if isinstance(s, WaitState):
+                mode = str(s.mode or "soft").strip().lower() or "soft"
         except Exception:
             mode = "soft"
         if mode == "mandatory":
@@ -366,492 +350,252 @@ def get_status(engine) -> Status:
     return Status("Recording...", "recording")
 
 
-def timeline_steps(engine) -> list[dict[str, Any]]:
-    steps = []
-    i = 0
-    arr = engine.active_combo_steps or []
-    # When idle after a success, keep the timeline fully completed/green until a new attempt starts.
+def _timeline_steps_from_runtime(engine) -> list[dict[str, Any]]:
+    """Build timeline payload from engine.runtime_steps (state objects)."""
+    arr = engine.runtime_steps
+    if not arr:
+        return []
+    steps: list[dict[str, Any]] = []
     cur = engine.current_index
     try:
         if (
             int(cur) == 0
-            and engine._ui_last_success_combo
+            and getattr(engine, "_ui_last_success_combo", None)
             and engine._ui_last_success_combo == engine.active_combo_name
-            and int(engine._ui_last_success_steps_len or 0) == len(arr)
+            and int(getattr(engine, "_ui_last_success_steps_len", 0) or 0) == len(arr)
         ):
             cur = len(arr)
     except Exception:
         cur = engine.current_index
+
+    i = 0
     while i < len(arr):
-        s = arr[i]
+        step = arr[i]
         idx = i
         mark = engine.step_marks.get(idx)
-        if s.get("group_presses") is not None:
-            done_counts = s.get("group_done_counts")
-            done_counts = done_counts if isinstance(done_counts, dict) else {}
-            pw_done_counts = s.get("group_pw_done_counts")
-            pw_done_counts = pw_done_counts if isinstance(pw_done_counts, dict) else {}
-            pw_need_counts = s.get("group_pw_need_counts")
-            pw_need_counts = pw_need_counts if isinstance(pw_need_counts, dict) else {}
-            pw_meta = s.get("group_pw_meta")
-            pw_meta = pw_meta if isinstance(pw_meta, dict) else {}
-            pw_active = bool(s.get("group_pw_active"))
-            pw_sig_active = str(s.get("group_pw_sig") or "").strip()
-            hold_done_counts = s.get("group_hold_done_counts")
-            hold_done_counts = hold_done_counts if isinstance(hold_done_counts, dict) else {}
-            hold_need_counts = s.get("group_hold_need_counts")
-            hold_need_counts = hold_need_counts if isinstance(hold_need_counts, dict) else {}
-            hold_meta = s.get("group_hold_meta")
-            hold_meta = hold_meta if isinstance(hold_meta, dict) else {}
-            hold_active = bool(s.get("group_hold_active"))
-            hold_sig_active = str(s.get("group_hold_sig") or "").strip()
-            mw_done = bool(s.get("group_wait_done"))
-            mw_active = bool(s.get("group_wait_active"))
-            mw = s.get("group_mandatory_wait")
-            mw_for = ""
-            mw_ms = None
-            if isinstance(mw, dict):
-                mw_for = str(mw.get("wait_for") or "").strip().lower()
-                mw_ms = mw.get("wait_ms")
 
-            order = s.get("group_order")
-            order_list = order if isinstance(order, list) else []
-
-            items_payload: list[dict[str, Any]] = []
-            done_count = 0
-            total = 0
-            seen_press: dict[str, int] = {}  # key -> occurrences (for press duplicates)
-            seen_pw: dict[str, int] = {}  # sig -> occurrences (for press_wait duplicates)
-            seen_hold: dict[str, int] = {}  # sig -> occurrences (for hold duplicates)
-
-            # Build items in the exact order written in the combo.
-            for it in order_list:
-                if not isinstance(it, dict):
-                    continue
-                kind = str(it.get("kind") or "")
-                if kind == "anim_wait":
-                    total += 1
-                    dur = int(it.get("wait_ms") or 0)
-                    wf = str(it.get("wait_for") or "").strip().lower()
-                    comp = mw_done or (idx < cur)
-                    act = (idx == cur) and mw_active
+        match step:
+            case GroupState():
+                items_payload: list[dict[str, Any]] = []
+                done_count = 0
+                total = 0
+                for item in step.items:
+                    comp = item.completed_count >= item.required_count
                     if comp:
                         done_count += 1
-                    items_payload.append(
-                        {
-                            "type": "wait",
-                            "mode": "mandatory",
-                            "wait_for": wf,
-                            "duration": dur,
-                            "active": act,
-                            "completed": comp,
-                        }
-                    )
-                elif kind == "press_wait":
                     total += 1
-                    sig = str(it.get("sig") or "").strip()
-                    meta = pw_meta.get(sig) if isinstance(pw_meta, dict) else None
-                    inp = str((meta or {}).get("input") or it.get("input") or "").strip().lower()
-                    dur = int((meta or {}).get("wait_ms") or it.get("wait_ms") or 0)
-                    # occurrence counting for duplicates of same sig:
-                    seen_pw[sig] = int(seen_pw.get(sig, 0)) + 1
-                    occ = int(seen_pw.get(sig, 1))
-                    comp = (int(pw_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                    act = (idx == cur) and pw_active and (pw_sig_active == sig)
-                    if comp:
-                        done_count += 1
-                    items_payload.append(
-                        {
-                            "type": "press_wait",
-                            "input": inp,
-                            "duration": dur,
-                            "active": act,
-                            "completed": comp,
-                        }
-                    )
-                elif kind == "press":
-                    total += 1
-                    inp = str(it.get("input") or "").strip().lower()
-                    seen_press[inp] = int(seen_press.get(inp, 0)) + 1
-                    occ = int(seen_press.get(inp, 1))
-                    comp = (int(done_counts.get(inp, 0)) >= occ) or (idx < cur)
-                    if comp:
-                        done_count += 1
-                    items_payload.append(
-                        {
+                    if item.kind == "press" and isinstance(item.state, PressState):
+                        items_payload.append({
                             "type": "press",
-                            "input": inp,
+                            "input": item.state.expected,
                             "duration": 0,
                             "active": False,
                             "completed": comp,
-                        }
-                    )
-                elif kind == "hold":
-                    total += 1
-                    sig = str(it.get("sig") or "").strip()
-                    key = str(it.get("input") or "").strip().lower()
-                    dur = int(it.get("hold_ms") or 0)
-                    seen_hold[sig] = int(seen_hold.get(sig, 0)) + 1
-                    occ = int(seen_hold.get(sig, 1))
-                    comp = (int(hold_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                    act = (idx == cur) and hold_active and (hold_sig_active == sig)
-                    if comp:
-                        done_count += 1
-                    items_payload.append(
-                        {
+                        })
+                    elif item.kind == "hold" and isinstance(item.state, HoldState):
+                        act = step.active_item is item and item.kind == "hold"
+                        items_payload.append({
                             "type": "hold",
-                            "input": key,
-                            "duration": dur,
+                            "input": item.state.expected,
+                            "duration": item.state.required_ms,
                             "active": act,
                             "completed": comp,
-                        }
-                    )
-                elif kind == "sequence":
-                    # Sequential subgroup within an any-order group
-                    total += 1
-                    seq_steps_data = it.get("sequence_steps") or []
-                    seq_id = it.get("sequence_id") or ""
-                    
-                    # Get sequence state from group_seq_meta
-                    seq_meta = s.get("group_seq_meta") or {}
-                    seq_state = seq_meta.get(seq_id) if isinstance(seq_meta, dict) else None
-                    seq_index = 0
-                    seq_started = False
-                    if isinstance(seq_state, dict):
-                        seq_index = int(seq_state.get("sequence_index") or 0)
-                        seq_started = bool(seq_state.get("sequence_started") or False)
-                    
-                    # Get done counts for this sequence
-                    seq_done_counts = s.get("group_seq_done_counts") or {}
-                    seq_active = bool(s.get("group_seq_active"))
-                    seq_id_active = str(s.get("group_seq_id") or "")
-
-                    # Fix: Override static metadata with runtime state from the group step
-                    if seq_active and seq_id_active == seq_id:
-                        seq_index = int(s.get("group_seq_index") or 0)
-                        seq_started = True
-                    elif int(seq_done_counts.get(seq_id, 0)) > 0:
-                        seq_index = len(seq_steps_data)
-                        seq_started = True
-                    
-                    # Build sequence items
-                    seq_items = []
-                    for seq_i, seq_step in enumerate(seq_steps_data):
-                        if not isinstance(seq_step, dict):
-                            continue
-                        seq_inp = str(seq_step.get("input") or "").strip().lower()
-                        seq_hold_ms = seq_step.get("hold_ms")
-                        seq_wait_ms = seq_step.get("wait_ms")
-                        
-                        is_active = seq_started and (idx == cur) and seq_active and (seq_id_active == seq_id) and (seq_i == seq_index)
-                        is_completed = (seq_started and (seq_i < seq_index)) or (idx < cur)
-                        
-                        if seq_wait_ms is not None:
-                            seq_mode = str(seq_step.get("wait_mode") or "soft").strip().lower()
-                            seq_wait_for = str(seq_step.get("wait_for") or "").strip().lower()
-                            seq_items.append({
-                                "type": "wait",
-                                "mode": seq_mode,
-                                "wait_for": seq_wait_for,
-                                "duration": int(seq_wait_ms),
-                                "active": is_active,
-                                "completed": is_completed,
-                            })
-                        elif seq_hold_ms is not None:
-                            seq_items.append({
-                                "type": "hold",
-                                "input": seq_inp,
-                                "duration": int(seq_hold_ms),
-                                "active": is_active,
-                                "completed": is_completed,
-                            })
-                        else:
-                            seq_items.append({
-                                "type": "press",
-                                "input": seq_inp,
-                                "duration": 0,
-                                "active": is_active,
-                                "completed": is_completed,
-                            })
-                    
-                    # Check if sequence is completed
-                    seq_comp = (int(seq_done_counts.get(seq_id, 0)) >= 1) or (idx < cur)
-                    if seq_comp:
-                        done_count += 1
-                    
-                    items_payload.append({
-                        "type": "sequence",
-                        "sequence_id": seq_id,
-                        "items": seq_items,
-                        "active": (idx == cur) and seq_active and (seq_id_active == seq_id),
-                        "completed": seq_comp,
-                        "progress": {
-                            "done": seq_index if seq_started else 0,
-                            "total": len(seq_steps_data)
-                        },
-                    })
-
-            # Fallback (shouldn't happen): derive a stable order.
-            if not items_payload:
-                total = 0
-                done_count = 0
-                if mw_ms is not None:
-                    total += 1
-                    comp = mw_done or (idx < cur)
-                    if comp:
-                        done_count += 1
-                    items_payload.append(
-                        {
+                        })
+                    elif item.kind == "anim_wait" and isinstance(item.state, WaitState):
+                        items_payload.append({
                             "type": "wait",
                             "mode": "mandatory",
-                            "wait_for": mw_for,
-                            "duration": int(mw_ms),
-                            "active": (idx == engine.current_index) and mw_active,
+                            "wait_for": item.state.wait_for or "",
+                            "duration": item.state.required_ms,
+                            "active": (idx == cur) and step.wait_active,
                             "completed": comp,
-                        }
-                    )
-                # Add press-wait items (if any) then plain presses.
-                for sig, meta in (pw_meta or {}).items():
-                    try:
-                        need_n = int(pw_need_counts.get(sig, 0) or 0)
-                    except Exception:
-                        need_n = 0
-                    key = str((meta or {}).get("input") or "").strip().lower()
-                    dur = int((meta or {}).get("wait_ms") or 0)
-                    for occ in range(1, max(0, need_n) + 1):
-                        total += 1
-                        comp = (int(pw_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {
-                                "type": "press_wait",
-                                "input": key,
-                                "duration": dur,
-                                "active": (idx == cur) and pw_active and (pw_sig_active == str(sig)),
-                                "completed": comp,
-                            }
-                        )
-                # Plain press counts fallback: if need_counts exist, represent repeats.
-                need_counts = s.get("group_press_need_counts")
-                need_counts = need_counts if isinstance(need_counts, dict) else {}
-                for inp, cnt in need_counts.items():
-                    key = str(inp or "").strip().lower()
-                    if not key:
-                        continue
-                    try:
-                        n = int(cnt or 0)
-                    except Exception:
-                        n = 0
-                    for occ in range(1, max(0, n) + 1):
-                        total += 1
-                        comp = (int(done_counts.get(key, 0)) >= occ) or (idx < cur)
-                        if comp:
-                            done_count += 1
-                        items_payload.append({"type": "press", "input": key, "duration": 0, "active": False, "completed": comp})
-                # Hold fallback (if any)
-                for sig, cnt in hold_need_counts.items():
-                    try:
-                        n = int(cnt or 0)
-                    except Exception:
-                        n = 0
-                    meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
-                    key = str((meta or {}).get("input") or "").strip().lower()
-                    dur = int((meta or {}).get("hold_ms") or 0)
-                    for occ in range(1, max(0, n) + 1):
-                        total += 1
-                        comp = (int(hold_done_counts.get(sig, 0)) >= occ) or (idx < cur)
-                        if comp:
-                            done_count += 1
-                        items_payload.append(
-                            {
-                                "type": "hold",
-                                "input": key,
-                                "duration": dur,
-                                "active": (idx == cur) and hold_active and (hold_sig_active == str(sig)),
-                                "completed": comp,
-                            }
-                        )
-
-            steps.append(
-                {
+                        })
+                    elif item.kind == "press_wait" and isinstance(item.state, SequenceState):
+                        seq = item.state
+                        inp = ""
+                        dur = 0
+                        if len(seq.steps) >= 2 and isinstance(seq.steps[0], PressState):
+                            inp = seq.steps[0].expected
+                        if len(seq.steps) >= 2 and isinstance(seq.steps[1], WaitState):
+                            dur = seq.steps[1].required_ms
+                        pw_active = step.active_item is item
+                        items_payload.append({
+                            "type": "press_wait",
+                            "input": inp,
+                            "duration": dur,
+                            "active": (idx == cur) and pw_active,
+                            "completed": comp,
+                        })
+                    elif item.kind == "sequence" and isinstance(item.state, SequenceState):
+                        seq = item.state
+                        seq_items = []
+                        for seq_i, sub in enumerate(seq.steps):
+                            is_active = seq.started and (idx == cur) and (step.active_item is item) and (seq_i == seq.current_index)
+                            is_completed = (seq.started and seq_i < seq.current_index) or (idx < cur)
+                            if isinstance(sub, WaitState):
+                                seq_items.append({
+                                    "type": "wait",
+                                    "mode": sub.mode,
+                                    "wait_for": sub.wait_for or "",
+                                    "duration": sub.required_ms,
+                                    "active": is_active,
+                                    "completed": is_completed,
+                                })
+                            elif isinstance(sub, HoldState):
+                                seq_items.append({
+                                    "type": "hold",
+                                    "input": sub.expected,
+                                    "duration": sub.required_ms,
+                                    "active": is_active,
+                                    "completed": is_completed,
+                                })
+                            else:
+                                inp = sub.expected if isinstance(sub, PressState) else ""
+                                seq_items.append({
+                                    "type": "press",
+                                    "input": inp,
+                                    "duration": 0,
+                                    "active": is_active,
+                                    "completed": is_completed,
+                                })
+                        seq_id = getattr(item.state, "_legacy_seq_id", f"gseq_{idx}_{len(items_payload)}")
+                        items_payload.append({
+                            "type": "sequence",
+                            "sequence_id": seq_id,
+                            "items": seq_items,
+                            "active": (idx == cur) and (step.active_item is item),
+                            "completed": comp,
+                            "progress": {"done": seq.current_index if seq.started else 0, "total": len(seq.steps)},
+                        })
+                steps.append({
                     "type": "group",
                     "active": idx == cur,
                     "completed": idx < cur,
                     "mark": mark,
                     "items": items_payload,
                     "progress": {"done": int(done_count), "total": int(total)},
-                }
-            )
-            i += 1
-            continue
-
-        # Sequential subgroups: {step1, step2, ...}
-        # These render as a nested sequence within the timeline.
-        if s.get("is_sequence"):
-            seq_steps_data = s.get("sequence_steps") or []
-            seq_index = int(s.get("sequence_index") or 0)
-            seq_started = bool(s.get("sequence_started") or False)
-            
-            # Build the visual representation of sequence items
-            seq_items = []
-            for seq_i, seq_step in enumerate(seq_steps_data):
-                if not isinstance(seq_step, dict):
-                    continue
-                
-                seq_inp = str(seq_step.get("input") or "").strip().lower()
-                seq_hold_ms = seq_step.get("hold_ms")
-                seq_wait_ms = seq_step.get("wait_ms")
-                
-                # Determine if this sub-step is active/completed
-                # Active: sequence started and current position matches
-                # Completed: sequence started and we've passed this position
-                is_active = seq_started and (idx == cur) and (seq_i == seq_index)
-                is_completed = seq_started and (seq_i < seq_index) or (idx < cur)
-                
-                if seq_wait_ms is not None:
-                    seq_mode = str(seq_step.get("wait_mode") or "soft").strip().lower()
-                    seq_wait_for = str(seq_step.get("wait_for") or "").strip().lower()
-                    seq_items.append({
-                        "type": "wait",
-                        "mode": seq_mode,
-                        "wait_for": seq_wait_for,
-                        "duration": int(seq_wait_ms),
-                        "active": is_active,
-                        "completed": is_completed,
-                    })
-                elif seq_hold_ms is not None:
-                    seq_items.append({
-                        "type": "hold",
-                        "input": seq_inp,
-                        "duration": int(seq_hold_ms),
-                        "active": is_active,
-                        "completed": is_completed,
-                    })
-                else:
-                    seq_items.append({
-                        "type": "press",
-                        "input": seq_inp,
-                        "duration": 0,
-                        "active": is_active,
-                        "completed": is_completed,
-                    })
-            
-            steps.append({
-                "type": "sequence",
-                "active": idx == cur and seq_started,
-                "completed": idx < cur,
-                "mark": mark,
-                "items": seq_items,
-                "progress": {
-                    "done": seq_index if seq_started else 0,
-                    "total": len(seq_steps_data)
-                },
-            })
-            i += 1
-            continue
-
-        # Collapse "press X" followed by "mandatory wait for X" into a single displayed tile,
-        # so wait(1, 0.5) doesn't show as "1" then "1 (animation time ...)".
-        try:
-            if (
-                i + 1 < len(arr)
-                and isinstance(s, dict)
-                and s.get("wait_ms") is None
-                and s.get("hold_ms") is None
-                and arr[i + 1].get("wait_ms") is not None
-                and str(arr[i + 1].get("wait_mode") or "").strip().lower() == "mandatory"
-                and str(arr[i + 1].get("wait_for") or "").strip().lower() == str(s.get("input") or "").strip().lower()
-            ):
-                wait_step = arr[i + 1]
-                wait_idx = i + 1
-                wait_mark = engine.step_marks.get(wait_idx) or mark
-                steps.append(
-                    {
-                        "type": "wait",
-                        "input": None,
-                        "duration": int(wait_step.get("wait_ms") or 0),
-                        "mode": "mandatory",
-                        "wait_for": str(wait_step.get("wait_for") or ""),
-                        "active": (cur == idx) or (cur == wait_idx),
-                        "completed": cur > wait_idx,
-                        "mark": wait_mark,
-                    }
-                )
-                i += 2
+                })
+                i += 1
                 continue
-        except Exception:
-            pass
 
-        # Collapse "press X" followed immediately by a wait gate into a single displayed tile.
-        try:
-            if (
-                i + 1 < len(arr)
-                and isinstance(s, dict)
-                and s.get("wait_ms") is None
-                and s.get("hold_ms") is None
-                and s.get("group_presses") is None
-                and isinstance(arr[i + 1], dict)
-                and arr[i + 1].get("wait_ms") is not None
-                and str(arr[i + 1].get("wait_mode") or "soft").strip().lower() in ("soft", "hard")
-            ):
-                press_inp = str(s.get("input") or "").strip().lower()
-                w = arr[i + 1]
-                wait_idx = i + 1
-                w_mark = engine.step_marks.get(wait_idx) or mark
-                steps.append(
-                    {
-                        "type": "press_wait",
-                        "input": press_inp,
-                        "duration": int(w.get("wait_ms") or 0),
-                        "mode": str(w.get("wait_mode") or "soft"),
-                        "active": (cur == idx) or (cur == wait_idx),
-                        "completed": cur > wait_idx,
-                        "mark": w_mark,
-                    }
-                )
-                i += 2
-                continue
-        except Exception:
-            pass
-
-        if s.get("wait_ms") is not None:
-            steps.append(
-                {
-                    "type": "wait",
-                    "input": None,
-                    "duration": int(s.get("wait_ms") or 0),
-                    "mode": str(s.get("wait_mode") or "soft"),
-                    "wait_for": str(s.get("wait_for") or ""),
-                    "active": idx == cur,
+            case SequenceState():
+                seq_items = []
+                for seq_i, sub in enumerate(step.steps):
+                    is_active = step.started and (idx == cur) and (seq_i == step.current_index)
+                    is_completed = (step.started and seq_i < step.current_index) or (idx < cur)
+                    if isinstance(sub, WaitState):
+                        seq_items.append({
+                            "type": "wait",
+                            "mode": sub.mode,
+                            "wait_for": sub.wait_for or "",
+                            "duration": sub.required_ms,
+                            "active": is_active,
+                            "completed": is_completed,
+                        })
+                    elif isinstance(sub, HoldState):
+                        seq_items.append({
+                            "type": "hold",
+                            "input": sub.expected,
+                            "duration": sub.required_ms,
+                            "active": is_active,
+                            "completed": is_completed,
+                        })
+                    else:
+                        inp = sub.expected if isinstance(sub, PressState) else ""
+                        seq_items.append({
+                            "type": "press",
+                            "input": inp,
+                            "duration": 0,
+                            "active": is_active,
+                            "completed": is_completed,
+                        })
+                steps.append({
+                    "type": "sequence",
+                    "active": idx == cur and step.started,
                     "completed": idx < cur,
                     "mark": mark,
-                }
-            )
-        elif s.get("hold_ms") is not None:
-            steps.append(
-                {
-                    "type": "hold",
-                    "input": str(s.get("input") or ""),
-                    "duration": int(s.get("hold_ms") or 0),
-                    "active": idx == cur,
-                    "completed": idx < cur,
-                    "mark": mark,
-                }
-            )
-        else:
-            steps.append(
-                {
+                    "items": seq_items,
+                    "progress": {"done": step.current_index if step.started else 0, "total": len(step.steps)},
+                })
+                i += 1
+                continue
+
+            case PressState():
+                if i + 1 < len(arr):
+                    nxt = arr[i + 1]
+                    if isinstance(nxt, WaitState) and nxt.mode == "mandatory" and (nxt.wait_for or "").strip().lower() == (step.expected or "").strip().lower():
+                        wait_mark = engine.step_marks.get(i + 1) or mark
+                        steps.append({
+                            "type": "wait",
+                            "input": None,
+                            "duration": nxt.required_ms,
+                            "mode": "mandatory",
+                            "wait_for": nxt.wait_for or "",
+                            "active": (cur == idx) or (cur == i + 1),
+                            "completed": cur > i + 1,
+                            "mark": wait_mark,
+                        })
+                        i += 2
+                        continue
+                    if isinstance(nxt, WaitState) and nxt.mode in ("soft", "hard"):
+                        w_mark = engine.step_marks.get(i + 1) or mark
+                        steps.append({
+                            "type": "press_wait",
+                            "input": step.expected,
+                            "duration": nxt.required_ms,
+                            "mode": nxt.mode,
+                            "active": (cur == idx) or (cur == i + 1),
+                            "completed": cur > i + 1,
+                            "mark": w_mark,
+                        })
+                        i += 2
+                        continue
+                steps.append({
                     "type": "press",
-                    "input": str(s.get("input") or ""),
+                    "input": step.expected,
                     "duration": 0,
                     "active": idx == cur,
                     "completed": idx < cur,
                     "mark": mark,
-                }
-            )
-        i += 1
+                })
+                i += 1
+                continue
+
+            case WaitState():
+                steps.append({
+                    "type": "wait",
+                    "input": None,
+                    "duration": step.required_ms,
+                    "mode": step.mode,
+                    "wait_for": step.wait_for or "",
+                    "active": idx == cur,
+                    "completed": idx < cur,
+                    "mark": mark,
+                })
+                i += 1
+                continue
+
+            case HoldState():
+                steps.append({
+                    "type": "hold",
+                    "input": step.expected,
+                    "duration": step.required_ms,
+                    "active": idx == cur,
+                    "completed": idx < cur,
+                    "mark": mark,
+                })
+                i += 1
+                continue
+
+            case _:
+                i += 1
+                continue
     return steps
+
+
+def timeline_steps(engine) -> list[dict[str, Any]]:
+    """Build timeline payload for the frontend from engine.runtime_steps."""
+    return _timeline_steps_from_runtime(engine)
 
 
 def init_payload(engine) -> dict[str, Any]:

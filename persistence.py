@@ -342,7 +342,7 @@ def load_engine_state(engine) -> None:
         engine.ww.combo_ww_team = {}
         engine.active_combo_name = None
         engine.active_combo_tokens = []
-        engine.active_combo_steps = []
+        engine.runtime_steps = []
 
 
 def save_engine_state(engine) -> None:

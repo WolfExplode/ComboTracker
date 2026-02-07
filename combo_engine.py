@@ -4,12 +4,28 @@ import threading
 import time
 from pathlib import Path
 from typing import Any, Callable
-from uuid import uuid4
 
 from Game_Wuthering_Waves import WutheringWavesGame
 import combo_engine_ui as ui
 from combo_engine_ui import Status
 from persistence import load_engine_state, save_engine_state
+
+from parser import expanded_ast_from_tokens
+from parser import split_inputs as _parser_split_inputs
+from parser import steps_from_tokens
+from states import (
+    AcceptResult,
+    CompleteResult,
+    FailResult,
+    GroupItemTracker,
+    GroupState,
+    HoldState,
+    IgnoreResult,
+    PressState,
+    SequenceState,
+    WaitState,
+    build_runtime_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +47,13 @@ class ComboTrackerEngine:
         self.combos: dict[str, list[str]] = {}
         self.active_combo_name: str | None = None
         self.active_combo_tokens: list[str] = []
-        self.active_combo_steps: list[dict[str, Any]] = []
+        self.runtime_steps: list[Any] = []  # list[StepState]
 
         self.current_index = 0
+
+        # Shortcuts to active step when it's a hold or wait (updated on advance)
+        self.hold: HoldState | None = None
+        self.wait: WaitState | None = None
         self.start_time = 0.0
         self.last_input_time = 0.0
         self.attempt_counter = 0
@@ -56,6 +76,8 @@ class ComboTrackerEngine:
         # For soft waits: track if the *next expected input* was pressed during the wait window.
         # wait_step_index -> set(inputs pressed too early for that gate)
         self.wait_early_inputs: dict[int, set[str]] = {}
+        # So we only send wait_begin once per group mandatory wait (UI animates progress).
+        self._group_wait_begin_sent: bool = False
 
         # Combo enders: key -> grace_ms (0 means no grace; wrong press drops immediately)
         self.combo_enders: dict[str, int] = {}
@@ -199,65 +221,9 @@ class ComboTrackerEngine:
     def split_inputs(self, keys_str: str):
         """
         Split a user-entered Inputs string into top-level comma-separated tokens.
-
-        This parser is intentionally **shallow**: it only understands enough structure to
-        avoid splitting commas that are part of nested syntaxes:
-        - `hold(...)` parentheses
-        - `{...}` hold-duration braces (e.g. `e{350ms}`)
-        - `[...]` any-order group brackets
-
-        The returned tokens are *not* validated here; validation happens later in `parse_step()`.
-
-        Examples:
-
-        - Basic:
-          `split_inputs("e, 3, r") -> ["e", "3", "r"]`
-
-        - Hold parentheses:
-          `split_inputs("lmb, hold(lmb, 0.30), rmb") -> ["lmb", "hold(lmb, 0.30)", "rmb"]`
-
-        - Brace holds:
-          `split_inputs("e{350ms}, q") -> ["e{350ms}", "q"]`
-
-        - Any-order groups:
-          `split_inputs("[q, e], 2") -> ["[q, e]", "2"]`
-
-        - Mixed:
-          `split_inputs("[lmb, wait:0.1s, hold(e,0.30)], r") -> ["[lmb, wait:0.1s, hold(e,0.30)]", "r"]`
+        Delegates to parser.split_inputs. Tokens are validated by parser.parse_step when building steps.
         """
-        s = keys_str or ""
-        out: list[str] = []
-        buf: list[str] = []
-        paren = 0
-        brace = 0
-        bracket = 0
-
-        for ch in s:
-            if ch == "(":
-                paren += 1
-            elif ch == ")":
-                paren = max(0, paren - 1)
-            elif ch == "{":
-                brace += 1
-            elif ch == "}":
-                brace = max(0, brace - 1)
-            elif ch == "[":
-                bracket += 1
-            elif ch == "]":
-                bracket = max(0, bracket - 1)
-
-            if ch == "," and paren == 0 and brace == 0 and bracket == 0:
-                token = "".join(buf).strip()
-                if token:
-                    out.append(token)
-                buf = []
-                continue
-            buf.append(ch)
-
-        token = "".join(buf).strip()
-        if token:
-            out.append(token)
-        return out
+        return _parser_split_inputs(keys_str or "")
 
     def _parse_duration(self, raw: str):
         token = (raw or "").lower().strip()
@@ -283,382 +249,41 @@ class ComboTrackerEngine:
             return None
         return int(millis)
 
-    def parse_step(self, token: str):
-        """
-        Parse a single token from `split_inputs()` into a normalized step dict.
-
-        Supported token forms (examples show typical user input; parsing is case-insensitive):
-
-        - Press:
-          - `e`, `3`, `r`, `lmb`, `rmb`
-          -> `{"input": "<key>", "hold_ms": None, "wait_ms": None}`
-
-        - Soft wait gate (minimum delay; early presses ignored):
-          - `wait:0.1` / `wait:0.1s` / `wait:100ms`
-          -> `{"wait_ms": 100, "wait_mode": "soft"}`
-
-        - Hard wait gate (early press can drop the combo):
-          - `wait_hard:0.2`
-          -> `{"wait_ms": 200, "wait_mode": "hard"}`
-
-        - Hold:
-          - `hold(e, 0.35)` or `e{350ms}`
-          -> `{"input": "e", "hold_ms": 350, "wait_ms": None}`
-
-        - Mandatory animation lock:
-          - `wait(r, 1.5)` means: press `r`, then a mandatory wait ≥ 1.5s.
-            During this mandatory wait, in-game inputs have no effect and therefore should not drop combos.
-          -> `{"composite_steps": [press_step, mandatory_wait_step]}`
-
-        - Any-order group:
-          Groups are parsed as a single step that contains multiple required "items" that can be completed in any order.
-          Supported group item types:
-          - plain press: `q`
-          - press+wait pair: `lmb, wait:0.1s` (treated as one atomic item inside the group)
-          - hold: `hold(e, 0.30)`
-          - mandatory animation lock: `wait(r, 1.5)` (treated as one group item)
-
-          Examples:
-          - `[q, e]`
-          - `[wait(r, 1.5), q, e]`
-          - `[lmb, wait:0.1s, rmb, wait:0.5s, q]`
-          - `[hold(e, 0.30), lmb, rmb]`
-          - `[lmb, wait:0.1, hold(e, 0.30), lmb, wait:0.5, q]` (same key can appear with different waits)
-
-        Returns:
-        - A dict describing one step, OR a dict with `composite_steps` (to be expanded by the caller), OR None.
-        """
-        t = (token or "").strip()
-        if not t:
-            return None
-
-        tl = t.lower()
-
-        # Animation-locked (mandatory) wait:
-        # Syntax: wait(r, 1.5)  -> press r, then a mandatory minimum wait of 1.5s.
-        # Rationale: some abilities have an animation lock where extra inputs have no effect in-game.
-        # During this mandatory wait, key presses are ignored by the game and therefore should NOT drop the combo.
-        if tl.startswith("wait(") and tl.endswith(")") and len(tl) >= 6:
-            inner = tl[len("wait(") : -1].strip()
-            parts = [p.strip() for p in self.split_inputs(inner) if p.strip()]
-            if len(parts) == 2:
-                key = parts[0].strip().lower()
-                wait_ms = self._parse_duration(parts[1])
-                if key and wait_ms is not None:
-                    press_step = {"input": key, "hold_ms": None, "wait_ms": None}
-                    wait_step = {
-                        "input": None,
-                        "hold_ms": None,
-                        "wait_ms": int(wait_ms),
-                        "wait_mode": "mandatory",  # mandatory wait due to animation lock (see comment above)
-                        "wait_for": key,
-                    }
-                    return {"composite_steps": [press_step, wait_step]}
-
-        # Sequential subgroup within any-order group:
-        # Syntax: {step1, step2, ...}
-        # Inside an any-order group, this creates a sequence that must be done in order,
-        # but the sequence block itself can be placed anywhere among the parent group items.
-        # Example: [lmb, rmb, {hold(e, 0.30), e}]
-        #   - lmb, rmb, and the {sequence} can be done in any order
-        #   - but once {sequence} is started, must complete hold(e,0.30) then e in order
-        if tl.startswith("{") and tl.endswith("}") and len(tl) >= 3:
-            inner = tl[1:-1].strip()
-            parts = [p.strip() for p in self.split_inputs(inner) if p.strip()]
-            if len(parts) >= 1:
-                # Parse each step in the sequence
-                seq_steps = []
-                ok = True
-                for p in parts:
-                    s = self.parse_step(p)
-                    if not isinstance(s, dict):
-                        ok = False
-                        break
-                    # Handle composite steps (like wait(r, t))
-                    if s.get("composite_steps") is not None:
-                        seq_steps.extend(s.get("composite_steps") or [])
-                    else:
-                        seq_steps.append(s)
-                
-                if ok and len(seq_steps) >= 1:
-                    # Return a special "sequence" step type
-                    seq_id = uuid4().hex[:8]
-                    return {
-                        "input": None,
-                        "hold_ms": None,
-                        "wait_ms": None,
-                        "is_sequence": True,
-                        "sequence_id": seq_id,
-                        "sequence_steps": seq_steps,
-                        "sequence_index": 0,  # Current position within sequence
-                        "sequence_started": False,
-                    }
-
-        # Any-order group step:
-        # (See parse_step() docstring for supported syntaxes + examples.)
-        # Examples:
-        # - [q, e]                 -> press BOTH q and e, in any order
-        # - [wait(r, 1.5), q, e]   -> press r/q/e in any order; r triggers a mandatory animation wait before the group can finish
-        # - [lmb, rmb, {hold(e, 0.30), e}]  -> sequential subgroup: lmb/rmb/{seq} can be done in any order,
-        #                                       but once {seq} is started, must complete hold(e,0.30) then e in order
-        #
-        # Notes:
-        # - Inside the group we support: press, press+wait (e.g. lmb, wait:0.1s), hold(e,0.30), wait(r,t), and sequences {}.
-        # - During "mandatory" waits (animation locks) and press+wait windows, extra presses are ignored (no fail).
-        # - Sequential subgroups {} become atomic items that must be completed once started.
-        if tl.startswith("[") and tl.endswith("]") and len(tl) >= 3:
-            inner = tl[1:-1].strip()
-            parts = [p.strip() for p in self.split_inputs(inner) if p.strip()]
-            if len(parts) >= 2:
-                # press+wait items inside a group are keyed by signature so the same key can appear with different waits:
-                # e.g. [lmb, wait:0.1, ..., lmb, wait:0.5, ...]
-                pw_need_counts: dict[str, int] = {}  # sig -> count
-                pw_meta: dict[str, dict[str, Any]] = {}  # sig -> {input, wait_ms, wait_mode}
-                pw_order_sigs: list[str] = []  # preserve written order for resolving which sig is next
-                mandatory_wait: dict[str, Any] | None = None  # {"wait_for": "r", "wait_ms": 1500}
-                order: list[dict[str, Any]] = []  # preserves written order of group items (supports duplicates)
-                press_need_counts: dict[str, int] = {}  # key -> count (supports duplicates)
-                hold_need_counts: dict[str, int] = {}  # sig -> count (supports duplicates)
-                hold_meta: dict[str, dict[str, Any]] = {}  # sig -> {input, hold_ms}
-                hold_order_sigs: list[str] = []
-                seq_need_counts: dict[str, int] = {}  # sequence_id -> count
-                seq_meta: dict[str, dict[str, Any]] = {}  # sequence_id -> {sequence_steps, etc}
-                seq_order_ids: list[str] = []  # preserve order of sequences
-                ok = True
-
-                j = 0
-                while j < len(parts):
-                    p = parts[j]
-                    s = self.parse_step(p)
-                    if not isinstance(s, dict):
-                        ok = False
-                        break
-
-                    # Composite (wait(r, t)) expands into [press r, mandatory wait] via composite_steps.
-                    if s.get("composite_steps") is not None:
-                        sub = [x for x in (s.get("composite_steps") or []) if isinstance(x, dict)]
-                        if len(sub) != 2:
-                            ok = False
-                            break
-                        press = sub[0]
-                        w = sub[1]
-                        inp = str(press.get("input") or "").strip().lower()
-                        if not inp or press.get("wait_ms") is not None or press.get("hold_ms") is not None:
-                            ok = False
-                            break
-                        w_ms = w.get("wait_ms")
-                        w_mode = str(w.get("wait_mode") or "").strip().lower()
-                        w_for = str(w.get("wait_for") or "").strip().lower()
-                        if w_ms is None or w_mode != "mandatory" or not w_for:
-                            ok = False
-                            break
-                        if mandatory_wait is not None:
-                            # Keep it simple for now: only one mandatory wait per group.
-                            ok = False
-                            break
-                        # Treat wait(r, t) as ONE group item (not "r" plus "wait").
-                        # We'll still accept the press of r at runtime via group_mandatory_wait.wait_for.
-                        mandatory_wait = {"wait_for": w_for, "wait_ms": int(w_ms)}
-                        # Preserve written order (de-duped by the single-mandatory-wait rule).
-                        order.append({"kind": "anim_wait", "wait_for": w_for, "wait_ms": int(w_ms)})
-                        j += 1
-                        continue
-
-                    # Hold inside a group is supported as an atomic item.
-                    if s.get("hold_ms") is not None:
-                        hk = str(s.get("input") or "").strip().lower()
-                        hms = int(s.get("hold_ms") or 0)
-                        if not hk or hms <= 0:
-                            ok = False
-                            break
-                        sig = f"{hk}:{hms}"
-                        hold_need_counts[sig] = int(hold_need_counts.get(sig, 0)) + 1
-                        hold_meta[sig] = {"input": hk, "hold_ms": hms}
-                        if sig not in hold_order_sigs:
-                            hold_order_sigs.append(sig)
-                        order.append({"kind": "hold", "sig": sig, "input": hk, "hold_ms": hms})
-                        j += 1
-                        continue
-
-                    # Sequential subgroup (sequence) inside a group is supported as an atomic item.
-                    # Once started, must be completed in order before other group items can proceed.
-                    if s.get("is_sequence"):
-                        # This is a sequential subgroup using {} notation
-                        seq_id = s.get("sequence_id")
-                        if not seq_id:
-                            ok = False
-                            break
-                        # Track this sequence
-                        seq_need_counts[seq_id] = 1
-                        seq_meta[seq_id] = {
-                            "sequence_id": seq_id,
-                            "sequence_steps": s.get("sequence_steps"),
-                            "sequence_index": 0,
-                            "sequence_started": False,
-                        }
-                        if seq_id not in seq_order_ids:
-                            seq_order_ids.append(seq_id)
-                        order.append({"kind": "sequence", "sequence_id": seq_id, "sequence_steps": s.get("sequence_steps")})
-                        j += 1
-                        continue
-
-                    # If this token is a wait gate by itself, it's invalid unless it's paired after a press.
-                    if s.get("wait_ms") is not None:
-                        ok = False
-                        break
-
-                    inp = str(s.get("input") or "").strip().lower()
-                    if not inp:
-                        ok = False
-                        break
-
-                    # Detect "press + wait" pairs inside the group:
-                    # [lmb, wait:0.1s, rmb, wait:0.5s] => two atomic items.
-                    if j + 1 < len(parts):
-                        nxt = self.parse_step(parts[j + 1])
-                        if isinstance(nxt, dict) and nxt.get("wait_ms") is not None:
-                            mode = str(nxt.get("wait_mode") or "soft").strip().lower()
-                            if mode in ("soft", "hard"):
-                                wms = int(nxt.get("wait_ms") or 0)
-                                if wms > 0:
-                                    sig = f"{inp}:{wms}:{mode}"
-                                    pw_need_counts[sig] = int(pw_need_counts.get(sig, 0)) + 1
-                                    pw_meta[sig] = {"input": inp, "wait_ms": wms, "wait_mode": mode}
-                                    if sig not in pw_order_sigs:
-                                        pw_order_sigs.append(sig)
-                                    order.append({"kind": "press_wait", "sig": sig, "input": inp, "wait_ms": wms, "wait_mode": mode})
-                                    j += 2
-                                    continue
-
-                    # Plain press item (can repeat; repeats become additional required presses)
-                    press_need_counts[inp] = int(press_need_counts.get(inp, 0)) + 1
-                    order.append({"kind": "press", "input": inp})
-                    j += 1
-
-                uniq_presses = [k for k in press_need_counts.keys()]
-
-                # Disallow listing the same key twice (e.g. [wait(r,1.5), r, q]) to avoid ambiguity.
-                if mandatory_wait is not None:
-                    mw_for = str(mandatory_wait.get("wait_for") or "").strip().lower()
-                    if mw_for and mw_for in uniq_presses:
-                        ok = False
-
-                # Group validity: count ALL required items, including duplicates, holds, and sequences.
-                # Examples that must be valid:
-                # - [e, e] (2 required presses)
-                # - [hold(e,0.30), e] (hold + press)
-                # - [lmb, rmb, {e, q}] (2 presses + 1 sequence)
-                required_press_count = sum(int(v or 0) for v in press_need_counts.values())
-                required_hold_count = sum(int(v or 0) for v in hold_need_counts.values())
-                required_pw_count = sum(int(v or 0) for v in pw_need_counts.values())
-                required_seq_count = sum(int(v or 0) for v in seq_need_counts.values())
-                total_items = required_press_count + required_pw_count + required_hold_count + required_seq_count + (1 if mandatory_wait is not None else 0)
-                if ok and total_items >= 2:
-                    return {
-                        "input": None,
-                        "hold_ms": None,
-                        "wait_ms": None,
-                        "group_presses": uniq_presses,
-                        "group_press_need_counts": press_need_counts,
-                        "group_pw_need_counts": pw_need_counts,
-                        "group_pw_done_counts": {},
-                        "group_pw_meta": pw_meta,
-                        "group_pw_order_sigs": pw_order_sigs,
-                        "group_done_counts": {},
-                        "group_hold_need_counts": hold_need_counts,
-                        "group_hold_done_counts": {},
-                        "group_hold_meta": hold_meta,
-                        "group_hold_order_sigs": hold_order_sigs,
-                        "group_hold_active": False,
-                        "group_hold_sig": "",
-                        "group_hold_for": "",
-                        "group_hold_started_at": 0.0,
-                        "group_hold_required_ms": 0,
-                        "group_mandatory_wait": mandatory_wait,  # or None
-                        "group_order": order,
-                        "group_wait_active": False,
-                        "group_wait_done": False,
-                        "group_wait_started_at": 0.0,
-                        "group_wait_until": 0.0,
-                        "group_pw_active": False,
-                        "group_pw_sig": "",
-                        "group_pw_until": 0.0,
-                        # Sequential subgroup tracking
-                        "group_seq_need_counts": seq_need_counts,
-                        "group_seq_done_counts": {},
-                        "group_seq_meta": seq_meta,
-                        "group_seq_order_ids": seq_order_ids,
-                        "group_seq_active": False,
-                        "group_seq_id": "",
-                        "group_seq_index": 0,
-                    }
-
-        # Wait steps:
-        # - wait:0.2        -> soft wait (minimum delay gate; early presses are ignored)
-        # - wait_soft:0.2   -> soft wait (alias)
-        # - wait_hard:0.2   -> hard wait (early press can drop the combo)
-        wait_mode = None
-        wait_prefix = None
-        if tl.startswith("wait_hard:"):
-            wait_mode = "hard"
-            wait_prefix = "wait_hard:"
-        elif tl.startswith("wait_soft:"):
-            wait_mode = "soft"
-            wait_prefix = "wait_soft:"
-        elif tl.startswith("wait:"):
-            wait_mode = "soft"
-            wait_prefix = "wait:"
-
-        if wait_prefix is not None:
-            dur = tl[len(wait_prefix) :].strip()
-            wait_ms = self._parse_duration(dur)
-            if wait_ms is not None:
-                return {"input": None, "hold_ms": None, "wait_ms": wait_ms, "wait_mode": wait_mode}
-
-        if tl.startswith("hold(") and tl.endswith(")"):
-            inner = tl[len("hold(") : -1]
-            parts = [p.strip() for p in inner.split(",", 1)]
-            if len(parts) == 2 and parts[0] and parts[1]:
-                hold_ms = self._parse_duration(parts[1])
-                if hold_ms is not None:
-                    return {"input": parts[0], "hold_ms": hold_ms, "wait_ms": None}
-
-        if "{" in tl and tl.endswith("}"):
-            base, rest = tl.split("{", 1)
-            ms_str = rest[:-1].replace("ms", "").strip()
-            base = base.strip()
-            if base:
-                hold_ms = self._parse_duration(ms_str)
-                if hold_ms is not None:
-                    return {"input": base, "hold_ms": hold_ms, "wait_ms": None}
-
-        return {"input": tl, "hold_ms": None, "wait_ms": None}
+    def _step_time_ms(self, s: Any) -> int:
+        """Sum of wait + hold ms for one step (for calc_min_combo_time_ms)."""
+        if isinstance(s, WaitState):
+            return int(s.required_ms or 0)
+        if isinstance(s, HoldState):
+            return int(s.required_ms or 0)
+        if isinstance(s, PressState):
+            return 0
+        if isinstance(s, SequenceState):
+            return sum(self._step_time_ms(x) for x in s.steps)
+        if isinstance(s, GroupState):
+            return sum(self._step_time_ms(item.state) for item in s.items)
+        if isinstance(s, dict):
+            w = s.get("wait_ms")
+            h = s.get("hold_ms")
+            out = 0
+            if w is not None:
+                out += int(w)
+            if h is not None:
+                out += int(h)
+            return out
+        return 0
 
     def calc_min_combo_time_ms(self, steps):
         total = 0
         for s in steps or []:
-            if not isinstance(s, dict):
-                continue
-            # Handle sequential subgroups
-            if s.get("is_sequence"):
-                seq_steps = s.get("sequence_steps") or []
-                for seq_s in seq_steps:
-                    if not isinstance(seq_s, dict):
-                        continue
-                    w = seq_s.get("wait_ms")
-                    h = seq_s.get("hold_ms")
-                    if w is not None:
-                        total += int(w)
-                    if h is not None:
-                        total += int(h)
-                continue
-            # Handle regular steps
-            w = s.get("wait_ms")
-            h = s.get("hold_ms")
-            if w is not None:
-                total += int(w)
-            if h is not None:
-                total += int(h)
+            if isinstance(s, dict):
+                if s.get("is_sequence"):
+                    for seq_s in (s.get("sequence_steps") or []):
+                        if isinstance(seq_s, dict):
+                            total += int(seq_s.get("wait_ms") or 0) + int(seq_s.get("hold_ms") or 0)
+                else:
+                    total += int(s.get("wait_ms") or 0) + int(s.get("hold_ms") or 0)
+            else:
+                total += self._step_time_ms(s)
         return max(0, int(total))
 
     def _format_ms(self, ms: int):
@@ -685,9 +310,67 @@ class ComboTrackerEngine:
             return f"{hold_ms // 1000:d}s"
         return f"{hold_ms / 1000.0:.3g}s"
 
-    def _expected_label_for_step(self, step: dict):
-        if not isinstance(step, dict):
+    def _expected_label_for_runtime_step(self, step: Any) -> str:
+        """Return display label for a StepState (used by UI and fail reporting)."""
+        if step is None:
             return "—"
+        if isinstance(step, PressState):
+            return (step.expected or "").strip().lower() or "—"
+        if isinstance(step, HoldState):
+            h = step.required_ms
+            inp = (step.expected or "").strip().lower()
+            return f"hold({inp},≥{h}ms)" if inp else f"hold(≥{h}ms)"
+        if isinstance(step, WaitState):
+            w = step.required_ms
+            if step.mode == "hard":
+                return f"wait-hard(≥{w}ms)"
+            if step.mode == "mandatory":
+                k = (step.wait_for or "").strip().lower()
+                return f"anim-wait({k},≥{w}ms)" if k else f"anim-wait(≥{w}ms)"
+            return f"wait(≥{w}ms)"
+        if isinstance(step, SequenceState):
+            labels = []
+            for s in step.steps:
+                if isinstance(s, WaitState):
+                    w = s.required_ms
+                    if s.mode == "hard":
+                        labels.append(f"wait-hard({w}ms)")
+                    elif s.mode == "mandatory":
+                        k = (s.wait_for or "").strip().lower()
+                        labels.append(f"{k}+wait({w}ms)" if k else f"wait({w}ms)")
+                    else:
+                        labels.append(f"wait({w}ms)")
+                elif isinstance(s, HoldState):
+                    labels.append(f"hold({s.expected},{s.required_ms}ms)")
+                else:
+                    labels.append((getattr(s, "expected", "") or "").strip().lower() or "?")
+            return f"seq({' → '.join(labels)})" if labels else "seq(—)"
+        if isinstance(step, GroupState):
+            opts = []
+            for item in step.items:
+                if item.kind == "press" and isinstance(item.state, PressState):
+                    opts.append((item.state.expected or "").strip().lower())
+                elif item.kind == "hold" and isinstance(item.state, HoldState):
+                    opts.append((item.state.expected or "").strip().lower())
+                elif item.kind == "press_wait" and isinstance(item.state, SequenceState) and len(item.state.steps) >= 2 and isinstance(item.state.steps[0], PressState):
+                    opts.append((item.state.steps[0].expected or "").strip().lower())
+                elif item.kind == "anim_wait" and isinstance(item.state, WaitState) and item.state.wait_for:
+                    opts.append((item.state.wait_for or "").strip().lower())
+                elif item.kind == "sequence" and isinstance(item.state, SequenceState) and item.state.steps:
+                    first = item.state.steps[0]
+                    if isinstance(first, PressState):
+                        opts.append((first.expected or "").strip().lower())
+                    elif isinstance(first, WaitState) and first.wait_for:
+                        opts.append((first.wait_for or "").strip().lower())
+            opts = [o for o in opts if o]
+            return f"any-order({'|'.join(opts)})" if opts else "any-order(—)"
+        return "—"
+
+    def _expected_label_for_step(self, step: dict | Any):
+        if step is None:
+            return "—"
+        if not isinstance(step, dict):
+            return self._expected_label_for_runtime_step(step)
         # Handle sequential subgroups {step1, step2, ...}
         if step.get("is_sequence"):
             seq_steps = step.get("sequence_steps") or []
@@ -836,58 +519,60 @@ class ComboTrackerEngine:
         inp = str(step.get("input") or "").strip().lower()
         return inp or "—"
 
+    def _step_accepts_input(self, step: Any, input_name: str) -> bool:
+        """True if this step could accept input_name (for find next/prev)."""
+        input_name = (input_name or "").strip().lower()
+        if not input_name:
+            return False
+        if isinstance(step, WaitState):
+            return False
+        if isinstance(step, PressState):
+            return (step.expected or "").strip().lower() == input_name
+        if isinstance(step, HoldState):
+            return (step.expected or "").strip().lower() == input_name
+        if isinstance(step, GroupState):
+            for item in step.items:
+                if item.kind == "press" and isinstance(item.state, PressState) and (item.state.expected or "").strip().lower() == input_name:
+                    return True
+                if item.kind == "hold" and isinstance(item.state, HoldState) and (item.state.expected or "").strip().lower() == input_name:
+                    return True
+                if item.kind == "press_wait" and isinstance(item.state, SequenceState) and len(item.state.steps) >= 2 and isinstance(item.state.steps[0], PressState) and (item.state.steps[0].expected or "").strip().lower() == input_name:
+                    return True
+                if item.kind == "anim_wait" and isinstance(item.state, WaitState) and (item.state.wait_for or "").strip().lower() == input_name:
+                    return True
+                if item.kind == "sequence" and isinstance(item.state, SequenceState) and item.state.steps:
+                    first = item.state.steps[0]
+                    if isinstance(first, PressState) and (first.expected or "").strip().lower() == input_name:
+                        return True
+                    if isinstance(first, WaitState) and (first.wait_for or "").strip().lower() == input_name:
+                        return True
+            return False
+        if isinstance(step, SequenceState) and step.steps:
+            first = step.steps[0]
+            if isinstance(first, PressState) and (first.expected or "").strip().lower() == input_name:
+                return True
+            if isinstance(first, HoldState) and (first.expected or "").strip().lower() == input_name:
+                return True
+        return False
+
     def _find_next_step_index_for_input(self, input_name: str, *, start_index: int) -> int | None:
-        """
-        Look ahead in the active combo for the next non-wait step that matches input_name.
-        Returns the absolute step index, or None if not found.
-        """
+        """Look ahead for the next non-wait step that matches input_name."""
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return None
         try:
-            for j in range(max(0, int(start_index)), len(self.active_combo_steps)):
-                s = self.active_combo_steps[j]
-                if not isinstance(s, dict):
+            for j in range(max(0, int(start_index)), len(self.runtime_steps)):
+                s = self.runtime_steps[j]
+                if isinstance(s, WaitState):
                     continue
-                if s.get("wait_ms") is not None:
-                    continue
-                if s.get("group_presses") is not None:
-                    opts = [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]
-                    pw_meta = s.get("group_pw_meta")
-                    if isinstance(pw_meta, dict):
-                        for _sig, meta in pw_meta.items():
-                            k = str((meta or {}).get("input") or "").strip().lower()
-                            if k:
-                                opts.append(k)
-                    hold_meta = s.get("group_hold_meta")
-                    hold_need = s.get("group_hold_need_counts")
-                    if isinstance(hold_meta, dict) and isinstance(hold_need, dict):
-                        for sig, cnt in hold_need.items():
-                            if int(cnt or 0) <= 0:
-                                continue
-                            meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
-                            hk = str((meta or {}).get("input") or "").strip().lower()
-                            if hk:
-                                opts.append(hk)
-                    mw = s.get("group_mandatory_wait")
-                    if isinstance(mw, dict):
-                        mw_for = str(mw.get("wait_for") or "").strip().lower()
-                        if mw_for:
-                            opts = [mw_for] + opts
-                    if input_name in opts:
-                        return j
-                if str(s.get("input") or "").strip().lower() == input_name:
+                if self._step_accepts_input(s, input_name):
                     return j
         except Exception:
             return None
         return None
 
     def _find_prev_step_index_for_input(self, input_name: str, *, end_index: int) -> int | None:
-        """
-        Look backward in the active combo for the most recent non-wait step that matches input_name.
-        Searches indices < end_index.
-        Returns the absolute step index, or None if not found.
-        """
+        """Look backward for the most recent non-wait step that matches input_name."""
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return None
@@ -896,38 +581,11 @@ class ComboTrackerEngine:
         except Exception:
             end = 0
         try:
-            for j in range(min(end, len(self.active_combo_steps)) - 1, -1, -1):
-                s = self.active_combo_steps[j]
-                if not isinstance(s, dict):
+            for j in range(min(end, len(self.runtime_steps)) - 1, -1, -1):
+                s = self.runtime_steps[j]
+                if isinstance(s, WaitState):
                     continue
-                if s.get("wait_ms") is not None:
-                    continue
-                if s.get("group_presses") is not None:
-                    opts = [str(x or "").strip().lower() for x in (s.get("group_presses") or [])]
-                    pw_meta = s.get("group_pw_meta")
-                    if isinstance(pw_meta, dict):
-                        for _sig, meta in pw_meta.items():
-                            k = str((meta or {}).get("input") or "").strip().lower()
-                            if k:
-                                opts.append(k)
-                    hold_meta = s.get("group_hold_meta")
-                    hold_need = s.get("group_hold_need_counts")
-                    if isinstance(hold_meta, dict) and isinstance(hold_need, dict):
-                        for sig, cnt in hold_need.items():
-                            if int(cnt or 0) <= 0:
-                                continue
-                            meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
-                            hk = str((meta or {}).get("input") or "").strip().lower()
-                            if hk:
-                                opts.append(hk)
-                    mw = s.get("group_mandatory_wait")
-                    if isinstance(mw, dict):
-                        mw_for = str(mw.get("wait_for") or "").strip().lower()
-                        if mw_for:
-                            opts = [mw_for] + opts
-                    if input_name in opts:
-                        return j
-                if str(s.get("input") or "").strip().lower() == input_name:
+                if self._step_accepts_input(s, input_name):
                     return j
         except Exception:
             return None
@@ -956,9 +614,8 @@ class ComboTrackerEngine:
     def _next_non_wait_step_index(self, *, start_index: int) -> int | None:
         """Return the next step index >= start_index that is not a wait step."""
         try:
-            for j in range(max(0, int(start_index)), len(self.active_combo_steps)):
-                s = self.active_combo_steps[j]
-                if isinstance(s, dict) and s.get("wait_ms") is None:
+            for j in range(max(0, int(start_index)), len(self.runtime_steps)):
+                if not isinstance(self.runtime_steps[j], WaitState):
                     return j
         except Exception:
             return None
@@ -973,8 +630,8 @@ class ComboTrackerEngine:
         (there's nothing left to time-gate).
         """
         try:
-            step = self._active_step()
-            if not isinstance(step, dict) or step.get("wait_ms") is None:
+            step = self._active_runtime_step()
+            if not isinstance(step, WaitState):
                 return False
             # If there is any real action after this wait, it is not trailing.
             if self._next_non_wait_step_index(start_index=int(self.current_index) + 1) is not None:
@@ -1083,19 +740,45 @@ class ComboTrackerEngine:
             return None
         return int(ms)
 
-    def _count_combo_actions(self, steps: list[dict[str, Any]] | None) -> tuple[int, int, int]:
+    def _count_step_actions_runtime(self, s: Any) -> tuple[int, int]:
+        """(press_count, hold_count) for one StepState."""
+        if isinstance(s, PressState):
+            return (1, 0)
+        if isinstance(s, HoldState):
+            return (0, 1)
+        if isinstance(s, WaitState):
+            return (0, 0)
+        if isinstance(s, SequenceState):
+            p = h = 0
+            for sub in s.steps:
+                pp, hh = self._count_step_actions_runtime(sub)
+                p += pp
+                h += hh
+            return (p, h)
+        if isinstance(s, GroupState):
+            p = h = 0
+            for item in s.items:
+                pp, hh = self._count_step_actions_runtime(item.state)
+                n = int(item.required_count or 1)
+                p += pp * n
+                h += hh * n
+            return (p, h)
+        return (0, 0)
+
+    def _count_combo_actions(self, steps: list[dict[str, Any]] | list[Any] | None) -> tuple[int, int, int]:
         """
         Returns (press_count, hold_count, total_actions).
-        - press_count: regular presses (non-wait, non-hold)
-        - hold_count: hold(...) steps
-        - total_actions: press_count + hold_count
+        Accepts either legacy dicts or runtime StepState list.
         """
         press = 0
         hold = 0
         for s in steps or []:
             if not isinstance(s, dict):
+                pp, hh = self._count_step_actions_runtime(s)
+                press += pp
+                hold += hh
                 continue
-            # Handle sequential subgroups
+            # Handle sequential subgroups (legacy dict)
             if s.get("is_sequence"):
                 seq_steps = s.get("sequence_steps") or []
                 for seq_s in seq_steps:
@@ -1220,96 +903,78 @@ class ComboTrackerEngine:
         non_micro_waits: set[int] = set()
         holds: set[int] = set()
 
-        def process_step(step_dict):
-            """Helper to process a single step dict for waits/holds"""
+        def process_wait_hold(w_ms: int | None, h_ms: int | None):
             nonlocal waits_micro_count
-            w = step_dict.get("wait_ms")
-            h = step_dict.get("hold_ms")
-            if w is not None:
-                try:
-                    w_i = int(w)
-                except Exception:
+            if w_ms is not None:
+                if w_ms <= 0 or w_ms >= 600:
                     return
-                if w_i <= 0:
-                    return
-                if w_i >= 600:
-                    return
-                if w_i <= micro_thresh:
+                if w_ms <= micro_thresh:
                     waits_micro_count += 1
                 else:
-                    non_micro_waits.add(w_i)
-            elif h is not None:
-                try:
-                    h_i = int(h)
-                except Exception:
-                    return
-                if h_i > 0:
-                    holds.add(h_i)
+                    non_micro_waits.add(w_ms)
+            elif h_ms is not None and h_ms > 0:
+                holds.add(h_ms)
 
-        for s in self.active_combo_steps or []:
-            if not isinstance(s, dict):
-                continue
-            # Handle sequential subgroups
-            if s.get("is_sequence"):
-                seq_steps = s.get("sequence_steps") or []
-                for seq_s in seq_steps:
-                    if isinstance(seq_s, dict):
-                        process_step(seq_s)
-                continue
-            # Handle any-order groups
-            if s.get("group_presses") is not None:
-                # Check holds in the group
-                hold_meta = s.get("group_hold_meta") or {}
-                for sig, meta in hold_meta.items():
-                    if isinstance(meta, dict):
-                        h = meta.get("hold_ms")
-                        if h is not None:
-                            try:
-                                h_i = int(h)
-                                if h_i > 0:
-                                    holds.add(h_i)
-                            except Exception:
-                                pass
-                # Check press+wait items in the group
-                pw_meta = s.get("group_pw_meta") or {}
-                for sig, meta in pw_meta.items():
-                    if isinstance(meta, dict):
-                        w = meta.get("wait_ms")
-                        if w is not None:
-                            try:
-                                w_i = int(w)
-                                if w_i > 0 and w_i < 600:
-                                    if w_i <= micro_thresh:
-                                        waits_micro_count += 1
-                                    else:
-                                        non_micro_waits.add(w_i)
-                            except Exception:
-                                pass
-                # Check mandatory wait in the group
-                mw = s.get("group_mandatory_wait")
-                if isinstance(mw, dict):
-                    w = mw.get("wait_ms")
-                    if w is not None:
+        def process_step(step_dict):
+            w = step_dict.get("wait_ms")
+            h = step_dict.get("hold_ms")
+            process_wait_hold(int(w) if w is not None else None, int(h) if h is not None else None)
+
+        def process_runtime_step(s: Any):
+            if isinstance(s, WaitState):
+                process_wait_hold(s.required_ms, None)
+            elif isinstance(s, HoldState):
+                process_wait_hold(None, s.required_ms)
+            elif isinstance(s, PressState):
+                pass
+            elif isinstance(s, SequenceState):
+                for sub in s.steps:
+                    process_runtime_step(sub)
+            elif isinstance(s, GroupState):
+                for item in s.items:
+                    process_runtime_step(item.state)
+
+        for s in self.runtime_steps or []:
+            if isinstance(s, dict):
+                if s.get("is_sequence"):
+                    for seq_s in (s.get("sequence_steps") or []):
+                        if isinstance(seq_s, dict):
+                            process_step(seq_s)
+                elif s.get("group_presses") is not None:
+                    hold_meta = s.get("group_hold_meta") or {}
+                    for meta in hold_meta.values():
+                        if isinstance(meta, dict):
+                            h = meta.get("hold_ms")
+                            if h is not None:
+                                try:
+                                    process_wait_hold(None, int(h))
+                                except Exception:
+                                    pass
+                    pw_meta = s.get("group_pw_meta") or {}
+                    for meta in pw_meta.values():
+                        if isinstance(meta, dict):
+                            w = meta.get("wait_ms")
+                            if w is not None:
+                                try:
+                                    process_wait_hold(int(w), None)
+                                except Exception:
+                                    pass
+                    mw = s.get("group_mandatory_wait")
+                    if isinstance(mw, dict) and mw.get("wait_ms") is not None:
                         try:
-                            w_i = int(w)
-                            if w_i > 0 and w_i < 600:
-                                if w_i <= micro_thresh:
-                                    waits_micro_count += 1
-                                else:
-                                    non_micro_waits.add(w_i)
+                            process_wait_hold(int(mw.get("wait_ms")), None)
                         except Exception:
                             pass
-                # Check sequences within the group
-                seq_meta = s.get("group_seq_meta") or {}
-                for seq_id, meta in seq_meta.items():
-                    if isinstance(meta, dict):
-                        seq_steps = meta.get("sequence_steps") or []
-                        for seq_s in seq_steps:
-                            if isinstance(seq_s, dict):
-                                process_step(seq_s)
-                continue
-            # Handle regular steps
-            process_step(s)
+                    seq_meta = s.get("group_seq_meta") or {}
+                    for meta in seq_meta.values():
+                        if isinstance(meta, dict):
+                            for seq_s in (meta.get("sequence_steps") or []):
+                                if isinstance(seq_s, dict):
+                                    process_step(seq_s)
+                else:
+                    process_step(s)
+            else:
+                process_runtime_step(s)
 
         micro_bonus = 1 if waits_micro_count == 1 else 0
         return int(len(non_micro_waits) + len(holds) + micro_bonus)
@@ -1540,7 +1205,7 @@ class ComboTrackerEngine:
             if self.active_combo_name == name:
                 self.active_combo_name = None
                 self.active_combo_tokens = []
-                self.active_combo_steps = []
+                self.runtime_steps = []
                 self.reset_tracking()
 
             self.save_combos()
@@ -1651,7 +1316,7 @@ class ComboTrackerEngine:
         with self._lock:
             self.active_combo_name = None
             self.active_combo_tokens = []
-            self.active_combo_steps = []
+            self.runtime_steps = []
             self.reset_tracking()
             self._send({"type": "init", **self.init_payload()})
 
@@ -1683,7 +1348,7 @@ class ComboTrackerEngine:
             if name not in self.combos:
                 self.active_combo_name = None
                 self.active_combo_tokens = []
-                self.active_combo_steps = []
+                self.runtime_steps = []
                 self.reset_tracking()
                 if emit:
                     self._send({"type": "init", **self.init_payload()})
@@ -1691,22 +1356,9 @@ class ComboTrackerEngine:
 
             self.active_combo_name = name
             self.active_combo_tokens = self.combos[name]
-            steps: list[dict[str, Any]] = []
-            for t in self.active_combo_tokens:
-                s = self.parse_step(t)
-                if not s:
-                    continue
-                # Support composite tokens like wait(r, 1.5) -> [press r, mandatory wait]
-                if isinstance(s, dict) and s.get("composite_steps") is not None:
-                    try:
-                        for sub in (s.get("composite_steps") or []):
-                            if isinstance(sub, dict) and sub:
-                                steps.append(sub)
-                    except Exception:
-                        pass
-                else:
-                    steps.append(s)
-            self.active_combo_steps = steps
+            # Build runtime state objects from AST (expanded: wait(r,t) -> press + wait)
+            ast_list = expanded_ast_from_tokens(self.active_combo_tokens)
+            self.runtime_steps = [build_runtime_state(node) for node in ast_list]
             self._ensure_combo_stats(name)
             
             # Restore saved WW active team when selecting a combo
@@ -1763,8 +1415,13 @@ class ComboTrackerEngine:
         self._reset_group_state()
 
     def _active_step(self):
-        if 0 <= self.current_index < len(self.active_combo_steps):
-            return self.active_combo_steps[self.current_index]
+        """Current step (StepState). Alias for _active_runtime_step for backward compatibility."""
+        return self._active_runtime_step()
+
+    def _active_runtime_step(self):
+        """Current step as StepState (for new match dispatch)."""
+        if 0 <= self.current_index < len(self.runtime_steps):
+            return self.runtime_steps[self.current_index]
         return None
 
     def _insert_attempt_separator(self):
@@ -1808,43 +1465,78 @@ class ComboTrackerEngine:
         self.wait_required_ms = None
 
     def _reset_group_state(self):
-        """
-        Clear per-attempt progress for any-order groups ([a, b, c]) and standalone sequences ({a, b, c}).
-        """
+        """Clear per-attempt progress: reset all runtime steps and update shortcuts."""
         try:
-            for s in self.active_combo_steps or []:
-                # Reset any-order group state
-                if isinstance(s, dict) and s.get("group_presses") is not None:
-                    # If a group had an internal animation wait running, stop the UI animation.
-                    if bool(s.get("group_wait_active")) or bool(s.get("group_pw_active")):
-                        self._send({"type": "wait_end"})
-                    if bool(s.get("group_hold_active")):
-                        self._send({"type": "hold_end"})
-                    s["group_done_counts"] = {}
-                    s["group_pw_done_counts"] = {}
-                    s["group_wait_active"] = False
-                    s["group_wait_done"] = False
-                    s["group_wait_started_at"] = 0.0
-                    s["group_wait_until"] = 0.0
-                    s["group_pw_active"] = False
-                    s["group_pw_sig"] = ""
-                    s["group_pw_until"] = 0.0
-                    s["group_hold_done_counts"] = {}
-                    s["group_hold_active"] = False
-                    s["group_hold_sig"] = ""
-                    s["group_hold_for"] = ""
-                    s["group_hold_started_at"] = 0.0
-                    s["group_hold_required_ms"] = 0
-                    s["group_seq_done_counts"] = {}
-                    s["group_seq_active"] = False
-                    s["group_seq_id"] = ""
-                    s["group_seq_index"] = 0
-                # Reset standalone sequence state
-                elif isinstance(s, dict) and s.get("is_sequence"):
-                    s["sequence_started"] = False
-                    s["sequence_index"] = 0
+            if self.hold or self.wait:
+                if self.wait:
+                    self._send({"type": "wait_end"})
+                if self.hold:
+                    self._send({"type": "hold_end"})
+            for step in self.runtime_steps:
+                step.reset()
+            if self._group_wait_begin_sent:
+                self._send({"type": "wait_end"})
+            self._group_wait_begin_sent = False
+            self._update_shortcuts()
         except Exception:
             pass
+
+    def _update_shortcuts(self) -> None:
+        """Set self.hold and self.wait from current runtime step."""
+        step = self._active_runtime_step()
+        self.hold = step if isinstance(step, HoldState) else None
+        self.wait = step if isinstance(step, WaitState) else None
+
+    def _ensure_attempt_started(self, now: float) -> None:
+        """On first accepted input of an attempt, start timing and send Recording status."""
+        if not self.last_input_time and self.current_index == 0:
+            self._insert_attempt_separator()
+            self.start_time = now
+            self.last_input_time = now
+            self._send({"type": "status", "text": "Recording...", "color": "recording"})
+
+    def _advance_step(self, now: float) -> None:
+        """Advance to next step; update shortcuts, maybe start wait, send timeline."""
+        self.current_index += 1
+        self._update_shortcuts()
+        self._maybe_start_wait_step()
+        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+    def _fail_combo(self, reason: str, now: float, *, expected_label: str | None = None, actual: str | None = None) -> None:
+        """Record failure, reset all steps, send status and timeline."""
+        self._send({"type": "status", "text": "Combo Dropped (" + (reason or "fail") + ")", "color": "fail"})
+        elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
+        self.record_combo_fail(
+            actual=actual or reason,
+            expected_step_index=int(self.current_index),
+            expected_label=expected_label or self._expected_label_for_step(self._active_step()),
+            reason=reason,
+            elapsed_ms=elapsed_ms,
+        )
+        self.current_index = 0
+        self.start_time = 0.0
+        self.last_input_time = 0.0
+        for step in self.runtime_steps:
+            step.reset()
+        self._reset_hold_state()
+        self._reset_wait_state()
+        self._reset_group_state()
+        self._reset_attempt_marks()
+        self._update_shortcuts()
+        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+    def _check_ender_fail(self, input_name: str, now: float) -> None:
+        """If key is a combo ender (and not in grace), drop the combo."""
+        if not self._is_combo_ender(input_name) or self._should_ignore_ender_miss(input_name):
+            return
+        # Don't drop on ender before the attempt has started (no accepted input yet).
+        if not self.last_input_time and self.current_index == 0:
+            return
+        self._mark_step(int(self.current_index), "missed")
+        expected = str(self._expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
+        actual = str(input_name or "").strip().lower()
+        self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
+        self._fail_combo("Combo Ender", now, actual=actual, expected_label=expected)
 
     def _start_hold(self, input_name: str, required_ms: int, now: float):
         self.hold_in_progress = True
@@ -1864,12 +1556,12 @@ class ComboTrackerEngine:
         # Tell the UI to animate a visible wait progress bar (similar to holds).
         # Mode may be soft|hard|mandatory (mandatory = animation lock; inputs ignored).
         try:
-            step = self._active_step()
+            step = self._active_runtime_step()
             mode = "soft"
             wait_for = ""
-            if isinstance(step, dict) and step.get("wait_ms") is not None:
-                mode = str(step.get("wait_mode") or "soft").strip().lower() or "soft"
-                wait_for = str(step.get("wait_for") or "")
+            if isinstance(step, WaitState):
+                mode = str(step.mode or "soft").strip().lower() or "soft"
+                wait_for = str(step.wait_for or "")
             self._send({"type": "wait_begin", "required_ms": int(required_ms), "mode": mode, "wait_for": wait_for})
         except Exception:
             self._send({"type": "wait_begin", "required_ms": int(required_ms), "mode": "soft", "wait_for": ""})
@@ -1883,10 +1575,10 @@ class ComboTrackerEngine:
         req_s = self._format_hold_requirement(required_ms) if required_ms else "?"
         # For display, include mode when relevant
         mode = "soft"
-        step = self._active_step()
+        step = self._active_runtime_step()
         try:
-            if isinstance(step, dict) and step.get("wait_ms") is not None:
-                mode = str(step.get("wait_mode") or "soft").strip().lower() or "soft"
+            if isinstance(step, WaitState):
+                mode = str(step.mode or "soft").strip().lower() or "soft"
         except Exception:
             mode = "soft"
         prefix = "wait-hard" if mode == "hard" else "wait"
@@ -1904,7 +1596,7 @@ class ComboTrackerEngine:
             self.record_combo_fail(
                 actual=str(reason or ""),
                 expected_step_index=int(self.current_index),
-                expected_label=self._expected_label_for_step(self._active_step()),
+                expected_label=self._expected_label_for_step(self._active_runtime_step()),
                 reason="too early",
                 elapsed_ms=elapsed_ms,
             )
@@ -1923,7 +1615,7 @@ class ComboTrackerEngine:
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
         # If a wait step was (accidentally) the last step, don't get stuck past the end.
-        if self.current_index >= len(self.active_combo_steps):
+        if self.current_index >= len(self.runtime_steps):
             self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
             self.record_combo_success(total_ms)
             self.current_index = 0
@@ -1934,20 +1626,20 @@ class ComboTrackerEngine:
         return True
 
     def _maybe_start_wait_step(self):
-        step = self._active_step()
-        if not step:
+        step = self._active_runtime_step()
+        if not step or not isinstance(step, WaitState):
             return
-        wait_ms = step.get("wait_ms")
-        if wait_ms is not None and not self.wait_in_progress:
-            self._start_wait(int(wait_ms))
+        if not self.wait_in_progress:
+            step.start(time.perf_counter())
+            self._start_wait(int(step.required_ms))
 
     def _complete_hold(self, now: float, *, auto: bool):
-        step = self._active_step()
-        if not step or step.get("hold_ms") is None:
+        step = self._active_runtime_step()
+        if not isinstance(step, HoldState):
             return False
 
-        target_input = str(step.get("input") or "")
-        target_hold_ms = int(step.get("hold_ms") or 0)
+        target_input = str(step.expected or "")
+        target_hold_ms = int(step.required_ms or 0)
 
         held_ms = (now - self.hold_started_at) * 1000
         ok = held_ms >= float(target_hold_ms)
@@ -1967,8 +1659,8 @@ class ComboTrackerEngine:
 
             # If this hold was gated by a wait right before it, mark that wait green (timing satisfied).
             if self.current_index > 0:
-                prev = self.active_combo_steps[self.current_index - 1]
-                if isinstance(prev, dict) and prev.get("wait_ms") is not None:
+                prev = self.runtime_steps[self.current_index - 1]
+                if isinstance(prev, WaitState):
                     self._mark_step(self.current_index - 1, "ok")
 
             self.current_index += 1
@@ -1978,7 +1670,7 @@ class ComboTrackerEngine:
                 return True
             self._maybe_start_wait_step()
 
-            if self.current_index >= len(self.active_combo_steps):
+            if self.current_index >= len(self.runtime_steps):
                 self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
                 self.record_combo_success(total_ms)
                 self.current_index = 0
@@ -1990,7 +1682,7 @@ class ComboTrackerEngine:
             self.record_combo_fail(
                 actual=f"released @ {held_ms:.0f}ms",
                 expected_step_index=int(self.current_index),
-                expected_label=self._expected_label_for_step(step),
+                expected_label=self._expected_label_for_runtime_step(step),
                 reason="hold too short",
                 elapsed_ms=elapsed_ms,
             )
@@ -2058,7 +1750,7 @@ class ComboTrackerEngine:
             return
         # Snapshot for UI: keep the timeline fully green until the next attempt begins.
         self._ui_last_success_combo = self.active_combo_name
-        self._ui_last_success_steps_len = len(self.active_combo_steps or [])
+        self._ui_last_success_steps_len = len(self.runtime_steps or [])
         self._ensure_combo_stats(self.active_combo_name)
         self.combo_stats[self.active_combo_name]["success"] += 1
 
@@ -2141,1066 +1833,107 @@ class ComboTrackerEngine:
             return
 
         self.currently_pressed.add(input_name)
-        if not self.active_combo_steps:
+        if not self.runtime_steps:
             return
 
-        while True:
-            step = self._active_step()
-            if not step:
-                return
+        now = time.perf_counter()
 
-            group_presses = step.get("group_presses")
-            target_input = step.get("input")
-            target_hold_ms = step.get("hold_ms")
-            target_wait_ms = step.get("wait_ms")
-            target_wait_mode = str(step.get("wait_mode") or "soft").strip().lower()
-
-            if target_wait_ms is not None:
-                self._maybe_start_wait_step()
-                now = time.perf_counter()
-                if now < self.wait_until:
-                    # Soft-wait training hint:
-                    # If you press the *next expected input* during the wait gate, it won't count.
-                    # Mark the wait step red immediately so the UI shows the timing mistake.
-                    # NOTE: For mandatory waits (animation locks), inputs have no effect in-game.
-                    # We intentionally do NOT mark timing mistakes and we do NOT drop the combo during the lock.
-                    if target_wait_mode in ("soft", "hard") and self._is_combo_ender(input_name):
-                        if self._should_ignore_ender_miss(input_name):
-                            return
-                        self._complete_wait(now, fail=True, reason=f"{input_name} (ender) during wait")
-                        return
-
-                    if target_wait_mode == "soft":
-                        next_idx = self._next_non_wait_step_index(start_index=self.current_index + 1)
-                        next_expected = None
-                        next_expected_set: set[str] | None = None
-                        if next_idx is not None:
-                            try:
-                                nxt = self.active_combo_steps[next_idx]
-                                if isinstance(nxt, dict) and nxt.get("group_presses") is not None:
-                                    next_expected_set = {
-                                        str(x or "").strip().lower() for x in (nxt.get("group_presses") or [])
-                                    }
-                                else:
-                                    next_expected = str(self.active_combo_steps[next_idx].get("input") or "").strip().lower()
-                            except Exception:
-                                next_expected = None
-                                next_expected_set = None
-                        if (next_expected and input_name == next_expected) or (
-                            next_expected_set and input_name in next_expected_set
-                        ):
-                            wi = int(self.current_index)
-                            self.wait_early_inputs.setdefault(wi, set()).add(input_name)
-                            self._mark_step(wi, "early")
-                            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-
-                    # Soft wait: ignore any early presses (except enders, handled above).
-                    # Hard wait: early press can drop the combo (models games where early input consumes/cancels).
-                    if target_wait_mode == "hard":
-                        # Fail on enders, and also fail if the pressed input matches the next expected non-wait input.
-                        next_expected = None
-                        next_expected_set: set[str] | None = None
-                        try:
-                            for j in range(self.current_index + 1, len(self.active_combo_steps)):
-                                st = self.active_combo_steps[j]
-                                if isinstance(st, dict) and st.get("wait_ms") is None:
-                                    if st.get("group_presses") is not None:
-                                        next_expected_set = {
-                                            str(x or "").strip().lower() for x in (st.get("group_presses") or [])
-                                        }
-                                    else:
-                                        next_expected = str(st.get("input") or "").strip().lower() or None
-                                    break
-                        except Exception:
-                            next_expected = None
-                            next_expected_set = None
-
-                        if self._is_combo_ender(input_name) or (next_expected and input_name == next_expected) or (
-                            next_expected_set and input_name in next_expected_set
-                        ):
-                            self._complete_wait(now, fail=True, reason=f"{input_name} too early")
-                    return
+        # 1) Active wait
+        if self.wait and self.wait.in_progress:
+            result = self.wait.process_press(input_name, now)
+            if isinstance(result, CompleteResult):
                 self._complete_wait(now, fail=False)
-                continue
+                return self._process_press_unlocked(input_name)
+            if isinstance(result, FailResult):
+                self._complete_wait(now, fail=True, reason=result.reason)
+                return
+            if self.wait.mode in ("soft", "hard") and self._is_combo_ender(input_name):
+                if not self._should_ignore_ender_miss(input_name):
+                    self._complete_wait(now, fail=True, reason=f"{input_name} (ender) during wait")
+            return
 
-            if (
-                target_hold_ms is not None
-                and self.hold_in_progress
-                and self.hold_expected_input == target_input
-            ):
-                if input_name == target_input:
-                    return
-                now = time.perf_counter()
-                held_ms = (now - self.hold_started_at) * 1000
-                if held_ms >= float(target_hold_ms):
-                    self._complete_hold(now, auto=True)
-                    continue
-            break
+        # 2) Active hold
+        if self.hold and self.hold.in_progress:
+            if input_name == self.hold.expected:
+                return
+            if self.hold.check_complete(now):
+                self._complete_hold(now, auto=True)
+                return self._process_press_unlocked(input_name)
+            self._fail_combo("hold too short", now, actual="wrong key / released early")
+            return
 
-        # Any-order group step: accepts remaining options in any order.
-        # Can optionally include a mandatory animation wait (from wait(r, t)).
-        if isinstance(step, dict) and step.get("group_presses") is not None:
-            opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
-            opts = [o for o in opts if o]
-            need_counts = step.get("group_press_need_counts")
-            if not isinstance(need_counts, dict) or not need_counts:
-                need_counts = {k: 1 for k in opts}
-                step["group_press_need_counts"] = need_counts
+        # 3) Dispatch to current step (polymorphic: GroupState, SequenceState, PressState, HoldState, WaitState all implement process_press)
+        step = self._active_runtime_step()
+        if step is None:
+            return
 
-            done_counts = step.get("group_done_counts")
-            if not isinstance(done_counts, dict):
-                done_counts = {}
-                step["group_done_counts"] = done_counts
+        result = step.process_press(input_name, now)
 
-            pw_need_counts = step.get("group_pw_need_counts")
-            pw_need_counts = pw_need_counts if isinstance(pw_need_counts, dict) else {}
-            pw_done_counts = step.get("group_pw_done_counts")
-            if not isinstance(pw_done_counts, dict):
-                pw_done_counts = {}
-                step["group_pw_done_counts"] = pw_done_counts
-            pw_meta = step.get("group_pw_meta")
-            pw_meta = pw_meta if isinstance(pw_meta, dict) else {}
-            pw_order_sigs = step.get("group_pw_order_sigs")
-            pw_order_sigs = pw_order_sigs if isinstance(pw_order_sigs, list) else []
-
-            pw_keys = set()
-            for _sig, meta in pw_meta.items():
-                k = str((meta or {}).get("input") or "").strip().lower()
-                if k:
-                    pw_keys.add(k)
-
-            hold_need_counts = step.get("group_hold_need_counts")
-            hold_need_counts = hold_need_counts if isinstance(hold_need_counts, dict) else {}
-            hold_done_counts = step.get("group_hold_done_counts")
-            if not isinstance(hold_done_counts, dict):
-                hold_done_counts = {}
-                step["group_hold_done_counts"] = hold_done_counts
-            hold_meta = step.get("group_hold_meta")
-            hold_meta = hold_meta if isinstance(hold_meta, dict) else {}
-            hold_order_sigs = step.get("group_hold_order_sigs")
-            hold_order_sigs = hold_order_sigs if isinstance(hold_order_sigs, list) else []
-
-            seq_need_counts = step.get("group_seq_need_counts")
-            seq_need_counts = seq_need_counts if isinstance(seq_need_counts, dict) else {}
-            seq_done_counts = step.get("group_seq_done_counts")
-            if not isinstance(seq_done_counts, dict):
-                seq_done_counts = {}
-                step["group_seq_done_counts"] = seq_done_counts
-            seq_meta = step.get("group_seq_meta")
-            seq_meta = seq_meta if isinstance(seq_meta, dict) else {}
-            seq_order_ids = step.get("group_seq_order_ids")
-            seq_order_ids = seq_order_ids if isinstance(seq_order_ids, list) else []
-
-            mw = step.get("group_mandatory_wait")
-            mw_for = ""
-            mw_ms = None
-            if isinstance(mw, dict):
-                mw_for = str(mw.get("wait_for") or "").strip().lower()
-                mw_ms = mw.get("wait_ms")
-            has_mw = (mw_ms is not None and mw_for)
-
-            # If we're currently inside a hold item inside the group, treat it like a "mini hold step":
-            # - other inputs are ignored until the requirement is met (or until it can auto-complete)
-            if bool(step.get("group_hold_active")):
-                now = time.perf_counter()
-                hold_for = str(step.get("group_hold_for") or "").strip().lower()
-                sig = str(step.get("group_hold_sig") or "").strip()
-                req = int(step.get("group_hold_required_ms") or 0)
-                started = float(step.get("group_hold_started_at") or 0.0)
-
-                if input_name == hold_for:
-                    return
-
-                held_ms = (now - started) * 1000.0 if started else 0.0
-                if req > 0 and held_ms >= float(req):
-                    # Auto-complete the hold and then continue processing this press.
-                    self._send({"type": "hold_end"})
-                    step["group_hold_active"] = False
-                    step["group_hold_for"] = ""
-                    step["group_hold_sig"] = ""
-                    step["group_hold_started_at"] = 0.0
-                    step["group_hold_required_ms"] = 0
-                    hold_done_counts[sig] = int(hold_done_counts.get(sig, 0)) + 1
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                else:
-                    # Not held long enough; ignore other presses while holding.
-                    return
-
-            # If we're currently inside the group's animation lock, ignore all inputs until it ends.
-            if has_mw and bool(step.get("group_wait_active")):
-                now = time.perf_counter()
-                until = float(step.get("group_wait_until") or 0.0)
-                if now < until:
-                    return  # inputs ignored during animation lock (can't fail, can't count)
-                # Lock expired; finalize. If the rest of the group is already complete, auto-advance
-                # so the current key (often the next step, e.g. '2') is evaluated correctly.
-                step["group_wait_active"] = False
-                step["group_wait_done"] = True
-                self._send({"type": "wait_end"})
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-
-                # If all required presses are already done, the group completes immediately.
-                presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
-                pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
-                holds_done = all(int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in hold_need_counts.keys())
-                seqs_done = all(int(seq_done_counts.get(sid, 0)) >= int(seq_need_counts.get(sid, 0)) for sid in seq_need_counts.keys())
-                if presses_done and pw_done_ok and holds_done and seqs_done:
-                    self._mark_step(int(self.current_index), "ok")
-                    self.current_index += 1
-                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                        return
-                    self._maybe_start_wait_step()
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-
-                    # Re-process this same input against the next expected step.
-                    return self.process_press(input_name)
-
-            # If we're currently inside a press+wait item, ignore all inputs until it ends.
-            if bool(step.get("group_pw_active")):
-                now = time.perf_counter()
-                until = float(step.get("group_pw_until") or 0.0)
-                if now < until:
-                    return  # inputs ignored during the post-press animation time
-                # The post-press wait finished; mark that press+wait signature complete.
-                sig = str(step.get("group_pw_sig") or "").strip()
-                if sig:
-                    pw_done_counts[sig] = int(pw_done_counts.get(sig, 0)) + 1
-                step["group_pw_active"] = False
-                step["group_pw_sig"] = ""
-                step["group_pw_until"] = 0.0
-                self._send({"type": "wait_end"})
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-
-                # If the group is complete after finishing this wait, advance and re-process current input.
-                presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
-                pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
-                holds_done = all(int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in hold_need_counts.keys())
-                seqs_done = all(int(seq_done_counts.get(sid, 0)) >= int(seq_need_counts.get(sid, 0)) for sid in seq_need_counts.keys())
-                mw_done2 = (not has_mw) or bool(step.get("group_wait_done"))
-                if presses_done and pw_done_ok and holds_done and seqs_done and mw_done2:
-                    self._mark_step(int(self.current_index), "ok")
-                    self.current_index += 1
-                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                        return
-                    self._maybe_start_wait_step()
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                    return self.process_press(input_name)
-
-            # If this input's requirements are already fully satisfied, treat repeats as enders if applicable.
-            # NOTE: keys not present in need_counts should NOT be treated as "already done" (0/0),
-            # otherwise hold-only keys would get misclassified as enders.
-            already_plain_done = (input_name in need_counts) and (
-                int(done_counts.get(input_name, 0)) >= int(need_counts.get(input_name, 0))
-            )
-            # Consider press+wait requirements for this key satisfied only if all sigs for this key are done.
-            if input_name not in pw_keys:
-                already_pw_done = True
-            else:
-                already_pw_done = True
-                for sig, meta in (pw_meta or {}).items():
-                    k = str((meta or {}).get("input") or "").strip().lower()
-                    if k != input_name:
-                        continue
-                    if int(pw_done_counts.get(sig, 0)) < int(pw_need_counts.get(sig, 0)):
-                        already_pw_done = False
-                        break
-            already_hold_done = True
-            if hold_need_counts:
-                relevant = [
-                    sig
-                    for sig in hold_order_sigs
-                    if str((hold_meta.get(sig) or {}).get("input") or "").strip().lower() == input_name
-                ]
-                if relevant:
-                    already_hold_done = all(
-                        int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in relevant
-                    )
-            if already_plain_done and already_pw_done and already_hold_done:
-                # If the key is a combo ender, pressing it again at the wrong time should still drop the combo.
-                # (Except when we intentionally ignore immediate re-presses due to grace windows.)
-                if self._is_combo_ender(input_name) and not self._should_ignore_ender_miss(input_name):
-                    expected = str(self._expected_label_for_step(step) or "").strip().lower()
-                    actual = str(input_name or "").strip().lower()
-                    self._mark_step(int(self.current_index), "missed")
-                    self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
-                    self._send({"type": "status", "text": "Combo Dropped (Combo Ender)", "color": "fail"})
-                    now = time.perf_counter()
-                    elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
-                    self.record_combo_fail(
-                        actual=input_name,
-                        expected_step_index=int(self.current_index),
-                        expected_label=self._expected_label_for_step(step),
-                        reason="wrong input",
-                        elapsed_ms=elapsed_ms,
-                    )
+        if isinstance(result, AcceptResult):
+            self._ensure_attempt_started(now)
+            if result.record_hit:
+                split_ms = (now - self.last_input_time) * 1000.0 if self.current_index != 0 else 0.0
+                total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+                self.record_hit(input_name, split_ms, total_ms)
+            self.last_input_time = now
+            self.last_success_input = input_name
+            if result.advance:
+                self._advance_step(now)
+                if self.current_index >= len(self.runtime_steps):
+                    self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
+                    self.record_combo_success((now - self.start_time) * 1000.0 if self.start_time else 0.0)
                     self.current_index = 0
                     self._reset_hold_state()
                     self._reset_wait_state()
                     self._reset_group_state()
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                     return
-                return
-
-            # Press+wait group item (e.g. lmb, wait:0.1s) is accepted as one atomic item:
-            # press starts the timer; other inputs are ignored until it finishes; only then the item counts as done.
-            #
-            # IMPORTANT: a key may appear both as a press+wait item *and* as a plain press requirement
-            # (e.g. [lmb, wait:0.1s, rmb, wait:0.5s, rmb]). In that case:
-            # - the first rmb triggers the press+wait item
-            # - after that wait is complete, subsequent rmb presses should count toward the plain press requirement
-            if input_name in pw_keys and not bool(step.get("group_pw_active")):
-                # Pick the first not-yet-completed press_wait signature for this key (in written order).
-                pick_sig = None
-                for sig in pw_order_sigs:
-                    meta = pw_meta.get(sig) if isinstance(pw_meta, dict) else None
-                    k = str((meta or {}).get("input") or "").strip().lower()
-                    if k != input_name:
-                        continue
-                    if int(pw_done_counts.get(sig, 0)) < int(pw_need_counts.get(sig, 0)):
-                        pick_sig = str(sig)
-                        break
-                if not pick_sig:
-                    # No remaining press+wait requirement for this key; let it fall through to plain press logic.
-                    pick_sig = None
-                if pick_sig:
-                    meta = pw_meta.get(pick_sig) if isinstance(pw_meta, dict) else None
-                    wms = int((meta or {}).get("wait_ms") or 0)
-                    if wms <= 0:
-                        return
-
-                    now = time.perf_counter()
-
-                    # Start attempt on first accepted press (group can be the first step).
-                    if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                        self._insert_attempt_separator()
-                        self.start_time = now
-                        self.last_input_time = now
-                        self._send({"type": "status", "text": "Recording...", "color": "recording"})
-
-                    # Timing row
-                    if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                        split_ms = 0
-                        total_ms = 0
-                    else:
-                        split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
-                        total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-
-                    # If this group was gated by a wait right before it, mark that wait green once a valid option counts.
-                    if self.current_index > 0:
-                        prev = self.active_combo_steps[self.current_index - 1]
-                        if isinstance(prev, dict) and prev.get("wait_ms") is not None:
-                            self._mark_step(self.current_index - 1, "ok")
-
-                    self.record_hit(input_name, split_ms, total_ms)
-                    self.last_input_time = now
-                    self.last_success_input = input_name
-
-                    step["group_pw_active"] = True
-                    step["group_pw_sig"] = pick_sig
-                    step["group_pw_until"] = now + (wms / 1000.0)
-
-                    # Animate the wait fill on the active key+wait tile.
-                    self._send({"type": "wait_begin", "required_ms": int(wms), "mode": "soft", "wait_for": input_name})
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
                     return
-
-            # Hold group item: pressing the hold key starts the hold timer.
-            # We pick the first not-yet-completed hold signature for this key in the order it was written.
-            hold_key = input_name
-            if hold_need_counts and not bool(step.get("group_hold_active")):
-                pick_sig = None
-                for sig in hold_order_sigs:
-                    meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
-                    k = str((meta or {}).get("input") or "").strip().lower()
-                    if k != hold_key:
-                        continue
-                    need_n = int(hold_need_counts.get(sig, 0) or 0)
-                    done_n = int(hold_done_counts.get(sig, 0) or 0)
-                    if done_n < need_n:
-                        pick_sig = str(sig)
-                        break
-                if pick_sig:
-                    meta = hold_meta.get(pick_sig) if isinstance(hold_meta, dict) else None
-                    req_ms = int((meta or {}).get("hold_ms") or 0)
-                    if req_ms > 0:
-                        now = time.perf_counter()
-
-                        # Start attempt on first accepted press (group can be the first step).
-                        if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                            self._insert_attempt_separator()
-                            self.start_time = now
-                            self.last_input_time = now
-                            self._send({"type": "status", "text": "Recording...", "color": "recording"})
-
-                        # Record the press event itself (consistent with other group items)
-                        if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                            split_ms = 0
-                            total_ms = 0
-                        else:
-                            split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
-                            total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-
-                        if self.current_index > 0:
-                            prev = self.active_combo_steps[self.current_index - 1]
-                            if isinstance(prev, dict) and prev.get("wait_ms") is not None:
-                                self._mark_step(self.current_index - 1, "ok")
-
-                        self.record_hit(input_name, split_ms, total_ms)
-                        self.last_input_time = now
-                        self.last_success_input = input_name
-
-                        step["group_hold_active"] = True
-                        step["group_hold_sig"] = pick_sig
-                        step["group_hold_for"] = hold_key
-                        step["group_hold_started_at"] = now
-                        step["group_hold_required_ms"] = req_ms
-                        self._send({"type": "hold_begin", "input": str(hold_key or ""), "required_ms": int(req_ms)})
-                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                        return
-
-            # Mandatory-wait key press (e.g. r in wait(r,1.5)) is accepted as part of the group,
-            # but it only "counts" once the animation lock finishes.
-            if has_mw and input_name == mw_for:
-                # If already satisfied, ignore duplicates.
-                if bool(step.get("group_wait_done")):
-                    return
-
-                now = time.perf_counter()
-                # Start attempt on first accepted press (group can be the first step).
-                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                    self._insert_attempt_separator()
-                    self.start_time = now
-                    self.last_input_time = now
-                    self._send({"type": "status", "text": "Recording...", "color": "recording"})
-
-                # Timing row
-                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                    split_ms = 0
-                    total_ms = 0
-                else:
-                    split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
-                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-
-                # If this group was gated by a wait right before it, mark that wait green once a valid option counts.
-                if self.current_index > 0:
-                    prev = self.active_combo_steps[self.current_index - 1]
-                    if isinstance(prev, dict) and prev.get("wait_ms") is not None:
-                        self._mark_step(self.current_index - 1, "ok")
-
-                self.record_hit(input_name, split_ms, total_ms)
-                self.last_input_time = now
-                self.last_success_input = input_name
-
-                # Start the internal animation lock now.
-                step["group_wait_active"] = True
-                step["group_wait_started_at"] = now
-                step["group_wait_until"] = now + (int(mw_ms) / 1000.0)
-                self._send({"type": "wait_begin", "required_ms": int(mw_ms), "mode": "mandatory", "wait_for": mw_for})
+                return self._process_press_unlocked(input_name)
+            if isinstance(step, HoldState):
+                self._start_hold(step.expected, step.required_ms, now)
+            elif isinstance(step, GroupState):
+                if step.wait_active and not self._group_wait_begin_sent:
+                    for item in step.items:
+                        if (
+                            item.kind == "anim_wait"
+                            and isinstance(item.state, WaitState)
+                            and item.state.in_progress
+                        ):
+                            self._send({
+                                "type": "wait_begin",
+                                "required_ms": int(item.state.required_ms),
+                                "mode": "mandatory",
+                                "wait_for": str(item.state.wait_for or ""),
+                            })
+                            self._group_wait_begin_sent = True
+                            break
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                return
-
-            # Sequential subgroup handling ({step1, step2, ...})
-            # Check if we're currently inside an active sequence
-            seq_active = bool(step.get("group_seq_active"))
-            active_seq_id = str(step.get("group_seq_id") or "").strip()
-            
-            if seq_active and active_seq_id:
-                # We're inside a sequence - only accept inputs that match the current step in the sequence
-                meta = seq_meta.get(active_seq_id)
-                if meta and isinstance(meta, dict):
-                    seq_steps = meta.get("sequence_steps") or []
-                    seq_index = int(step.get("group_seq_index") or 0)
-                    
-                    if seq_index < len(seq_steps):
-                        current_seq_step = seq_steps[seq_index]
-                        
-                        # Process this input against the current sequence step
-                        # This is simpler than full groups - just sequential step matching
-                        seq_input = str(current_seq_step.get("input") or "").strip().lower()
-                        seq_hold_ms = current_seq_step.get("hold_ms")
-                        seq_wait_ms = current_seq_step.get("wait_ms")
-                        
-                        # Handle wait steps in sequence
-                        if seq_wait_ms is not None:
-                            # This is a wait step in the sequence - handle similar to normal waits
-                            # For simplicity, auto-advance for now (could add timer later)
-                            step["group_seq_index"] = seq_index + 1
-                            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            # Re-process this input against the next step
-                            return self.process_press(input_name)
-                        
-                        # Handle hold steps in sequence
-                        if seq_hold_ms is not None and input_name == seq_input:
-                            # This is a hold step - similar to group hold logic
-                            now = time.perf_counter()
-                            
-                            # Check if already holding
-                            if bool(step.get("group_seq_holding")):
-                                # User is still holding - ignore repeated presses
-                                if input_name == seq_input:
-                                    return
-                                # Different key during hold - could auto-complete if time met
-                                held_ms = (now - float(step.get("group_seq_hold_start") or 0.0)) * 1000.0
-                                if held_ms >= float(seq_hold_ms):
-                                    # Auto-complete the hold
-                                    step["group_seq_holding"] = False
-                                    step["group_seq_hold_start"] = 0.0
-                                    step["group_seq_index"] = seq_index + 1
-                                    self._send({"type": "hold_end"})
-                                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                                    # Check if sequence complete
-                                    if step["group_seq_index"] >= len(seq_steps):
-                                        seq_done_counts[active_seq_id] = 1
-                                        step["group_seq_active"] = False
-                                        step["group_seq_id"] = ""
-                                        step["group_seq_index"] = 0
-                                    # Re-process this input
-                                    return self.process_press(input_name)
-                                return
-                            
-                            # Start the hold
-                            if self.current_index == 0 and sum(int(v) for v in done_counts.values()) == 0:
-                                self._insert_attempt_separator()
-                                self.start_time = now
-                                self.last_input_time = now
-                                self._send({"type": "status", "text": "Recording...", "color": "recording"})
-                            
-                            split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
-                            total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-                            self.record_hit(input_name, split_ms, total_ms)
-                            self.last_input_time = now
-                            
-                            step["group_seq_holding"] = True
-                            step["group_seq_hold_start"] = now
-                            self._send({"type": "hold_begin", "input": str(seq_input), "required_ms": int(seq_hold_ms)})
-                            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            return
-                        
-                        # Handle plain press steps in sequence
-                        if input_name == seq_input:
-                            now = time.perf_counter()
-                            
-                            if self.current_index == 0 and sum(int(v) for v in done_counts.values()) == 0:
-                                self._insert_attempt_separator()
-                                self.start_time = now
-                                self.last_input_time = now
-                                self._send({"type": "status", "text": "Recording...", "color": "recording"})
-                            
-                            split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
-                            total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-                            self.record_hit(input_name, split_ms, total_ms)
-                            self.last_input_time = now
-                            self.last_success_input = input_name
-                            
-                            # Advance to next step in sequence
-                            step["group_seq_index"] = seq_index + 1
-                            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            
-                            # Check if sequence is complete
-                            if step["group_seq_index"] >= len(seq_steps):
-                                seq_done_counts[active_seq_id] = 1
-                                step["group_seq_active"] = False
-                                step["group_seq_id"] = ""
-                                step["group_seq_index"] = 0
-                                
-                                # Check if entire group is complete
-                                presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
-                                pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
-                                holds_done = all(int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in hold_need_counts.keys())
-                                seqs_done = all(int(seq_done_counts.get(sid, 0)) >= int(seq_need_counts.get(sid, 0)) for sid in seq_need_counts.keys())
-                                mw_done = (not has_mw) or bool(step.get("group_wait_done"))
-                                
-                                if presses_done and pw_done_ok and holds_done and seqs_done and mw_done:
-                                    self._mark_step(int(self.current_index), "ok")
-                                    self.current_index += 1
-                                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                                        return
-                                    self._maybe_start_wait_step()
-                                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-
-                                    if self.current_index >= len(self.active_combo_steps):
-                                        self._send(
-                                            {"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"}
-                                        )
-                                        self.record_combo_success(total_ms)
-                                        self.current_index = 0
-                                        self._reset_hold_state()
-                                        self._reset_wait_state()
-                                        self._reset_group_state()
-                                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                                    return
-                            return
-                        else:
-                            # Wrong input during sequence
-                            if self._is_combo_ender(input_name) and not self._should_ignore_ender_miss(input_name):
-                                expected = str(seq_input).upper()
-                                actual = str(input_name).upper()
-                                self._mark_step(int(self.current_index), "wrong")
-                                self.record_hit(f"{actual} (Exp: {expected} in seq) [ender]", "FAIL", "FAIL")
-                                self._send({"type": "status", "text": "Combo Dropped (Wrong Input During Sequence)", "color": "fail"})
-                                now = time.perf_counter()
-                                elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
-                                self.record_combo_fail(
-                                    actual=input_name,
-                                    expected_step_index=int(self.current_index),
-                                    expected_label=expected,
-                                    reason="wrong input during sequence",
-                                    elapsed_ms=elapsed_ms,
-                                )
-                                self.current_index = 0
-                                self._reset_hold_state()
-                                self._reset_wait_state()
-                                self._reset_group_state()
-                                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            # Otherwise just ignore non-ender wrong inputs
-                            return
-            
-            # Check if input should START a new sequence
-            if not seq_active and seq_order_ids:
-                for seq_id in seq_order_ids:
-                    if int(seq_done_counts.get(seq_id, 0)) >= int(seq_need_counts.get(seq_id, 0)):
-                        continue  # Already complete
-                    
-                    meta = seq_meta.get(seq_id)
-                    if not meta or not isinstance(meta, dict):
-                        continue
-                    
-                    seq_steps = meta.get("sequence_steps") or []
-                    if not seq_steps:
-                        continue
-                    
-                    # Check if this input matches the FIRST step of this sequence
-                    first_step = seq_steps[0]
-                    first_input = str(first_step.get("input") or "").strip().lower()
-                    first_hold = first_step.get("hold_ms")
-                    
-                    # Skip wait steps at the start (auto-advance)
-                    first_idx = 0
-                    while first_idx < len(seq_steps) and seq_steps[first_idx].get("wait_ms") is not None:
-                        first_idx += 1
-                    
-                    if first_idx < len(seq_steps):
-                        first_step = seq_steps[first_idx]
-                        first_input = str(first_step.get("input") or "").strip().lower()
-                        first_hold = first_step.get("hold_ms")
-                        
-                        if input_name == first_input:
-                            # This input starts the sequence!
-                            step["group_seq_active"] = True
-                            step["group_seq_id"] = seq_id
-                            step["group_seq_index"] = first_idx
-                            
-                            # Process this input as the first step of the sequence
-                            # (will be handled in the next call via recursion)
-                            return self.process_press(input_name)
-
-            if input_name in need_counts:
-                now = time.perf_counter()
-
-                # Start of combo (group can be the first step)
-                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                    self._insert_attempt_separator()
-                    self.start_time = now
-                    self.last_input_time = now
-                    self._send({"type": "status", "text": "Recording...", "color": "recording"})
-
-                # Compute timings for hit rows
-                if self.current_index == 0 and (sum(int(v) for v in done_counts.values()) + sum(int(v) for v in pw_done_counts.values()) + sum(int(v) for v in hold_done_counts.values())) == 0:
-                    split_ms = 0
-                    total_ms = 0
-                else:
-                    split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0
-                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-
-                # If this group was gated by a wait right before it, mark that wait green once a valid option counts.
-                if self.current_index > 0:
-                    prev = self.active_combo_steps[self.current_index - 1]
-                    if isinstance(prev, dict) and prev.get("wait_ms") is not None:
-                        self._mark_step(self.current_index - 1, "ok")
-
-                self.record_hit(input_name, split_ms, total_ms)
-                self.last_input_time = now
-                self.last_success_input = input_name
-                cur_n = int(done_counts.get(input_name, 0))
-                need_n = int(need_counts.get(input_name, 0))
-                if cur_n < need_n:
-                    done_counts[input_name] = cur_n + 1
-
-                # Group completes when all presses are hit, and (if present) the mandatory wait is satisfied.
-                presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
-                pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
-                holds_done = all(int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in hold_need_counts.keys())
-                seqs_done = all(int(seq_done_counts.get(sid, 0)) >= int(seq_need_counts.get(sid, 0)) for sid in seq_need_counts.keys())
-                mw_done = (not has_mw) or bool(step.get("group_wait_done"))
-                if presses_done and pw_done_ok and holds_done and seqs_done and mw_done:
-                    self._mark_step(int(self.current_index), "ok")
-                    self.current_index += 1
-                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                        return
-                    self._maybe_start_wait_step()
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-
-                    if self.current_index >= len(self.active_combo_steps):
-                        self._send(
-                            {"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"}
-                        )
-                        self.record_combo_success(total_ms)
-                        self.current_index = 0
-                        self._reset_hold_state()
-                        self._reset_wait_state()
-                        self._reset_group_state()
-                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                    return
-
-                # Partial progress: keep current_index on this group.
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                return
-
-            # If the combo has already started (group is the first step so current_index can still be 0),
-            # then combo enders should still be able to drop the combo while you're "inside" the group
-            # (except during the group's ignore-wait windows handled above).
-            if self.start_time and self.last_input_time:
-                if self._is_combo_ender(input_name) and not self._should_ignore_ender_miss(input_name):
-                    expected = str(self._expected_label_for_step(step) or "").strip().lower()
-                    actual = str(input_name or "").strip().lower()
-                    self._mark_step(int(self.current_index), "missed")
-                    self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
-                    self._send({"type": "status", "text": "Combo Dropped (Combo Ender)", "color": "fail"})
-                    now = time.perf_counter()
-                    elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
-                    self.record_combo_fail(
-                        actual=input_name,
-                        expected_step_index=int(self.current_index),
-                        expected_label=self._expected_label_for_step(step),
-                        reason="wrong input",
-                        elapsed_ms=elapsed_ms,
-                    )
-                    self.current_index = 0
-                    self._reset_hold_state()
-                    self._reset_wait_state()
-                    self._reset_group_state()
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                    return
-
-        # Standalone sequential subgroup step: {step1, step2, ...}
-        # These are sequences NOT inside any-order groups.
-        if isinstance(step, dict) and step.get("is_sequence"):
-            seq_steps = step.get("sequence_steps") or []
-            seq_index = int(step.get("sequence_index") or 0)
-            seq_started = bool(step.get("sequence_started") or False)
-            
-            # Check if we haven't started the sequence yet
-            if not seq_started:
-                # Check if input matches the first step of the sequence
-                if seq_index < len(seq_steps):
-                    first_step = seq_steps[0]
-                    if isinstance(first_step, dict):
-                        first_input = str(first_step.get("input") or "").strip().lower()
-                        first_hold_ms = first_step.get("hold_ms")
-                        
-                        if input_name == first_input:
-                            # Start the sequence
-                            step["sequence_started"] = True
-                            step["sequence_index"] = 0
-                            
-                            now = time.perf_counter()
-                            if self.current_index == 0:
-                                self._insert_attempt_separator()
-                                self.start_time = now
-                                self.last_input_time = now
-                            
-                            # Handle first step based on type
-                            if first_hold_ms is not None:
-                                # First step is a hold
-                                self._start_hold(input_name, int(first_hold_ms), now)
-                            else:
-                                # First step is a regular press
-                                if self.current_index == 0:
-                                    self.record_hit(input_name, 0, 0)
-                                else:
-                                    split_ms = (now - self.last_input_time) * 1000
-                                    total_ms = (now - self.start_time) * 1000
-                                    self.record_hit(input_name, split_ms, total_ms)
-                                    self.last_input_time = now
-                                
-                                self.last_success_input = input_name
-                                step["sequence_index"] = 1  # Move to next step in sequence
-                                
-                                # Check if sequence is complete
-                                if step["sequence_index"] >= len(seq_steps):
-                                    # Sequence complete, advance to next combo step
-                                    self.current_index += 1
-                                    total_ms = (now - self.start_time) * 1000 if self.start_time else 0
-                                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                                        return
-                                    self._maybe_start_wait_step()
-                                
-                                self._send({"type": "status", "text": "Recording...", "color": "recording"})
-                                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            return
-                        else:
-                            # Wrong input to start sequence - check if it's an ender
-                            if self._is_combo_ender(input_name) and not self._should_ignore_ender_miss(input_name):
-                                expected = self._expected_label_for_step(step)
-                                actual = str(input_name).upper()
-                                self._mark_step(int(self.current_index), "wrong")
-                                self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
-                                self._send({"type": "status", "text": "Combo Dropped (Wrong Input)", "color": "fail"})
-                                now = time.perf_counter()
-                                elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
-                                self.record_combo_fail(
-                                    actual=input_name,
-                                    expected_step_index=int(self.current_index),
-                                    expected_label=expected,
-                                    reason="wrong input (ender)",
-                                    elapsed_ms=elapsed_ms,
-                                )
-                                self.current_index = 0
-                                self._reset_hold_state()
-                                self._reset_wait_state()
-                                self._reset_group_state()
-                                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            return
-            else:
-                # Sequence is in progress
-                if seq_index < len(seq_steps):
-                    current_seq_step = seq_steps[seq_index]
-                    if isinstance(current_seq_step, dict):
-                        seq_input = str(current_seq_step.get("input") or "").strip().lower()
-                        seq_hold_ms = current_seq_step.get("hold_ms")
-                        seq_wait_ms = current_seq_step.get("wait_ms")
-                        
-                        # Handle wait steps within sequence
-                        if seq_wait_ms is not None:
-                            # This shouldn't be reached in normal flow (waits are handled in the while loop above)
-                            return
-                        
-                        if input_name == seq_input:
-                            # Correct input for current sequence step
-                            now = time.perf_counter()
-                            
-                            if seq_hold_ms is not None:
-                                # Start hold for this sequence step
-                                self._start_hold(input_name, int(seq_hold_ms), now)
-                            else:
-                                # Regular press
-                                split_ms = (now - self.last_input_time) * 1000
-                                total_ms = (now - self.start_time) * 1000
-                                self.record_hit(input_name, split_ms, total_ms)
-                                self.last_input_time = now
-                                self.last_success_input = input_name
-                                
-                                # Advance sequence index
-                                step["sequence_index"] = seq_index + 1
-                                
-                                # Check if sequence is complete
-                                if step["sequence_index"] >= len(seq_steps):
-                                    # Sequence complete, advance to next combo step
-                                    self._mark_step(int(self.current_index), "ok")
-                                    self.current_index += 1
-                                    
-                                    # [FIX] Check for combo completion immediately
-                                    if self.current_index >= len(self.active_combo_steps):
-                                        self._send(
-                                            {"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"}
-                                        )
-                                        self.record_combo_success(total_ms)
-                                        self.current_index = 0
-                                        self._reset_hold_state()
-                                        self._reset_wait_state()
-                                        self._reset_group_state()
-                                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                                        return
-
-                                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                                        return
-                                    self._maybe_start_wait_step()
-                                
-                                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            return
-                        else:
-                            # Wrong input during sequence
-                            if self._is_combo_ender(input_name) and not self._should_ignore_ender_miss(input_name):
-                                expected = str(seq_input).upper()
-                                actual = str(input_name).upper()
-                                self._mark_step(int(self.current_index), "wrong")
-                                self.record_hit(f"{actual} (Exp: {expected} in seq) [ender]", "FAIL", "FAIL")
-                                self._send({"type": "status", "text": "Combo Dropped (Wrong Input During Sequence)", "color": "fail"})
-                                now = time.perf_counter()
-                                elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
-                                self.record_combo_fail(
-                                    actual=input_name,
-                                    expected_step_index=int(self.current_index),
-                                    expected_label=expected,
-                                    reason="wrong input during sequence (ender)",
-                                    elapsed_ms=elapsed_ms,
-                                )
-                                self.current_index = 0
-                                self._reset_hold_state()
-                                self._reset_wait_state()
-                                self._reset_group_state()
-                                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                            return
-
-        # Start of combo
-        if self.current_index == 0:
-            if input_name == target_input:
-                now = time.perf_counter()
-                self._insert_attempt_separator()
-                self.start_time = now
-                self.last_input_time = now
-
-                if target_hold_ms is None:
-                    self.record_hit(input_name, 0, 0)
-                    self.current_index += 1
-                    if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=0):
-                        return
-                    self._maybe_start_wait_step()
-                    self.last_success_input = input_name
-                    self._send({"type": "status", "text": "Recording...", "color": "recording"})
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                else:
-                    self._start_hold(input_name, int(target_hold_ms), now)
             return
-
-        # During combo
-        current_time = time.perf_counter()
-        if input_name == target_input:
-            if target_hold_ms is None:
-                split_ms = (current_time - self.last_input_time) * 1000
-                total_ms = (current_time - self.start_time) * 1000
-                self.record_hit(input_name, split_ms, total_ms)
-                self.last_input_time = current_time
-                self.last_success_input = input_name
-
-                # If this step was gated by a wait right before it, mark that wait green (timing satisfied).
-                if self.current_index > 0:
-                    prev = self.active_combo_steps[self.current_index - 1]
-                    if isinstance(prev, dict) and prev.get("wait_ms") is not None:
-                        self._mark_step(self.current_index - 1, "ok")
-
-                self.current_index += 1
-                if self._maybe_complete_combo_if_trailing_wait(now=current_time, total_ms=total_ms):
-                    return
-                self._maybe_start_wait_step()
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-
-                if self.current_index >= len(self.active_combo_steps):
-                    self._send(
-                        {"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"}
-                    )
-                    self.record_combo_success(total_ms)
-                    self.current_index = 0
-                    self._reset_group_state()
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-            else:
-                self._start_hold(input_name, int(target_hold_ms), current_time)
+        if isinstance(result, FailResult):
+            self._fail_combo(result.reason, now)
             return
-
-        # Miss
-        if self._is_combo_ender(input_name):
-            if self._should_ignore_ender_miss(input_name):
+        if isinstance(result, CompleteResult):
+            self._advance_step(now)
+            if self.current_index >= len(self.runtime_steps):
+                self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
+                self.record_combo_success((now - self.start_time) * 1000.0 if self.start_time else 0.0)
+                self.current_index = 0
+                self._reset_hold_state()
+                self._reset_wait_state()
+                self._reset_group_state()
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 return
+            if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
+                return
+            return self._process_press_unlocked(input_name)
+        # During group mandatory wait (animation lock), ignore all keys including enders.
+        if isinstance(step, GroupState) and step.wait_active:
+            return
+        self._check_ender_fail(input_name, now)
+        return
 
-            # More helpful messaging: detect "out of order" presses (likely skipped an expected step).
-            expected = str(self._expected_label_for_step(step) or "").strip().lower()
-            actual = str(input_name or "").strip().lower()
-            skipped_idx = None
-            if expected and actual and expected != actual:
-                # If the actual input appears later in the combo, you likely hit a later step early.
-                skipped_idx = self._find_next_step_index_for_input(actual, start_index=self.current_index + 1)
-            passed_idx = None
-            if expected and actual and expected != actual:
-                # If the actual input appeared earlier than the current expected step,
-                # the player is likely repeating a key that the combo has already passed.
-                passed_idx = self._find_prev_step_index_for_input(actual, end_index=self.current_index)
-
-            # If the player pressed a later combo input, we can be more specific than "wrong input":
-            # - If they pressed the immediate "next action" after the expected one, they likely MISSED the expected input.
-            # - If the expected input was pressed during the wait gate right before it, call it "pressed too fast".
-            next_action_idx = self._next_non_wait_step_index(start_index=self.current_index + 1)
-            is_missed = (skipped_idx is not None) and (next_action_idx is not None) and (skipped_idx == next_action_idx)
-
-            # Detect "pressed too fast": expected was hit during the wait step directly before this expected input.
-            pressed_too_fast = False
-            if self.current_index > 0:
-                prev_idx = self.current_index - 1
-                prev = self.active_combo_steps[prev_idx]
-                if isinstance(prev, dict) and prev.get("wait_ms") is not None:
-                    if input_name and expected:
-                        if expected in self.wait_early_inputs.get(prev_idx, set()):
-                            pressed_too_fast = True
-
-            # Mark the expected step as missed/wrong for UI feedback.
-            self._mark_step(int(self.current_index), "missed")
-
-            # If the actual input exists later in the combo, mark that step red too (shows where you jumped to).
-            if skipped_idx is not None:
-                self._mark_step(int(skipped_idx), "wrong")
-
-            if pressed_too_fast:
-                # Example: expected 'E' after wait, but E was pressed during the wait gate, then player moved on.
-                self.record_hit(f"{actual} (Exp: {expected}) [pressed too fast]", "FAIL", "FAIL")
-                self._send(
-                    {
-                        "type": "status",
-                        "text": f"Combo Dropped (Pressed Too Fast): '{expected.upper()}' was pressed during the wait, so it didn't count.",
-                        "color": "fail",
-                    }
-                )
-                fail_reason = "pressed too fast"
-            elif is_missed:
-                self.record_hit(f"{actual} (Exp: {expected}) [missed input]", "FAIL", "FAIL")
-                self._send(
-                    {
-                        "type": "status",
-                        "text": f"Combo Dropped (Missed Input): expected '{expected.upper()}', but you went to '{actual.upper()}'.",
-                        "color": "fail",
-                    }
-                )
-                fail_reason = "missed input"
-            elif skipped_idx is not None:
-                # Out of order (jumped somewhere later than just the next action).
-                self.record_hit(f"{actual} (Exp: {expected}) [out of order]", "FAIL", "FAIL")
-                self._send(
-                    {
-                        "type": "status",
-                        "text": f"Combo Dropped (Out of Order): got '{actual.upper()}', expected '{expected.upper()}'.",
-                        "color": "fail",
-                    }
-                )
-                fail_reason = "out of order"
-            elif passed_idx is not None:
-                # The pressed key is part of the combo, but only earlier steps (no longer remaining).
-                self.record_hit(f"{actual} (Exp: {expected}) [already passed]", "FAIL", "FAIL")
-                self._send(
-                    {
-                        "type": "status",
-                        "text": f"Combo Dropped (Already Passed): '{actual.upper()}' already happened earlier. Expected '{expected.upper()}'.",
-                        "color": "fail",
-                    }
-                )
-                fail_reason = "already passed"
-            else:
-                self.record_hit(f"{actual} (Exp: {expected})", "FAIL", "FAIL")
-                self._send({"type": "status", "text": "Combo Dropped (Wrong Input)", "color": "fail"})
-                fail_reason = "wrong input"
-
-            elapsed_ms = (current_time - self.start_time) * 1000.0 if self.start_time else None
-            self.record_combo_fail(
-                actual=input_name,
-                expected_step_index=int(self.current_index),
-                expected_label=self._expected_label_for_step(self._active_step()),
-                reason=fail_reason,
-                elapsed_ms=elapsed_ms,
-            )
-            self.current_index = 0
-            self._reset_hold_state()
-            self._reset_wait_state()
-            self._reset_group_state()
-            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
     def process_release(self, input_name: str):
         # Thread-safe wrapper
@@ -3212,73 +1945,47 @@ class ComboTrackerEngine:
         if not input_name:
             return
 
-        # Always update pressed-state on release (even if the release is consumed by group-hold logic).
         self.currently_pressed.discard(input_name)
 
-        # Group hold handling (hold items inside []):
-        step = self._active_step()
-        if isinstance(step, dict) and step.get("group_presses") is not None and bool(step.get("group_hold_active")):
-            hold_for = str(step.get("group_hold_for") or "").strip().lower()
-            if input_name == hold_for:
-                now = time.perf_counter()
-                sig = str(step.get("group_hold_sig") or "").strip()
-                req = int(step.get("group_hold_required_ms") or 0)
-                started = float(step.get("group_hold_started_at") or 0.0)
-                held_ms = (now - started) * 1000.0 if started else 0.0
-
-                if req > 0 and held_ms >= float(req):
-                    # Complete hold
-                    hold_done_counts = step.get("group_hold_done_counts")
-                    if not isinstance(hold_done_counts, dict):
-                        hold_done_counts = {}
-                        step["group_hold_done_counts"] = hold_done_counts
-                    hold_done_counts[sig] = int(hold_done_counts.get(sig, 0)) + 1
-
-                    step["group_hold_active"] = False
-                    step["group_hold_for"] = ""
-                    step["group_hold_sig"] = ""
-                    step["group_hold_started_at"] = 0.0
-                    step["group_hold_required_ms"] = 0
-                    self._send({"type": "hold_end"})
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                else:
-                    # Released too early: drop combo (hold too short)
-                    self.record_hit(f"{input_name} (hold ≥ {req}ms, {held_ms:.0f}ms)", "FAIL", "FAIL")
-                    self._send({"type": "status", "text": "Combo Dropped (Hold Too Short)", "color": "fail"})
-                    elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
-                    self.record_combo_fail(
-                        actual=f"released @ {held_ms:.0f}ms",
-                        expected_step_index=int(self.current_index),
-                        expected_label=self._expected_label_for_step(step),
-                        reason="hold too short",
-                        elapsed_ms=elapsed_ms,
-                    )
-                    self.current_index = 0
-                    self._reset_hold_state()
-                    self._reset_wait_state()
-                    self._reset_group_state()
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                return
-
-        if not self.active_combo_steps:
+        if not self.runtime_steps:
             return
 
-        step = self._active_step()
-        if not step:
-            return
-
-        target_input = step.get("input")
-        target_hold_ms = step.get("hold_ms")
-        if target_hold_ms is None:
-            return
-
-        if not self.hold_in_progress or self.hold_expected_input != input_name:
-            return
-        if input_name != target_input:
+        step = self._active_runtime_step()
+        if step is None:
             return
 
         now = time.perf_counter()
-        self._complete_hold(now, auto=False)
+        result = step.process_release(input_name, now)
+
+        if isinstance(result, AcceptResult):
+            if result.advance:
+                if isinstance(step, HoldState):
+                    self._complete_hold(now, auto=False)
+                else:
+                    self._advance_step(now)
+                    if self.current_index >= len(self.runtime_steps):
+                        total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+                        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
+                        self.record_combo_success(total_ms)
+                        self.current_index = 0
+                        self._reset_hold_state()
+                        self._reset_wait_state()
+                        self._reset_group_state()
+                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    elif self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
+                        pass
+                    else:
+                        st = self.get_status()
+                        self._send({"type": "status", "text": st.text, "color": st.color})
+            else:
+                # Group-internal hold completed; notify UI
+                if isinstance(step, GroupState):
+                    self._send({"type": "hold_end"})
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            return
+        if isinstance(result, FailResult):
+            self._fail_combo(result.reason, now, actual="released (hold too short)")
+            return
 
     def tick(self):
         # Thread-safe wrapper
@@ -3298,144 +2005,45 @@ class ComboTrackerEngine:
         This method intentionally does **not** start a combo; it only advances timers for an already-started attempt.
         """
         try:
-            if not self.active_combo_steps:
+            if not self.runtime_steps:
                 return
             if not self.start_time or not self.last_input_time:
-                # Don't auto-advance anything before an attempt has started.
                 return
 
             now = time.perf_counter()
+            self._maybe_start_wait_step()
 
-            # 1) Normal wait steps
-            step = self._active_step()
-            if isinstance(step, dict) and step.get("wait_ms") is not None:
-                # Ensure the wait timer has started
-                self._maybe_start_wait_step()
-                if self.wait_in_progress and now >= float(self.wait_until or 0.0):
+            step = self._active_runtime_step()
+            if step is None:
+                return
+
+            result = step.tick(now)
+
+            if isinstance(result, CompleteResult) or (
+                isinstance(result, AcceptResult) and result.advance
+            ):
+                if isinstance(step, WaitState):
                     self._complete_wait(now, fail=False)
                     st = self.get_status()
                     self._send({"type": "status", "text": st.text, "color": st.color})
-
-                    # If we just advanced past the end, finish combo.
-                    if self.current_index >= len(self.active_combo_steps):
-                        total_ms = (now - self.start_time) * 1000 if self.start_time else 0.0
-                        self._send(
-                            {"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"}
-                        )
+                else:
+                    if isinstance(step, GroupState) and self._group_wait_begin_sent:
+                        self._send({"type": "wait_end"})
+                        self._group_wait_begin_sent = False
+                    self._advance_step(now)
+                    if self.current_index >= len(self.runtime_steps):
+                        total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+                        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
                         self.record_combo_success(total_ms)
                         self.current_index = 0
                         self._reset_hold_state()
                         self._reset_wait_state()
                         self._reset_group_state()
                         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                    return
-
-            # 2) Group internal waits (mandatory wait(...) and press+wait items inside [])
-            step = self._active_step()
-            if not (isinstance(step, dict) and step.get("group_presses") is not None):
-                return
-
-            opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
-            opts = [o for o in opts if o]
-            need_counts = step.get("group_press_need_counts")
-            if not isinstance(need_counts, dict) or not need_counts:
-                need_counts = {k: 1 for k in opts}
-                step["group_press_need_counts"] = need_counts
-
-            done_counts = step.get("group_done_counts")
-            if not isinstance(done_counts, dict):
-                done_counts = {}
-                step["group_done_counts"] = done_counts
-
-            pw_need_counts = step.get("group_pw_need_counts")
-            pw_need_counts = pw_need_counts if isinstance(pw_need_counts, dict) else {}
-            pw_done_counts = step.get("group_pw_done_counts")
-            if not isinstance(pw_done_counts, dict):
-                pw_done_counts = {}
-                step["group_pw_done_counts"] = pw_done_counts
-            pw_meta = step.get("group_pw_meta")
-            pw_meta = pw_meta if isinstance(pw_meta, dict) else {}
-            pw_order_sigs = step.get("group_pw_order_sigs")
-            pw_order_sigs = pw_order_sigs if isinstance(pw_order_sigs, list) else []
-
-            pw_keys = set()
-            for _sig, meta in pw_meta.items():
-                k = str((meta or {}).get("input") or "").strip().lower()
-                if k:
-                    pw_keys.add(k)
-
-            # Hold tracking
-            hold_need_counts = step.get("group_hold_need_counts")
-            hold_need_counts = hold_need_counts if isinstance(hold_need_counts, dict) else {}
-            hold_done_counts = step.get("group_hold_done_counts")
-            if not isinstance(hold_done_counts, dict):
-                hold_done_counts = {}
-                step["group_hold_done_counts"] = hold_done_counts
-            hold_meta = step.get("group_hold_meta")
-            hold_meta = hold_meta if isinstance(hold_meta, dict) else {}
-            hold_order_sigs = step.get("group_hold_order_sigs")
-            hold_order_sigs = hold_order_sigs if isinstance(hold_order_sigs, list) else []
-
-            # Sequence tracking
-            seq_need_counts = step.get("group_seq_need_counts")
-            seq_need_counts = seq_need_counts if isinstance(seq_need_counts, dict) else {}
-            seq_done_counts = step.get("group_seq_done_counts")
-            if not isinstance(seq_done_counts, dict):
-                seq_done_counts = {}
-                step["group_seq_done_counts"] = seq_done_counts
-            seq_meta = step.get("group_seq_meta")
-            seq_meta = seq_meta if isinstance(seq_meta, dict) else {}
-            seq_order_ids = step.get("group_seq_order_ids")
-            seq_order_ids = seq_order_ids if isinstance(seq_order_ids, list) else []
-
-            mw = step.get("group_mandatory_wait")
-            mw_for = ""
-            mw_ms = None
-            if isinstance(mw, dict):
-                mw_for = str(mw.get("wait_for") or "").strip().lower()
-                mw_ms = mw.get("wait_ms")
-            has_mw = (mw_ms is not None and mw_for)
-
-            changed = False
-
-            # 2a) Mandatory animation lock inside group
-            if has_mw and bool(step.get("group_wait_active")) and now >= float(step.get("group_wait_until") or 0.0):
-                step["group_wait_active"] = False
-                step["group_wait_done"] = True
-                self._send({"type": "wait_end"})
-                changed = True
-
-            # 2b) Press+wait item inside group
-            if bool(step.get("group_pw_active")) and now >= float(step.get("group_pw_until") or 0.0):
-                sig = str(step.get("group_pw_sig") or "").strip()
-                if sig:
-                    pw_done_counts[sig] = int(pw_done_counts.get(sig, 0)) + 1
-                step["group_pw_active"] = False
-                step["group_pw_sig"] = ""
-                step["group_pw_until"] = 0.0
-                self._send({"type": "wait_end"})
-                changed = True
-
-            if changed:
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                st = self.get_status()
-                self._send({"type": "status", "text": st.text, "color": st.color})
-
-            # If the group is now complete, advance immediately.
-            presses_done = all(int(done_counts.get(k, 0)) >= int(need_counts.get(k, 0)) for k in need_counts.keys())
-            pw_done_ok = all(int(pw_done_counts.get(sig, 0)) >= int(pw_need_counts.get(sig, 0)) for sig in pw_need_counts.keys())
-            holds_done = all(int(hold_done_counts.get(sig, 0)) >= int(hold_need_counts.get(sig, 0)) for sig in hold_need_counts.keys())
-            seqs_done = all(int(seq_done_counts.get(sid, 0)) >= int(seq_need_counts.get(sid, 0)) for sid in seq_need_counts.keys())
-            mw_done = (not has_mw) or bool(step.get("group_wait_done"))
-            if presses_done and pw_done_ok and holds_done and seqs_done and mw_done:
-                self._mark_step(int(self.current_index), "ok")
-                self.current_index += 1
-                total_ms = (now - self.start_time) * 1000 if self.start_time else 0.0
-                if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                    return
-                self._maybe_start_wait_step()
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                st = self.get_status()
-                self._send({"type": "status", "text": st.text, "color": st.color})
+                    elif self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
+                        pass
+                    else:
+                        st = self.get_status()
+                        self._send({"type": "status", "text": st.text, "color": st.color})
         except Exception:
             return
