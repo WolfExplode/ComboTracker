@@ -929,7 +929,7 @@ select {
 
 /* Press + wait (animation time right after a key): keep the yellow fill, but don't use a bright yellow border */
 .step.press-wait {
-    border-color: rgba(255, 221, 74, 0.22);
+    border-color: rgba(255, 236, 149, 0.22);
     /* subtle */
     --wait-pct: 0%;
     background: linear-gradient(to right,

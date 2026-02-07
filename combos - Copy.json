@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "Aemeath",
+  "last_active_combo": "Agusta",
   "combos": {
     "Zani 1": [
       "f",
@@ -137,12 +137,21 @@
       "r"
     ],
     "Agusta": [
+      "f",
       "e",
-      "rmb",
       "2",
       "e",
       "3",
-      "e"
+      "q",
+      "e",
+      "r",
+      "lmb",
+      "lmb",
+      "lmb",
+      "rmb",
+      "lmb",
+      "lmb",
+      "hold(lmb, 0.5s)"
     ],
     "Aemeath": [
       "f"
@@ -160,24 +169,24 @@
   "combo_stats": {
     "Zani 1": {
       "success": 35,
-      "fail": 49,
+      "fail": 54,
       "best_ms": 944,
       "total_success_ms": 62720,
       "fail_by_step": {
-        "4": 17,
-        "2": 24,
+        "4": 18,
+        "2": 27,
         "7": 4,
-        "6": 4
+        "6": 5
       },
       "fail_by_expected": {
-        "lmb": 17,
-        "e": 24,
+        "lmb": 18,
+        "e": 27,
         "hold(e,\u2265350ms)": 4,
-        "2": 4
+        "2": 5
       },
       "fail_by_reason": {
-        "wrong input": 13,
-        "out of order": 6,
+        "wrong input": 17,
+        "out of order": 7,
         "pressed too fast": 19,
         "hold too short": 4,
         "missed input": 7
@@ -623,6 +632,51 @@
           "actual": "e",
           "reason": "out of order",
           "elapsed_ms": 2568
+        },
+        {
+          "ts": 1770436164,
+          "attempt": 1,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 456
+        },
+        {
+          "ts": 1770436200,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 222
+        },
+        {
+          "ts": 1770436336,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 194
+        },
+        {
+          "ts": 1770436387,
+          "attempt": 4,
+          "step_index": 6,
+          "expected": "2",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 41405
+        },
+        {
+          "ts": 1770436696,
+          "attempt": 5,
+          "step_index": 4,
+          "expected": "lmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 2134
         }
       ]
     },
@@ -2683,20 +2737,22 @@
     },
     "Agusta": {
       "success": 2,
-      "fail": 36,
+      "fail": 40,
       "best_ms": 1543,
       "total_success_ms": 3841,
       "fail_by_step": {
-        "1": 34,
-        "2": 2
+        "1": 37,
+        "2": 3
       },
       "fail_by_expected": {
         "a": 12,
-        "rmb": 24
+        "rmb": 25,
+        "e": 2,
+        "2": 1
       },
       "fail_by_reason": {
-        "wrong input": 35,
-        "out of order": 1
+        "wrong input": 36,
+        "out of order": 4
       },
       "fail_events": [
         {
@@ -3022,6 +3078,42 @@
           "actual": "space",
           "reason": "wrong input",
           "elapsed_ms": 92
+        },
+        {
+          "ts": 1770435718,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "rmb",
+          "actual": "space",
+          "reason": "wrong input",
+          "elapsed_ms": 160
+        },
+        {
+          "ts": 1770437379,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 208
+        },
+        {
+          "ts": 1770437393,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "e",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 172
+        },
+        {
+          "ts": 1770437400,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "2",
+          "actual": "r",
+          "reason": "out of order",
+          "elapsed_ms": 430
         }
       ]
     },
@@ -3055,12 +3147,12 @@
   },
   "combo_key_images": {},
   "combo_target_game": {
-    "Zani 3": "wuthering_waves",
-    "Zani 2": "wuthering_waves",
     "Zani 1": "wuthering_waves",
-    "Zani Pheobe Rover Rotation": "wuthering_waves",
+    "Zani 2": "wuthering_waves",
+    "Aemeath": "wuthering_waves",
     "Agusta": "wuthering_waves",
-    "Aemeath": "wuthering_waves"
+    "Zani Pheobe Rover Rotation": "wuthering_waves",
+    "Zani 3": "wuthering_waves"
   },
   "ww_teams": {
     "986f16f581": {
@@ -3126,7 +3218,7 @@
       }
     },
     "c70c25857f": {
-      "name": "Aemeath",
+      "name": "Aemeath, Lynae, Mornye",
       "dash_image": "\ud83d\udca8",
       "swap_images": {
         "1": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_53_UI.png",
@@ -3157,7 +3249,7 @@
       }
     }
   },
-  "ww_active_team_id": "c70c25857f",
+  "ww_active_team_id": "cd717b20ac",
   "combo_ww_team": {
     "Zani Pheobe Rover Rotation": "986f16f581",
     "Zani 1": "986f16f581",

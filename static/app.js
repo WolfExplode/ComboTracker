@@ -560,16 +560,15 @@ function updateAPMMax(text) {
     if (el) el.textContent = text || 'Theoretical max APM: —';
 }
 
-function setDifficultyColor(el, val) {
+function setDifficultyColor(el, value) {
     if (!el) return;
-    el.classList.remove('difficulty-low', 'difficulty-medium', 'difficulty-high', 'difficulty-extreme');
-    if (val == null) return;
-    const v = parseFloat(val);
-    if (isNaN(v)) return;
-    if (v < 3.5) el.classList.add('difficulty-low');
-    else if (v < 6.0) el.classList.add('difficulty-medium');
-    else if (v < 8.5) el.classList.add('difficulty-high');
-    else el.classList.add('difficulty-extreme');
+    el.classList.remove('diff-easy', 'diff-med', 'diff-hard', 'diff-insane');
+    const v = Number(value);
+    if (!Number.isFinite(v)) return;
+    if (v < 3) el.classList.add('diff-easy');
+    else if (v < 6) el.classList.add('diff-med');
+    else if (v < 8) el.classList.add('diff-hard');
+    else el.classList.add('diff-insane');
 }
 
 // Attempt log
@@ -754,6 +753,8 @@ function updateTimeline(steps) {
         return;
     }
 
+    let activeChar = '1';
+
     steps.forEach((s, idx) => {
         const tile = document.createElement('div');
 
@@ -775,6 +776,9 @@ function updateTimeline(steps) {
             items.className = 'step-group-items';
 
             (s.items || []).forEach(it => {
+                const itInp = (it.input || '').toString().toLowerCase();
+                const itWait = (it.wait_for || '').toString().toLowerCase();
+
                 if (it.type === 'sequence') {
                     // Render a mini sequence within the group
                     const seqEl = document.createElement('div');
@@ -784,19 +788,24 @@ function updateTimeline(steps) {
 
                     const seqHeader = document.createElement('div');
                     seqHeader.className = 'mini-sequence-header';
-                    // const seqLabels = (it.items || []).map(seqIt => renderStepLabel(seqIt)); // Unused
                     seqEl.appendChild(seqHeader);
 
                     const seqItems = document.createElement('div');
                     seqItems.className = 'mini-sequence-items';
                     (it.items || []).forEach((seqIt, seqIdx) => {
+                        const seqItInp = (seqIt.input || '').toString().toLowerCase();
+                        const seqItWait = (seqIt.wait_for || '').toString().toLowerCase();
+
+                        if (['1', '2', '3'].includes(seqItInp)) activeChar = seqItInp;
+                        else if (['1', '2', '3'].includes(seqItWait)) activeChar = seqItWait;
+
                         const seqItEl = document.createElement('div');
                         seqItEl.className = 'mini-sequence-step';
                         if (seqIt.active) seqItEl.classList.add('mini-sequence-step-active');
                         if (seqIt.completed) seqItEl.classList.add('mini-sequence-step-completed');
 
                         // Append content directly
-                        appendStepContent(seqItEl, seqIt);
+                        appendStepContent(seqItEl, seqIt, activeChar);
                         seqItems.appendChild(seqItEl);
 
                         // Add arrow between steps
@@ -811,6 +820,9 @@ function updateTimeline(steps) {
                     items.appendChild(seqEl);
                 } else {
                     // Regular group item
+                    if (['1', '2', '3'].includes(itInp)) activeChar = itInp;
+                    else if (['1', '2', '3'].includes(itWait)) activeChar = itWait;
+
                     const itEl = document.createElement('div');
                     itEl.className = 'step group-item';
 
@@ -831,9 +843,13 @@ function updateTimeline(steps) {
                     if (it.active) itEl.classList.add('active');
                     if (it.completed) itEl.classList.add('completed');
 
-                    appendStepContent(itEl, it);
+                    appendStepContent(itEl, it, activeChar);
                     // Also add corner key for group items
-                    if (it.input) addCornerKey(itEl, it.input);
+                    let keyForCorner = '';
+                    if (it.type === 'wait' && it.wait_for) keyForCorner = it.wait_for;
+                    else if (it.input) keyForCorner = it.input;
+
+                    if (keyForCorner) addCornerKey(itEl, keyForCorner);
                     items.appendChild(itEl);
                 }
             });
@@ -847,16 +863,21 @@ function updateTimeline(steps) {
 
             const items = document.createElement('div');
             items.className = 'sequence-items';
-            // style moved to CSS
 
             (s.items || []).forEach((it, seqIdx) => {
+                const itInp = (it.input || '').toString().toLowerCase();
+                const itWait = (it.wait_for || '').toString().toLowerCase();
+
+                if (['1', '2', '3'].includes(itInp)) activeChar = itInp;
+                else if (['1', '2', '3'].includes(itWait)) activeChar = itWait;
+
                 const itEl = document.createElement('div');
                 itEl.className = 'step sequence-item';
                 if (it.active) itEl.classList.add('active');
                 if (it.completed) itEl.classList.add('completed');
 
                 // Render sequence item label
-                appendStepContent(itEl, it);
+                appendStepContent(itEl, it, activeChar);
 
                 items.appendChild(itEl);
             });
@@ -864,6 +885,12 @@ function updateTimeline(steps) {
 
         } else {
             // Normal Step
+            const sInp = (s.input || '').toString().toLowerCase();
+            const sWait = (s.wait_for || '').toString().toLowerCase();
+
+            if (['1', '2', '3'].includes(sInp)) activeChar = sInp;
+            else if (['1', '2', '3'].includes(sWait)) activeChar = sWait;
+
             tile.className = 'step';
             if (s.active) tile.classList.add('active');
             if (s.completed) tile.classList.add('completed');
@@ -881,6 +908,7 @@ function updateTimeline(steps) {
             let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
             if (s.type === 'wait' || s.type === 'press_wait') {
                 tile.style.setProperty('--wait-pct', `${pct}%`);
+                if (s.duration <= 100) tile.classList.add('short-wait');
             } else if (s.type === 'hold') {
                 tile.style.setProperty('--hold-pct', `${pct}%`);
                 if (s.duration) {
@@ -894,7 +922,7 @@ function updateTimeline(steps) {
             else if (s.input) keyForCorner = s.input;
             if (keyForCorner) addCornerKey(tile, keyForCorner);
 
-            appendStepContent(tile, s);
+            appendStepContent(tile, s, activeChar);
         }
 
         container.appendChild(tile);
@@ -937,10 +965,11 @@ function getMouseIconSvg(type) {
     return '';
 }
 
-function appendStepContent(parent, s) {
+function appendStepContent(parent, s, characterId) {
     const useImages = (currentStepDisplayMode === 'images') || !!document.getElementById('stepDisplayToggle')?.checked;
     const inp = (s.input || '').toString().toLowerCase();
     const label = (s.input || '').toString().toUpperCase();
+    const charId = characterId || '1';
 
     // Helper to decide content
     const appendIconOrText = (key, fallbackText) => {
@@ -954,7 +983,12 @@ function appendStepContent(parent, s) {
         }
         const span = document.createElement('span');
         span.className = 'step-primary';
-        span.textContent = fallbackText;
+        if (key === 'space') {
+            span.textContent = '⎵';
+            span.classList.add('space-icon');
+        } else {
+            span.textContent = fallbackText;
+        }
         parent.appendChild(span);
     };
 
@@ -962,7 +996,7 @@ function appendStepContent(parent, s) {
         // WW mode...
         if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
             const key = s.wait_for.toLowerCase();
-            const img = getWwImage(key);
+            const img = getWwImage(key, charId);
             if (img) {
                 parent.appendChild(createImageElement(img));
             } else {
@@ -973,7 +1007,7 @@ function appendStepContent(parent, s) {
             dur.textContent = `${s.duration}ms`;
             parent.appendChild(dur);
         } else if (s.type === 'hold') {
-            const img = getWwImage(inp);
+            const img = getWwImage(inp, charId);
             if (img) {
                 parent.appendChild(createImageElement(img));
             } else {
@@ -984,7 +1018,7 @@ function appendStepContent(parent, s) {
             dur.textContent = `hold ${s.duration}ms`;
             parent.appendChild(dur);
         } else if (s.type === 'press_wait') {
-            const img = getWwImage(inp);
+            const img = getWwImage(inp, charId);
             if (img) {
                 parent.appendChild(createImageElement(img));
             } else {
@@ -1000,7 +1034,7 @@ function appendStepContent(parent, s) {
             dur.textContent = `Wait ${s.duration}ms`;
             parent.appendChild(dur);
         } else {
-            const img = getWwImage(inp);
+            const img = getWwImage(inp, charId);
             if (img) {
                 parent.appendChild(createImageElement(img));
             } else {
@@ -1089,24 +1123,30 @@ function appendStepContent(parent, s) {
     }
 }
 
-function getWwImage(key) {
+function getWwImage(key, characterId) {
     const k = key.toLowerCase();
-    // Check if it's a swap key (1/2/3)
+    const cid = characterId || '1';
+
+    // Check if it's a swap key (1/2/3) - Return the swap icon for that character regardless of who is active
     if (['1', '2', '3'].includes(k)) {
         return currentWwSwapImages[k] || null;
     }
-    // Check if it's RMB (dash)
+    // Check if it's RMB (dash) - shared dash image
     if (k === 'rmb') {
         return currentWwDashImage || null;
     }
-    // Check if it's LMB for a specific character (not implemented yet, but could be lmb:1, lmb:2, etc.)
+
+    // Check if it's LMB - use active character
     if (k === 'lmb') {
-        // For now, just return any LMB image we have
-        return currentWwLmbImages['1'] || currentWwLmbImages['2'] || currentWwLmbImages['3'] || null;
+        return currentWwLmbImages[cid] || null;
     }
-    // Check if it's an ability (e/q/r) - need to determine which character
-    // For now, just check all characters
+
+    // Check if it's an ability (e/q/r) - use active character
     if (['e', 'q', 'r'].includes(k)) {
+        if (currentWwAbilityImages[cid] && currentWwAbilityImages[cid][k]) {
+            return currentWwAbilityImages[cid][k];
+        }
+        // Fallback: search all characters if not found for specific one (legacy behavior, optional)
         for (const c of ['1', '2', '3']) {
             if (currentWwAbilityImages[c] && currentWwAbilityImages[c][k]) {
                 return currentWwAbilityImages[c][k];

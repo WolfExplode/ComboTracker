@@ -1708,6 +1708,13 @@ class ComboTrackerEngine:
                     steps.append(s)
             self.active_combo_steps = steps
             self._ensure_combo_stats(name)
+            
+            # Restore saved WW active team when selecting a combo
+            if self.ww.get_target_game(name) == "wuthering_waves":
+                saved_team = self.ww.combo_ww_team.get(name)
+                self.ww.ww_active_team_id = saved_team
+            else:
+                self.ww.ww_active_team_id = None
 
             self.reset_tracking()
             self.save_combos()
@@ -2157,6 +2164,12 @@ class ComboTrackerEngine:
                     # Mark the wait step red immediately so the UI shows the timing mistake.
                     # NOTE: For mandatory waits (animation locks), inputs have no effect in-game.
                     # We intentionally do NOT mark timing mistakes and we do NOT drop the combo during the lock.
+                    if target_wait_mode in ("soft", "hard") and self._is_combo_ender(input_name):
+                        if self._should_ignore_ender_miss(input_name):
+                            return
+                        self._complete_wait(now, fail=True, reason=f"{input_name} (ender) during wait")
+                        return
+
                     if target_wait_mode == "soft":
                         next_idx = self._next_non_wait_step_index(start_index=self.current_index + 1)
                         next_expected = None
@@ -2181,7 +2194,7 @@ class ComboTrackerEngine:
                             self._mark_step(wi, "early")
                             self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
-                    # Soft wait: ignore any early presses (even enders).
+                    # Soft wait: ignore any early presses (except enders, handled above).
                     # Hard wait: early press can drop the combo (models games where early input consumes/cancels).
                     if target_wait_mode == "hard":
                         # Fail on enders, and also fail if the pressed input matches the next expected non-wait input.
