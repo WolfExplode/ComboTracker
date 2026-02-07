@@ -163,15 +163,14 @@ button.danger:hover {
     background: rgba(0, 0, 0, 0.10);
 }
 
-/* Two-column row controls (like combo selector + name, or team selector + name) */
-.two-col-row {
+/* Two-column row controls */
+.two-col-row, .ww-team-row { 
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     align-items: center;
 }
 
-/* Button cluster under a row */
 .two-col-buttons {
     display: flex;
     flex-wrap: wrap;
@@ -196,41 +195,24 @@ button.danger:hover {
     user-select: none;
 }
 
-.toggle-label {
-    letter-spacing: 0.2px;
-}
-
 .toggle-switch {
-    position: relative;
-    display: inline-block;
+    appearance: none;
     width: 42px;
     height: 22px;
-}
-
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: var(--border-radius);
+    position: relative;
+    cursor: pointer;
     transition: var(--transition);
-    border-radius: 999px;
+    vertical-align: middle;
 }
 
-.toggle-slider:before {
-    position: absolute;
+.toggle-switch::after {
     content: "";
-    height: 16px;
+    position: absolute;
     width: 16px;
+    height: 16px;
     left: 3px;
     top: 2px;
     background: var(--text-primary);
@@ -238,23 +220,28 @@ button.danger:hover {
     transition: var(--transition);
 }
 
-.toggle-switch input:checked+.toggle-slider {
+.toggle-switch:checked {
     background: rgba(74, 158, 255, 0.28);
     border-color: rgba(74, 158, 255, 0.55);
 }
 
-.toggle-switch input:checked+.toggle-slider:before {
+.toggle-switch:checked::after {
     transform: translateX(19px);
+}
+
+.toggle-label {
+    letter-spacing: 0.2px;
+    vertical-align: middle;
 }
 
 .collapsible {
     margin-bottom: 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
+    border-radius: var(--border-radius);
     background: rgba(0, 0, 0, 0.10);
 }
 
-.collapsible>summary {
+.collapsible > summary {
     cursor: pointer;
     padding: 10px 12px;
     list-style: none;
@@ -262,18 +249,18 @@ button.danger:hover {
     color: var(--text-secondary);
 }
 
-.collapsible>summary::-webkit-details-marker {
+.collapsible > summary::-webkit-details-marker {
     display: none;
 }
 
-.collapsible>summary:after {
+.collapsible > summary:after {
     content: "▾";
     float: right;
     opacity: 0.8;
     transition: transform 140ms ease;
 }
 
-.collapsible[open]>summary:after {
+.collapsible[open] > summary:after {
     transform: rotate(180deg);
 }
 
@@ -282,22 +269,22 @@ button.danger:hover {
 }
 
 .hidden {
-    display: none !important;
+    display: none;
 }
 
-/* Collapsible Sections (New) */
-.section-details>summary {
+/* Collapsible Sections */
+.section-details > summary {
     cursor: pointer;
     list-style: none;
     position: relative;
     outline: none;
 }
 
-.section-details>summary::-webkit-details-marker {
+.section-details > summary::-webkit-details-marker {
     display: none;
 }
 
-.section-details>summary::after {
+.section-details > summary::after {
     content: "▼";
     position: absolute;
     right: 0;
@@ -307,40 +294,25 @@ button.danger:hover {
     margin: auto;
     font-size: 1.2rem;
     color: var(--text-secondary);
-    /* or accent color? */
     transition: transform 0.2s;
     opacity: 0.5;
     pointer-events: none;
-    /* Allow click to pass through if placed weirdly */
 }
 
-.section-details[open]>summary::after {
+.section-details[open] > summary::after {
     transform: rotate(180deg);
 }
 
-/* Remove default margins from headers inside summary to control spacing better 
-   or let them be. The h2 has a border-bottom, we want that to persist. */
-.section-details>summary h2,
-.section-details>summary h3 {
+.section-details > summary h2,
+.section-details > summary h3 {
     margin-top: 0;
     padding-right: 30px;
-    /* Make room for arrow */
 }
 
-/* When collapsed, we might want less margin bottom on the header? */
-.section-details:not([open])>summary h2,
-.section-details:not([open])>summary h3 {
+.section-details:not([open]) > summary h2,
+.section-details:not([open]) > summary h3 {
     margin-bottom: 0;
     border-bottom: none;
-    /* Optional: cleaner look when collapsed */
-}
-
-/* Wuthering Waves team controls */
-.ww-team-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    align-items: center;
 }
 
 .ww-team-buttons {
@@ -359,7 +331,7 @@ button.danger:hover {
 
 .ww-ability-char {
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
+    border-radius: var(--border-radius);
     background: rgba(0, 0, 0, 0.10);
     padding: 10px;
 }
@@ -413,10 +385,6 @@ button.danger:hover {
     align-items: center;
 }
 
-.key-image-row.unused {
-    opacity: 0.75;
-}
-
 .key-image-key {
     font-family: 'Fira Code', monospace;
     font-weight: 800;
@@ -426,24 +394,6 @@ button.danger:hover {
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.key-image-url {
-    width: 100%;
-}
-
-.key-image-preview {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    object-fit: contain;
-    display: none;
-}
-
-select {
-    cursor: pointer;
 }
 
 /* Status Section */
@@ -462,11 +412,6 @@ select {
 }
 
 .status-ready {
-    background: var(--bg-primary);
-    color: var(--text-secondary);
-}
-
-.status-neutral {
     background: var(--bg-primary);
     color: var(--text-secondary);
 }
@@ -544,96 +489,101 @@ select {
     align-content: flex-start;
 }
 
+.timeline-viewport:not(.auto-scroll-on)::before {
+    display: none;
+}
+
 /* Auto-scroll timeline */
 .timeline-viewport.auto-scroll-on {
     height: 120px;
-    /* Restored to fit vertical stack */
     display: block;
 }
 
 .timeline-viewport.auto-scroll-on .timeline {
     position: absolute;
     left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
+    display: flex;
     gap: 10px;
-    align-items: center !important;
+    align-items: center;
     height: 100%;
-    /* Fill the container height */
     padding: 0 50%;
     margin: 0;
     transition: transform 0.15s ease-out;
     will-change: transform;
 }
 
+.timeline-viewport.auto-scroll-on .step,
+.timeline-viewport.auto-scroll-on .step-group,
+.timeline-viewport.auto-scroll-on .step-group-items,
+.timeline-viewport.auto-scroll-on .step-sequence,
+.timeline-viewport.auto-scroll-on .sequence-items {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.timeline-viewport.auto-scroll-on .step {
+    min-height: 58px;
+    min-width: 0;
+    padding: 6px 18px;
+    display: inline-flex;
+}
+
+.timeline-viewport.auto-scroll-on .step * {
+    white-space: nowrap;
+}
+
+.timeline-viewport.auto-scroll-on .step-secondary {
+    font-size: 11px;
+}
+
+.timeline-viewport.auto-scroll-on .step.group-item {
+    padding: 2px 8px;
+    min-width: 60px;
+}
+
+.timeline-viewport.auto-scroll-on .corner-key {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+}
+
 .timeline-viewport.auto-scroll-on .step-group {
-    display: inline-flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    flex-shrink: 0 !important;
-    padding: 2px;
-    gap: 2px;
-    border: 2px dashed rgba(200, 200, 200, 0.65);
-    border-radius: 6px;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
     background: rgba(0, 0, 0, 0.12);
 }
 
 .timeline-viewport.auto-scroll-on .step-group-items {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    flex-shrink: 0 !important;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.timeline-viewport.auto-scroll-on .step-sequence {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 2px;
+    gap: 2px;
+    border: 2px solid rgba(138, 43, 226, 0.65);
+    border-radius: 6px;
+    background: rgba(138, 43, 226, 0.08);
+}
+
+.timeline-viewport.auto-scroll-on .sequence-items {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 2px;
 }
 
-.timeline-viewport.auto-scroll-on .step,
-.timeline-viewport.auto-scroll-on .step-group,
-.timeline-viewport.auto-scroll-on .step-group-items,
-.timeline-viewport.auto-scroll-on .step.group-item {
-    flex: 0 0 auto !important;
-    min-height: 0 !important;
-    white-space: nowrap !important;
+.timeline-viewport.auto-scroll-on .step.sequence-item {
+    min-height: 0;
 }
 
-.timeline-viewport.auto-scroll-on .timeline,
-.timeline-viewport.auto-scroll-on .step {
-    flex-wrap: nowrap !important;
-    white-space: nowrap !important;
-}
-
-.timeline-viewport.auto-scroll-on .step {
-    min-height: auto !important;
-}
-
-.timeline-viewport.auto-scroll-on .step * {
-    white-space: nowrap !important;
-}
-
-/* Remove the gradient when auto-scroll is off */
-.timeline-viewport:not(.auto-scroll-on)::before {
-    display: none;
-}
-
-/* Auto-scroll "window" behavior (match Test.html style) */
-.timeline-viewport.auto-scroll-on {
-    height: 100px;
-}
-
-.timeline-viewport.auto-scroll-on .timeline-track {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    align-items: center;
-    flex-wrap: nowrap !important;
-    transform: none;
-}
-
+/* Step styling */
 .step {
     min-width: 80px;
     padding: 5px 10px;
@@ -644,13 +594,11 @@ select {
     font-size: 12px;
     position: relative;
     white-space: pre-line;
-    /* allow \n in wait/hold labels to render as line breaks */
     min-height: 58px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    /* center-center */
     line-height: 1.2;
 }
 
@@ -689,12 +637,11 @@ select {
 }
 
 .hold-progress {
-    /* Make the hold indicator very obvious and avoid any positioning issues */
     margin-top: 8px;
     height: 10px;
     background: rgba(255, 255, 255, 0.14);
     border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 999px;
+    border-radius: var(--border-radius);
     overflow: hidden;
 }
 
@@ -712,7 +659,7 @@ select {
 
 .step.mark-ok {
     border-color: var(--accent-green);
-    background: rgba(74, 255, 136, 0.12);
+    background: rgba(74, 255, 136, 0.1);
 }
 
 .step.mark-early,
@@ -728,6 +675,16 @@ select {
     animation: pulse 1s infinite;
 }
 
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Step groups */
 .step-group {
     border: 2px dashed rgba(200, 200, 200, 0.65);
     border-radius: 6px;
@@ -750,13 +707,13 @@ select {
 
 /* Mini-sequences inside any-order groups */
 .group-item-sequence {
-    display: flex !important;
+    display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 4px 6px !important;
-    border: 1px solid rgba(138, 43, 226, 0.6) !important;
-    background: rgba(138, 43, 226, 0.08) !important;
-    min-width: 120px !important;
+    padding: 4px 6px;
+    border: 1px solid rgba(138, 43, 226, 0.6);
+    background: rgba(138, 43, 226, 0.08);
+    min-width: 120px;
 }
 
 .mini-sequence-header {
@@ -805,7 +762,7 @@ select {
     margin-top: 2px;
 }
 
-/* Sequential subgroup styles */
+/* Sequential subgroups */
 .step-sequence {
     border: 2px solid rgba(138, 43, 226, 0.65);
     border-radius: 6px;
@@ -837,131 +794,6 @@ select {
     background: rgba(74, 255, 136, 0.1);
 }
 
-/* Auto-scroll mode for sequences */
-.timeline-viewport.auto-scroll-on .step-sequence {
-    display: inline-flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    flex-shrink: 0 !important;
-    padding: 2px;
-    gap: 2px;
-    border: 2px solid rgba(138, 43, 226, 0.65);
-    border-radius: 6px;
-    background: rgba(138, 43, 226, 0.08);
-}
-
-.timeline-viewport.auto-scroll-on .sequence-items {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    flex-shrink: 0 !important;
-    gap: 2px;
-}
-
-.timeline-viewport.auto-scroll-on .step.sequence-item {
-    flex: 0 0 auto !important;
-    min-height: 0 !important;
-    white-space: nowrap !important;
-}
-
-
-.mouse-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    color: var(--text-primary);
-}
-
-.mouse-icon svg {
-    width: 36px;
-    height: 36px;
-}
-
-.key-step-image {
-    width: 34px;
-    height: 34px;
-    object-fit: contain;
-    display: block;
-}
-
-.key-img-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-}
-
-.step-emoji {
-    font-size: 28px;
-    line-height: 1;
-    display: inline-block;
-}
-
-.hold-label {
-    margin-top: 4px;
-}
-
-.step.wait {
-    border-color: var(--accent-yellow);
-    --wait-pct: 0%;
-    background: linear-gradient(to right,
-            rgba(255, 221, 74, 0.22) 0%,
-            rgba(255, 221, 74, 0.22) var(--wait-pct),
-            var(--bg-primary) var(--wait-pct),
-            var(--bg-primary) 100%);
-}
-
-/* If the combo completes successfully, completed should always win (green), even for wait tiles. */
-.step.wait.completed,
-.step.press-wait.completed {
-    border-color: var(--accent-green);
-    background: linear-gradient(to right,
-            rgba(74, 255, 136, 0.22) 0%,
-            rgba(74, 255, 136, 0.22) var(--wait-pct),
-            var(--bg-primary) var(--wait-pct),
-            var(--bg-primary) 100%);
-}
-
-/* Press + wait (animation time right after a key): keep the yellow fill, but don't use a bright yellow border */
-.step.press-wait {
-    border-color: rgba(255, 236, 149, 0.22);
-    /* subtle */
-    --wait-pct: 0%;
-    background: linear-gradient(to right,
-            rgba(255, 221, 74, 0.22) 0%,
-            rgba(255, 221, 74, 0.22) var(--wait-pct),
-            var(--bg-primary) var(--wait-pct),
-            var(--bg-primary) 100%);
-}
-
-.step.hold {
-    border-color: var(--accent-blue);
-    border-style: dashed;
-    --hold-pct: 0%;
-    background: linear-gradient(to right,
-            rgba(74, 255, 136, 0.22) 0%,
-            rgba(74, 255, 136, 0.22) var(--hold-pct),
-            var(--bg-primary) var(--hold-pct),
-            var(--bg-primary) 100%);
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.7;
-    }
-}
-
 /* Timeline Step Containers */
 .timeline-step {
     position: relative;
@@ -972,10 +804,9 @@ select {
     position: relative;
 }
 
-/* Sequential subgroup: purple-tinted solid border to distinguish from any-order groups */
 .timeline-step-sequence {
     border: 2px solid rgba(138, 43, 226, 0.5);
-    border-radius: 8px;
+    border-radius: var(--border-radius);
     padding: 8px;
     background: rgba(138, 43, 226, 0.05);
 }
@@ -987,13 +818,6 @@ select {
     font-weight: bold;
     margin-bottom: 4px;
     text-align: center;
-}
-
-.sequence-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
 }
 
 .sequence-item {
@@ -1025,29 +849,81 @@ select {
     margin-top: 4px;
 }
 
-/* Auto-scroll mode for sequences */
-.timeline-viewport.auto-scroll-on .timeline-step-sequence {
-    display: inline-flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    flex-shrink: 0 !important;
-    padding: 4px 6px;
-    gap: 2px;
+/* Icons and images */
+.mouse-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    color: var(--text-primary);
 }
 
-.timeline-viewport.auto-scroll-on .sequence-items {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    gap: 4px;
+.mouse-icon svg {
+    width: 36px;
+    height: 36px;
 }
 
-.timeline-viewport.auto-scroll-on .sequence-item {
-    flex: 0 0 auto !important;
-    min-width: 60px !important;
-    min-height: 0 !important;
-    padding: 4px 8px !important;
+.key-step-image {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    display: block;
+}
+
+.key-img-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+.step-emoji {
+    font-size: 28px;
+    line-height: 1;
+    display: inline-block;
+}
+
+.hold-label {
+    margin-top: 4px;
+}
+
+/* Wait and hold states */
+.step.wait {
+    border-color: var(--accent-yellow);
+    --wait-pct: 0%;
+    background: linear-gradient(to right,
+            rgba(255, 221, 74, 0.22) var(--wait-pct),
+            var(--bg-primary) var(--wait-pct));
+}
+
+.step.wait.completed,
+.step.press-wait.completed {
+    border-color: var(--accent-green);
+    background: rgba(74, 255, 136, 0.1);
+}
+
+.step.press-wait {
+    border-color: rgba(255, 236, 149, 0.22);
+    --wait-pct: 0%;
+    background: linear-gradient(to right,
+            rgba(255, 221, 74, 0.22) var(--wait-pct),
+            var(--bg-primary) var(--wait-pct));
+}
+
+.step.press-wait.short-wait,
+.step.wait.short-wait {
+    border-color: rgba(255, 221, 74, 0.35);
+}
+
+.step.hold {
+    border-color: var(--accent-blue);
+    border-style: dashed;
+    --hold-pct: 0%;
+    background: linear-gradient(to right,
+            rgba(74, 255, 136, 0.22) var(--hold-pct),
+            var(--bg-primary) var(--hold-pct));
 }
 
 /* Tables */
@@ -1057,15 +933,6 @@ select {
     overflow-y: auto;
     border: 1px solid #333;
     border-radius: 4px;
-}
-
-.timeline-viewport.auto-scroll-on .step,
-.timeline-viewport.auto-scroll-on .step-group,
-.timeline-viewport.auto-scroll-on .step-group-items,
-.timeline-viewport.auto-scroll-on .step.group-item {
-    flex: 0 0 auto !important;
-    min-height: 0 !important;
-    white-space: nowrap !important;
 }
 
 .table-header {
@@ -1137,121 +1004,38 @@ select {
 }
 
 /* ============================================================================
-   AUTO-SCROLL MODE: COMPLETE LAYOUT OVERRIDE - FORCE SINGLE LINE
-   ============================================================================ */
-
-/* First, ensure all containers become horizontal flexboxes */
-.timeline-viewport.auto-scroll-on .timeline,
-.timeline-viewport.auto-scroll-on .step-group,
-.timeline-viewport.auto-scroll-on .step-group-items {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    align-content: center !important;
-    justify-content: flex-start !important;
-}
-
-/* CRITICAL: Change step from column to row and kill all wrapping, but keep some height */
-.timeline-viewport.auto-scroll-on .step {
-    flex-direction: column !important;
-    /* Stack text under key */
-    justify-content: center !important;
-    flex-wrap: nowrap !important;
-    white-space: nowrap !important;
-    min-height: 60px !important;
-    /* Restore some height */
-    min-width: 0 !important;
-    gap: 2px !important;
-    /* Small gap between key and text */
-    padding: 6px 18px !important;
-    /* More padding */
-    display: inline-flex !important;
-    align-items: center !important;
-}
-
-/* Force every single child element to be inline and never wrap */
-.timeline-viewport.auto-scroll-on .step * {
-    white-space: nowrap !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    /* Removed line-height: 1 override which might be squishing text */
-}
-
-/* Text elements need specific sizing to prevent overflow */
-.timeline-viewport.auto-scroll-on .step-secondary {
-    font-size: 11px !important;
-    /* Slightly larger */
-    max-width: none !important;
-    /* Allow width to flow */
-    margin: 0 !important;
-    /* No margin needed for vertical stack */
-}
-
-/* Keep group items compact */
-.timeline-viewport.auto-scroll-on .step.group-item {
-    padding: 2px 8px !important;
-    min-width: 60px !important;
-}
-
-/* Ensure corner keys don't break layout */
-/* Ensure corner keys don't break layout and appear ON TOP of the image */
-.timeline-viewport.auto-scroll-on .corner-key {
-    position: absolute !important;
-    /* Restore absolute positioning to put it in the corner */
-    top: 2px !important;
-    right: 4px !important;
-    margin: 0 !important;
-    order: unset !important;
-    /* Remove flex order since we are removing it from flow */
-}
-
-/* ============================================================================
    OBS OVERLAY MODE: Pure black background for Section 4
    ============================================================================ */
 
-/* Make the timeline section container pure black */
 .timeline-section {
-    background: #000000 !important;
-    /* Pure black for OBS blending */
+    background: #000000;
     --bg-primary: #000000;
-    /* Set local variable so steps inherit black base */
     padding: 20px;
-    /* Keep padding but remove rounded corners if needed */
     border-radius: 0;
-    /* Optional: remove rounded corners for clean edges */
 }
 
-/* Remove transparency from collapsible panels inside timeline section */
-.timeline-section .collapsible {
-    background: transparent !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    /* Subtle borders */
-}
-
-.timeline-section .collapsible-body {
-    background: transparent !important;
-}
-
-/* Ensure the viewport and timeline track are transparent */
+.timeline-section .collapsible,
+.timeline-section .collapsible-body,
 .timeline-section .timeline-viewport,
-.timeline-section .timeline {
-    background: transparent !important;
+.timeline-section .timeline,
+.timeline-section .combo-steps-header,
+.timeline-section .combo-steps-controls {
+    background: transparent;
 }
 
-/* Make standard step borders brighter for OBS visibility */
+.timeline-section .collapsible {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
 .timeline-section .step {
     border-color: #808080;
-    /* Brighter grey (vs #444) for visibility against black */
 }
 
-/* RESTORE COLORED HUES for specific states (override the default grey above) */
 .timeline-section .step.wait,
 .timeline-section .step.press-wait {
     border-color: var(--accent-yellow);
 }
 
-/* Short waits (<= 100ms): Less intense yellow border */
 .timeline-section .step.press-wait.short-wait,
 .timeline-section .step.wait.short-wait {
     border-color: rgba(255, 221, 74, 0.35);
@@ -1276,43 +1060,28 @@ select {
     border-color: var(--accent-blue);
 }
 
-
-/* Make primary text (keys) pure white */
 .timeline-section .step .step-primary,
 .timeline-section .step .mouse-icon {
     color: #ffffff;
 }
 
-/* Make secondary text (wait times etc) brighter */
 .timeline-section .step .step-secondary {
     color: #d0d0d0;
-    /* Brighter than standard #a0a0a0 */
 }
 
-/* Make corner keys (small indicators) brighter */
 .timeline-section .step .corner-key {
     color: #bbbbbb;
 }
 
-/* Keep group containers transparent so black shows through */
 .timeline-section .step-group {
-    background: rgba(0, 0, 0, 0.2) !important;
-    /* Very subtle dark background */
-    border-color: rgba(200, 200, 200, 0.3) !important;
-    /* Lighter dashed border */
+    background: rgba(0, 0, 0, 0.2);
+    border-color: rgba(200, 200, 200, 0.3);
 }
 
-/* Ensure header and controls are transparent */
-.timeline-section .combo-steps-header,
-.timeline-section .combo-steps-controls {
-    background: transparent !important;
-}
-
-/* Update the viewport fade gradient to black for OBS blending */
 .timeline-section .timeline-viewport::before {
     background: linear-gradient(to right,
             rgba(0, 0, 0, 1) 0%,
             rgba(0, 0, 0, 0) 18%,
             rgba(0, 0, 0, 0) 82%,
-            rgba(0, 0, 0, 1) 100%) !important;
+            rgba(0, 0, 0, 1) 100%);
 }

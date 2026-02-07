@@ -66,10 +66,9 @@ function ensureWwAbilityShape(obj) {
     const out = { "1": {}, "2": {}, "3": {} };
     if (!obj || typeof obj !== 'object') return out;
     ['1', '2', '3'].forEach(c => {
-        const m = obj[c];
-        if (m && typeof m === 'object') {
+        if (obj[c] && typeof obj[c] === 'object') {
             ['e', 'q', 'r'].forEach(a => {
-                const url = (m[a] || '').toString().trim();
+                const url = (obj[c][a] || '').toString().trim();
                 if (url) out[c][a] = url;
             });
         }
@@ -77,17 +76,7 @@ function ensureWwAbilityShape(obj) {
     return out;
 }
 
-function ensureWwSwapShape(obj) {
-    const out = { "1": "", "2": "", "3": "" };
-    if (!obj || typeof obj !== 'object') return out;
-    ['1', '2', '3'].forEach(k => {
-        const url = (obj[k] || '').toString().trim();
-        if (url) out[k] = url;
-    });
-    return out;
-}
-
-function ensureWwLmbShape(obj) {
+function ensureWwSlotShape(obj) {
     const out = { "1": "", "2": "", "3": "" };
     if (!obj || typeof obj !== 'object') return out;
     ['1', '2', '3'].forEach(k => {
@@ -119,63 +108,43 @@ function syncGameUIVisibility() {
     renderKeyImagesEditor();
 }
 
-function readWwAbilityFromUI() {
+function readWwDataFromUI() {
     const container = document.getElementById('wwAbilityEditor');
     if (!container) return;
-    const inputs = container.querySelectorAll('input[data-char][data-ability]');
-    const next = { "1": {}, "2": {}, "3": {} };
-    inputs.forEach(inp => {
-        const c = (inp.getAttribute('data-char') || '').trim();
-        const a = (inp.getAttribute('data-ability') || '').trim().toLowerCase();
+
+    currentWwAbilityImages = { "1": {}, "2": {}, "3": {} };
+    currentWwSwapImages = { "1": "", "2": "", "3": "" };
+    currentWwLmbImages = { "1": "", "2": "", "3": "" };
+
+    const isValidChar = c => ['1', '2', '3'].includes(c);
+
+    container.querySelectorAll('input[data-char][data-ability]').forEach(inp => {
+        const c = inp.getAttribute('data-char')?.trim();
+        const a = inp.getAttribute('data-ability')?.trim().toLowerCase();
+        if (!isValidChar(c) || !['e', 'q', 'r'].includes(a)) return;
         const url = (inp.value || '').toString().trim();
-        if (!['1', '2', '3'].includes(c)) return;
-        if (!['e', 'q', 'r'].includes(a)) return;
-        if (url) next[c][a] = url;
+        if (url) currentWwAbilityImages[c][a] = url;
     });
-    currentWwAbilityImages = next;
-}
 
-function readWwSwapFromUI() {
-    const container = document.getElementById('wwAbilityEditor');
-    if (!container) return;
-    const inputs = container.querySelectorAll('input[data-swap]');
-    const next = { "1": "", "2": "", "3": "" };
-    inputs.forEach(inp => {
-        const c = (inp.getAttribute('data-swap') || '').trim();
-        if (!['1', '2', '3'].includes(c)) return;
-        const url = (inp.value || '').toString().trim();
-        next[c] = url;
-    });
-    currentWwSwapImages = next;
-}
+    const readFlat = (attr, target) => {
+        container.querySelectorAll(`input[data-${attr}]`).forEach(inp => {
+            const c = inp.getAttribute(`data-${attr}`)?.trim();
+            if (!isValidChar(c)) return;
+            target[c] = (inp.value || '').toString().trim();
+        });
+    };
 
-function readWwLmbFromUI() {
-    const container = document.getElementById('wwAbilityEditor');
-    if (!container) return;
-    const inputs = container.querySelectorAll('input[data-lmb]');
-    const next = { "1": "", "2": "", "3": "" };
-    inputs.forEach(inp => {
-        const c = (inp.getAttribute('data-lmb') || '').trim();
-        if (!['1', '2', '3'].includes(c)) return;
-        next[c] = (inp.value || '').toString().trim();
-    });
-    currentWwLmbImages = next;
-}
+    readFlat('swap', currentWwSwapImages);
+    readFlat('lmb', currentWwLmbImages);
 
-function readWwDashFromUI() {
-    const el = document.getElementById('wwDashImageInput');
-    if (!el) return;
-    currentWwDashImage = (el.value || '').toString().trim();
+    currentWwDashImage = (document.getElementById('wwDashImageInput')?.value || '').toString().trim();
 }
 
 function renderWwAbilityEditor({ preserveEdits = true } = {}) {
     // In most re-renders we want to preserve in-progress edits by reading from the UI first.
     // But when selecting a team (loading from JSON), we must NOT overwrite loaded state with old DOM values.
     if (preserveEdits) {
-        readWwAbilityFromUI();
-        readWwSwapFromUI();
-        readWwLmbFromUI();
-        readWwDashFromUI();
+        readWwDataFromUI();
     }
     const container = document.getElementById('wwAbilityEditor');
     if (!container) return;
@@ -513,8 +482,8 @@ function setEditorFields(data) {
     if (teamNameEl) teamNameEl.value = (data.ww_team_name || '').toString();
 
     currentWwDashImage = (data.ww_team_dash_image || '').toString().trim();
-    currentWwSwapImages = ensureWwSwapShape(data.ww_team_swap_images);
-    currentWwLmbImages = ensureWwLmbShape(data.ww_team_lmb_images);
+    currentWwSwapImages = ensureWwSlotShape(data.ww_team_swap_images);
+    currentWwLmbImages = ensureWwSlotShape(data.ww_team_lmb_images);
     currentWwAbilityImages = ensureWwAbilityShape(data.ww_team_ability_images);
 
     syncGameUIVisibility();
@@ -971,7 +940,7 @@ function appendStepContent(parent, s, characterId) {
     const label = (s.input || '').toString().toUpperCase();
     const charId = characterId || '1';
 
-    // Helper to decide content
+    // Helper to decide content (icon or text when no image)
     const appendIconOrText = (key, fallbackText) => {
         const svg = getMouseIconSvg(key);
         if (svg) {
@@ -992,134 +961,48 @@ function appendStepContent(parent, s, characterId) {
         parent.appendChild(span);
     };
 
-    if (useImages && currentTargetGame === 'wuthering_waves') {
-        // WW mode...
-        if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
-            const key = s.wait_for.toLowerCase();
-            const img = getWwImage(key, charId);
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(key, key.toUpperCase());
-            }
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'hold') {
-            const img = getWwImage(inp, charId);
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(inp, label);
-            }
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `hold ${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'press_wait') {
-            const img = getWwImage(inp, charId);
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(inp, label);
-            }
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'wait') {
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `Wait ${s.duration}ms`;
-            parent.appendChild(dur);
-        } else {
-            const img = getWwImage(inp, charId);
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(inp, label);
-            }
+    // Resolve image URL based on current game/mode (WW vs generic); returns null when no image.
+    const resolveImage = (key) => {
+        if (!useImages) return null;
+        if (currentTargetGame === 'wuthering_waves') {
+            return getWwImage(key, charId);
         }
-    } else if (useImages && currentTargetGame === 'generic') {
-        // Generic mode...
-        if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
-            const key = s.wait_for.toLowerCase();
-            const img = currentKeyImages[key];
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(key, key.toUpperCase());
-            }
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'hold') {
-            const img = currentKeyImages[inp];
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(inp, label);
-            }
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `hold ${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'press_wait') {
-            const img = currentKeyImages[inp];
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(inp, label);
-            }
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'wait') {
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `Wait ${s.duration}ms`;
-            parent.appendChild(dur);
+        return currentKeyImages[key] || null;
+    };
+
+    // Append primary content: image if available, else icon/text.
+    const appendPrimary = (key, fallbackText) => {
+        const imgUrl = resolveImage(key);
+        if (imgUrl) {
+            parent.appendChild(createImageElement(imgUrl));
         } else {
-            const img = currentKeyImages[inp];
-            if (img) {
-                parent.appendChild(createImageElement(img));
-            } else {
-                appendIconOrText(inp, label);
-            }
+            appendIconOrText(key, fallbackText);
         }
+    };
+
+    // Append duration/secondary text.
+    const appendDuration = (text) => {
+        const dur = document.createElement('span');
+        dur.className = 'step-secondary';
+        dur.textContent = text;
+        parent.appendChild(dur);
+    };
+
+    // Single unified logic — no duplication across WW / generic / icons.
+    if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
+        const key = s.wait_for.toLowerCase();
+        appendPrimary(key, key.toUpperCase());
+        appendDuration(`${s.duration}ms`);
+    } else if (s.type === 'hold') {
+        appendPrimary(inp, label);
+        appendDuration(`hold ${s.duration}ms`);
+    } else if (s.type === 'press_wait') {
+        appendPrimary(inp, label);
+        appendDuration(`${s.duration}ms`);
+    } else if (s.type === 'wait') {
+        appendDuration(`Wait ${s.duration}ms`);
     } else {
-        // Icon mode (default)
-        if (s.type === 'wait' && s.mode === 'mandatory' && s.wait_for) {
-            const key = s.wait_for.toLowerCase();
-            appendIconOrText(key, key.toUpperCase());
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'hold') {
-            appendIconOrText(inp, label);
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `hold ${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'press_wait') {
-            appendIconOrText(inp, label);
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `${s.duration}ms`;
-            parent.appendChild(dur);
-        } else if (s.type === 'wait') {
-            const dur = document.createElement('span');
-            dur.className = 'step-secondary';
-            dur.textContent = `Wait ${s.duration}ms`;
-            parent.appendChild(dur);
-        } else {
-            // Plain press
-            appendIconOrText(inp, label);
-        }
+        appendPrimary(inp, label);
     }
 }
 
@@ -1254,10 +1137,7 @@ const saveBtn = document.getElementById('saveBtn');
 if (saveBtn) {
     saveBtn.addEventListener('click', () => {
         readKeyImagesFromUI();
-        readWwAbilityFromUI();
-        readWwSwapFromUI();
-        readWwLmbFromUI();
-        readWwDashFromUI();
+        readWwDataFromUI();
 
         const name = (document.getElementById('comboName')?.value || '').toString();
         const inputs = (document.getElementById('comboInputs')?.value || '').toString();
@@ -1400,10 +1280,7 @@ if (wwTeamSelectEl) {
 const saveTeamBtn = document.getElementById('saveTeamBtn');
 if (saveTeamBtn) {
     saveTeamBtn.addEventListener('click', () => {
-        readWwAbilityFromUI();
-        readWwSwapFromUI();
-        readWwLmbFromUI();
-        readWwDashFromUI();
+        readWwDataFromUI();
         const name = (document.getElementById('wwTeamName')?.value || '').toString();
         ws.send(JSON.stringify({
             type: 'save_team',
