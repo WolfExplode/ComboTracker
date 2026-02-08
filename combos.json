@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "Aemeath",
+  "last_active_combo": "Agusta",
   "combos": {
     "Zani 1": [
       "f",
@@ -145,37 +145,65 @@
       "e",
       "wait:0.20s",
       "3",
-      "[q, e, wait(r, 2.9s), {lmb, wait:0.40s, lmb, wait:0.30s, lmb, wait:0.30s, rmb, wait:0.30s, lmb, wait:0.30s, lmb, wait:0.30s, rmb}]",
+      "[q, e, wait(r, 2.9s)]",
       "2",
       "[e, q]",
-      "wait(1, 1.17s)",
+      "3",
+      "lmb",
+      "wait:0.40s",
+      "lmb",
+      "wait:0.30s",
+      "lmb",
+      "wait:0.30s",
+      "rmb",
+      "wait:0.30s",
+      "lmb",
+      "wait:0.30s",
+      "lmb",
+      "wait:0.30s",
+      "1",
       "hold(lmb, 0.60s)",
       "lmb",
-      "wait:1s",
+      "wait:0.3s",
       "2",
       "space",
-      "wait:0.40s",
+      "wait:0.15s",
       "3",
       "hold(lmb, 0.3s)",
       "wait(1, 1.17s)",
       "hold(lmb, 0.60s)",
       "lmb",
-      "wait:1s",
+      "wait:0.3s",
+      "2",
       "e",
-      "wait:0.80s",
-      "e",
-      "wait:1.0s",
-      "e",
-      "wait:0.2s",
+      "wait(r, 4s)",
+      "lmb",
+      "wait:0.50s",
+      "lmb",
+      "wait:0.70s",
+      "lmb",
+      "wait:0.30s",
+      "hold(lmb, 0.20s)",
+      "wait(1, 1.17s)",
+      "hold(lmb, 0.60s)",
+      "lmb",
+      "wait:0.3s",
+      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, r, wait:2.1s]",
       "hold(r, 0.2s)",
       "wait(lmb, 4.1s)"
     ],
     "Aemeath": [
       "f",
+      "wait:0.15s",
+      "e",
+      "wait:0.15s",
       "2",
-      "hold(lmb, 0.3s)",
-      "wait(1, 1.17s)",
-      "hold(lmb, 0.60s)"
+      "e",
+      "wait:0.20s",
+      "3",
+      "[q, e, wait(r, 2.9s), {lmb, wait:0.40s, lmb, wait:0.30s, lmb, wait:0.30s, rmb, wait:0.30s, lmb, wait:0.30s, lmb, wait:0.30s, rmb}]",
+      "2",
+      "[e, q]"
     ]
   },
   "combo_enders": {
@@ -230,23 +258,40 @@
     },
     "Agusta": {
       "success": 1,
-      "fail": 3,
+      "fail": 14,
       "best_ms": 36482,
       "total_success_ms": 36482,
       "fail_by_step": {
-        "8": 1,
+        "8": 3,
         "5": 1,
-        "32": 1
+        "32": 2,
+        "19": 1,
+        "13": 1,
+        "9": 1,
+        "2": 4,
+        "51": 1
       },
       "fail_by_expected": {
-        "any-order(q|e|r|lmb)": 1,
-        "e": 1,
-        "hold(r,\u2265200ms)": 1
+        "any-order(q|e|r|lmb)": 2,
+        "e": 5,
+        "hold(r,\u2265200ms)": 1,
+        "3": 1,
+        "lmb": 1,
+        "2": 1,
+        "any-order(q|e|r)": 1,
+        "hold(lmb,\u2265300ms)": 1,
+        "hold(lmb,\u2265600ms)": 1
       },
       "fail_by_reason": {
-        "expected any-order(q|e|r|lmb)": 1,
-        "expected e": 1,
-        "hold too short (70ms < 200ms)": 1
+        "expected any-order(q|e|r|lmb)": 2,
+        "expected e": 5,
+        "hold too short (70ms < 200ms)": 1,
+        "expected 3": 1,
+        "expected lmb": 1,
+        "expected 2": 1,
+        "expected any-order(q|e|r)": 1,
+        "hold too short (135ms < 300ms)": 1,
+        "hold too short (284ms < 600ms)": 1
       },
       "fail_events": [
         {
@@ -275,6 +320,105 @@
           "actual": "released (hold too short)",
           "reason": "hold too short (70ms < 200ms)",
           "elapsed_ms": 34851
+        },
+        {
+          "ts": 1770528290,
+          "attempt": 1,
+          "step_index": 8,
+          "expected": "any-order(q|e|r|lmb)",
+          "actual": "2",
+          "reason": "expected any-order(q|e|r|lmb)",
+          "elapsed_ms": 36533
+        },
+        {
+          "ts": 1770528371,
+          "attempt": 2,
+          "step_index": 19,
+          "expected": "3",
+          "actual": "1",
+          "reason": "expected 3",
+          "elapsed_ms": 33927
+        },
+        {
+          "ts": 1770528787,
+          "attempt": 1,
+          "step_index": 13,
+          "expected": "lmb",
+          "actual": "3",
+          "reason": "expected lmb",
+          "elapsed_ms": 15482
+        },
+        {
+          "ts": 1770529197,
+          "attempt": 1,
+          "step_index": 9,
+          "expected": "2",
+          "actual": "1",
+          "reason": "expected 2",
+          "elapsed_ms": 8630
+        },
+        {
+          "ts": 1770529227,
+          "attempt": 2,
+          "step_index": 8,
+          "expected": "any-order(q|e|r)",
+          "actual": "2",
+          "reason": "expected any-order(q|e|r)",
+          "elapsed_ms": 13818
+        },
+        {
+          "ts": 1770530027,
+          "attempt": 1,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "expected e",
+          "elapsed_ms": 162
+        },
+        {
+          "ts": 1770530032,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "expected e",
+          "elapsed_ms": 192
+        },
+        {
+          "ts": 1770530114,
+          "attempt": 3,
+          "step_index": 32,
+          "expected": "hold(lmb,\u2265300ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (135ms < 300ms)",
+          "elapsed_ms": 19153
+        },
+        {
+          "ts": 1770530166,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "r",
+          "reason": "expected e",
+          "elapsed_ms": 182
+        },
+        {
+          "ts": 1770530354,
+          "attempt": 5,
+          "step_index": 51,
+          "expected": "hold(lmb,\u2265600ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (284ms < 600ms)",
+          "elapsed_ms": 35201
+        },
+        {
+          "ts": 1770530431,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "expected e",
+          "elapsed_ms": 1077
         }
       ]
     },
@@ -639,7 +783,7 @@
       }
     }
   },
-  "ww_active_team_id": "c70c25857f",
+  "ww_active_team_id": "cd717b20ac",
   "combo_ww_team": {
     "Zani Pheobe Rover Rotation": "986f16f581",
     "Zani 1": "986f16f581",

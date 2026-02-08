@@ -699,11 +699,21 @@ function updateTimeline(steps) {
     if (!container) return;
     container.innerHTML = '';
 
-    const BASE_STEP_WIDTH_PX = 80;
+    const BASE_STEP_WIDTH_PX = 90;
+    // Duration (ms) → width scale; larger divisor = narrower tiles (e.g. 250 → 400ms ≈ 128px).
+    const DURATION_WIDTH_DIVISOR = 350;
     const applyHoldWidth = (el, durationMs) => {
         const ms = Number(durationMs);
-        const mult = (Number.isFinite(ms) && ms > 0) ? (ms / 100.0) : 1;
+        const mult = (Number.isFinite(ms) && ms > 0) ? (ms / DURATION_WIDTH_DIVISOR) : 1;
         const w = Math.max(BASE_STEP_WIDTH_PX, BASE_STEP_WIDTH_PX * mult);
+        el.style.minWidth = `${BASE_STEP_WIDTH_PX}px`;
+        el.style.width = `${w}px`;
+    };
+    const applyWaitWidth = (el, durationMs) => {
+        const ms = Number(durationMs);
+        const mult = (Number.isFinite(ms) && ms > 0) ? (ms / DURATION_WIDTH_DIVISOR) : 1;
+        const w = Math.max(BASE_STEP_WIDTH_PX, BASE_STEP_WIDTH_PX * mult);
+        el.style.minWidth = `${BASE_STEP_WIDTH_PX}px`;
         el.style.width = `${w}px`;
     };
 
@@ -725,14 +735,16 @@ function updateTimeline(steps) {
 
         if (it.type === 'wait') {
             el.classList.add('wait');
-            if (it.duration <= 100) el.classList.add('short-wait');
+            if (it.duration <= 150) el.classList.add('short-wait');
             const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
             el.style.setProperty('--wait-pct', `${pct}%`);
+            applyWaitWidth(el, it.duration);
         } else if (it.type === 'press_wait') {
             el.classList.add('press-wait');
-            if (it.duration <= 100) el.classList.add('short-wait');
+            if (it.duration <= 150) el.classList.add('short-wait');
             const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
             el.style.setProperty('--wait-pct', `${pct}%`);
+            applyWaitWidth(el, it.duration);
         } else if (it.type === 'hold') {
             el.classList.add('hold');
             applyHoldWidth(el, it.duration);
@@ -871,7 +883,8 @@ function updateTimeline(steps) {
             let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
             if (s.type === 'wait' || s.type === 'press_wait') {
                 tile.style.setProperty('--wait-pct', `${pct}%`);
-                if (s.duration <= 100) tile.classList.add('short-wait');
+                if (s.duration <= 150) tile.classList.add('short-wait');
+                if (s.duration) applyWaitWidth(tile, s.duration);
             } else if (s.type === 'hold') {
                 tile.style.setProperty('--hold-pct', `${pct}%`);
                 if (s.duration) {
