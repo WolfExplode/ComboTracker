@@ -257,29 +257,60 @@ class SequenceState:
     current_index: int = 0
     started: bool = False
 
+    def _advance_inner(self, now: float) -> bool:
+        """
+        Advance to the next inner step. If that next step is a WaitState, start it.
+        Returns True if the sequence has reached/passed the end.
+        """
+        self.current_index += 1
+        if self.current_index >= len(self.steps):
+            return True
+        next_step = self.steps[self.current_index]
+        if isinstance(next_step, WaitState):
+            next_step.start(now)
+        return False
+
     def process_press(self, key: str, now: float) -> ProcessResult:
+        """
+        Important: inner waits can complete due to time *during a press*.
+
+        If a nested WaitState returns CompleteResult here and we bubble it up unchanged,
+        the engine may misinterpret it as "the whole top-level step completed" and
+        skip ahead (especially when this SequenceState lives inside a GroupState).
+
+        So we consume CompleteResult here by advancing the inner index, then
+        re-processing the same key against the next inner step (because the key
+        was not actually consumed by the wait completion).
+        """
         if not self.started:
             self.started = True
 
-        if self.current_index >= len(self.steps):
-            return IgnoreResult()
-
-        current = self.steps[self.current_index]
-        result = current.process_press(key, now)
-
-        if isinstance(result, AcceptResult) and result.advance:
-            self.current_index += 1
+        while True:
             if self.current_index >= len(self.steps):
-                return AcceptResult(advance=True)
-            next_step = self.steps[self.current_index]
-            if isinstance(next_step, WaitState):
-                next_step.start(now)
-            return AcceptResult(advance=False)
+                return IgnoreResult()
 
-        if isinstance(result, FailResult):
+            current = self.steps[self.current_index]
+            result = current.process_press(key, now)
+
+            # A wait finished; advance inner state without consuming this key.
+            if isinstance(result, CompleteResult):
+                if self._advance_inner(now):
+                    # Sequence completed without consuming the key:
+                    # let the parent re-process it (e.g., GroupState can try other items,
+                    # or the engine can apply it to the next top-level step).
+                    return CompleteResult(auto=result.auto)
+                # Continue loop to try to apply the same key to the next step.
+                continue
+
+            if isinstance(result, AcceptResult) and result.advance:
+                if self._advance_inner(now):
+                    return AcceptResult(advance=True, record_hit=result.record_hit)
+                return AcceptResult(advance=False, record_hit=result.record_hit)
+
+            if isinstance(result, FailResult):
+                return result
+
             return result
-
-        return result
 
     def process_release(self, key: str, now: float) -> ProcessResult:
         if not self.started or self.current_index >= len(self.steps):
@@ -289,12 +320,8 @@ class SequenceState:
         result = current.process_release(key, now)
 
         if isinstance(result, AcceptResult) and result.advance:
-            self.current_index += 1
-            if self.current_index >= len(self.steps):
+            if self._advance_inner(now):
                 return AcceptResult(advance=True)
-            next_step = self.steps[self.current_index]
-            if isinstance(next_step, WaitState):
-                next_step.start(now)
             return AcceptResult(advance=False)
 
         return result
@@ -307,12 +334,8 @@ class SequenceState:
         result = current.tick(now)
 
         if isinstance(result, CompleteResult):
-            self.current_index += 1
-            if self.current_index >= len(self.steps):
+            if self._advance_inner(now):
                 return AcceptResult(advance=True)
-            next_step = self.steps[self.current_index]
-            if isinstance(next_step, WaitState):
-                next_step.start(now)
             return AcceptResult(advance=False)
 
         return result
@@ -357,66 +380,93 @@ class GroupState:
         if self.wait_active:
             for item in self.items:
                 if item.kind == "anim_wait" and isinstance(item.state, WaitState):
-                    if item.state.check_complete(now):
+                    result = item.state.process_press(key, now)
+                    if isinstance(result, CompleteResult):
                         self.wait_active = False
                         item.completed_count = 1
                         if self._is_complete():
                             return AcceptResult(advance=True)
-                        break
-                    else:
                         return IgnoreResult()
+                    return IgnoreResult()
             return IgnoreResult()
 
-        # Check if we have an active item in progress (hold or sequence)
-        if self.active_item is not None:
-            result = self.active_item.state.process_press(key, now)
+        # We may need to apply the same key multiple times if an active sequence
+        # completes "for free" due to an inner wait finishing (CompleteResult).
+        # In that case, the key was not consumed and should be tried against other
+        # group items in the same press event.
+        while True:
+            # Check if we have an active item in progress (hold or sequence)
+            if self.active_item is not None:
+                result = self.active_item.state.process_press(key, now)
 
-            if isinstance(result, FailResult):
-                self.active_item = None
-                return result
+                if isinstance(result, FailResult):
+                    self.active_item = None
+                    return result
 
-            if isinstance(result, AcceptResult):
-                if result.advance:
+                if isinstance(result, CompleteResult):
+                    # Active item completed without consuming key (e.g., sequence ended on a wait).
                     self.active_item.completed_count += 1
                     self.active_item = None
                     if self._is_complete():
-                        return AcceptResult(advance=True)
-                return AcceptResult(advance=result.advance)
+                        # Group completed without consuming key; let engine re-process it on next step.
+                        return CompleteResult(auto=result.auto)
+                    # Try to use the same key for another item.
+                    continue
 
-            return result
+                if isinstance(result, AcceptResult):
+                    if result.advance:
+                        self.active_item.completed_count += 1
+                        self.active_item = None
+                        if self._is_complete():
+                            return AcceptResult(advance=True, record_hit=result.record_hit)
+                    return AcceptResult(advance=result.advance, record_hit=result.record_hit)
 
-        # Try to start a new item (including starting anim_wait with the wait_for key)
-        for item in self.items:
-            if self._is_item_satisfied(item):
-                continue
-
-            # anim_wait: pressing wait_for key starts the mandatory wait
-            if (
-                item.kind == "anim_wait"
-                and isinstance(item.state, WaitState)
-                and item.state.wait_for == key
-                and not item.state.in_progress
-                and not self.wait_active
-            ):
-                item.state.start(now)
-                self.wait_active = True
-                return AcceptResult(advance=False)
-
-            result = item.state.process_press(key, now)
-
-            if isinstance(result, AcceptResult):
-                if not result.advance:
-                    self.active_item = item
-                    return AcceptResult(advance=False)
-                item.completed_count += 1
-                if self._is_complete():
-                    return AcceptResult(advance=True)
-                return AcceptResult(advance=False)
-
-            if isinstance(result, FailResult):
                 return result
 
-        return IgnoreResult()
+            # Try to start a new item (including starting anim_wait with the wait_for key)
+            progressed_without_consuming_key = False
+            for item in self.items:
+                if self._is_item_satisfied(item):
+                    continue
+
+                # anim_wait: pressing wait_for key starts the mandatory wait
+                if (
+                    item.kind == "anim_wait"
+                    and isinstance(item.state, WaitState)
+                    and item.state.wait_for == key
+                    and not item.state.in_progress
+                    and not self.wait_active
+                ):
+                    item.state.start(now)
+                    self.wait_active = True
+                    return AcceptResult(advance=False)
+
+                result = item.state.process_press(key, now)
+
+                if isinstance(result, CompleteResult):
+                    # Item completed without consuming key; mark it and keep trying same key.
+                    item.completed_count += 1
+                    if self._is_complete():
+                        return CompleteResult(auto=result.auto)
+                    progressed_without_consuming_key = True
+                    break
+
+                if isinstance(result, AcceptResult):
+                    if not result.advance:
+                        self.active_item = item
+                        return AcceptResult(advance=False, record_hit=result.record_hit)
+                    item.completed_count += 1
+                    if self._is_complete():
+                        return AcceptResult(advance=True, record_hit=result.record_hit)
+                    return AcceptResult(advance=False, record_hit=result.record_hit)
+
+                if isinstance(result, FailResult):
+                    return result
+
+            if progressed_without_consuming_key:
+                continue
+
+            return IgnoreResult()
 
     def process_release(self, key: str, now: float) -> ProcessResult:
         if self.active_item is not None:
@@ -441,7 +491,8 @@ class GroupState:
         if self.wait_active:
             for item in self.items:
                 if item.kind == "anim_wait" and isinstance(item.state, WaitState):
-                    if item.state.check_complete(now):
+                    result = item.state.tick(now)
+                    if isinstance(result, CompleteResult):
                         self.wait_active = False
                         item.completed_count = 1
                         if self._is_complete():

@@ -700,38 +700,35 @@ button.danger:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
+    flex: 1;
+    min-height: 0;
+    align-content: stretch;
 }
 
 .step.group-item {
     min-width: 80px;
+    align-self: stretch;
 }
 
 /* Mini-sequences inside any-order groups */
-.group-item-sequence {
+/* Use .step.group-item so we beat .step and .timeline-section .step border rules */
+.step.group-item.group-item-sequence {
     display: flex;
     flex-direction: column;
     gap: 2px;
     padding: 4px 6px;
-    border: 1px solid rgba(138, 43, 226, 0.6);
-    background: rgba(138, 43, 226, 0.08);
+    border: 2px solid rgba(138, 43, 226, 0.75);
+    background: rgba(138, 43, 226, 0.10);
+    border-radius: 6px;
     min-width: 120px;
-}
-
-.mini-sequence-header {
-    font-size: 9px;
-    text-transform: uppercase;
-    color: rgba(138, 43, 226, 0.9);
-    font-weight: bold;
-    text-align: center;
-    margin-bottom: 2px;
 }
 
 .mini-sequence-items {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
-    align-items: center;
-    justify-content: center;
+    gap: 2px;
+    align-items: stretch;
+    justify-content: flex-start;
 }
 
 .mini-sequence-step {

@@ -20,6 +20,7 @@ from persistence import load_engine_state, save_engine_state
 import combo_commands
 import input_normalization
 from parser import expanded_ast_from_tokens
+from combo_engine_ui_adapter import UIAdapter
 from states import (
     AcceptResult,
     CompleteResult,
@@ -83,7 +84,13 @@ class ComboTrackerEngine:
         # wait_step_index -> set(inputs pressed too early for that gate)
         self.wait_early_inputs: dict[int, set[str]] = {}
         # So we only send wait_begin once per group mandatory wait (UI animates progress).
-        self._group_wait_begin_sent: bool = False
+        self.ui_adapter = UIAdapter()
+
+        # Input buffering for mandatory waits (animation locks).
+        # While a mandatory wait is active (possibly nested), we remember keys pressed/held.
+        # When the wait ends, we can immediately apply buffered holds (game-like behavior).
+        self._mandatory_wait_buffer_for_id: int | None = None
+        self._mandatory_wait_buffered: set[str] = set()
 
         # Combo enders: key -> grace_ms (0 means no grace; wrong press drops immediately)
         self.combo_enders: dict[str, int] = {}
@@ -545,7 +552,7 @@ class ComboTrackerEngine:
         return ui.get_status(self)
 
     def timeline_steps(self) -> list[dict[str, Any]]:
-        return ui.timeline_steps(self)
+        return ui.timeline_steps(self, time.perf_counter())
 
     def init_payload(self) -> dict[str, Any]:
         return ui.init_payload(self)
@@ -795,9 +802,6 @@ class ComboTrackerEngine:
                     self._send({"type": "hold_end"})
             for step in self.runtime_steps:
                 step.reset()
-            if self._group_wait_begin_sent:
-                self._send({"type": "wait_end"})
-            self._group_wait_begin_sent = False
             self._update_shortcuts()
         except Exception:
             pass
@@ -811,22 +815,37 @@ class ComboTrackerEngine:
     def _reset_to_start(self) -> None:
         """Reset index and step state after a combo completion (ready for next attempt)."""
         self.current_index = 0
+        # Stop the ~50Hz tick loop from continuously emitting timeline frames while idle.
+        # (A new attempt will re-initialize timing on the first accepted input.)
+        self.start_time = 0.0
+        self.last_input_time = 0.0
+        try:
+            self.currently_pressed.clear()
+        except Exception:
+            pass
         self._reset_hold_state()
         self._reset_wait_state()
         self._reset_group_state()
+        self.ui_adapter.reset()
+        self._mandatory_wait_buffer_for_id = None
+        self._mandatory_wait_buffered = set()
 
     def _on_combo_completed(self, total_ms: float) -> None:
         """Record success, reset to start, and notify UI. Single place for combo completion."""
         self.record_combo_success(total_ms)
+        # Snapshot timeline while steps are still in completed state; after _reset_to_start()
+        # all step state is cleared, so the UI would lose the "completed" styling.
+        steps_snapshot = self.timeline_steps()
         self._reset_to_start()
         self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        self._send({"type": "timeline_update", "steps": steps_snapshot})
 
     def _reset_after_fail(self) -> None:
         """Full reset after a combo failure: clear index, time, step state, and notify UI."""
         self.current_index = 0
         self.start_time = 0.0
         self.last_input_time = 0.0
+        self.ui_adapter.reset()
         for s in self.runtime_steps:
             s.reset()
         self._reset_hold_state()
@@ -835,6 +854,73 @@ class ComboTrackerEngine:
         self._reset_attempt_marks()
         self._update_shortcuts()
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        self._mandatory_wait_buffer_for_id = None
+        self._mandatory_wait_buffered = set()
+
+    def _active_nested_mandatory_wait(self) -> WaitState | None:
+        """
+        Return an in-progress mandatory WaitState if the current step contains one (including nested).
+        """
+        try:
+            step = self._active_runtime_step()
+            ws = ui.find_active_in_progress_wait(step)
+            if isinstance(ws, WaitState) and ws.in_progress and not ws.completed and (ws.mode == "mandatory"):
+                return ws
+        except Exception:
+            return None
+        return None
+
+    def _buffer_press_during_mandatory_wait(self, input_name: str, ws: WaitState) -> None:
+        """
+        Record that input_name was pressed while mandatory wait ws was in progress.
+        We only buffer *current* wait instance (tracked by id(ws)).
+        """
+        try:
+            wid = id(ws)
+            if self._mandatory_wait_buffer_for_id != wid:
+                self._mandatory_wait_buffer_for_id = wid
+                self._mandatory_wait_buffered = set()
+            inp = (input_name or "").strip().lower()
+            if not inp:
+                return
+            # Don't bother buffering the wait_for key itself.
+            if (ws.wait_for or "").strip().lower() == inp:
+                return
+            self._mandatory_wait_buffered.add(inp)
+        except Exception:
+            return
+
+    def _apply_buffered_hold_if_possible(self, now: float) -> None:
+        """
+        If we buffered keys during a mandatory wait and the lock has ended,
+        and the next expected step is a HoldState whose key is still held,
+        start the hold immediately by reusing normal input processing.
+        """
+        try:
+            if not self._mandatory_wait_buffer_for_id or not self._mandatory_wait_buffered:
+                return
+            # If a mandatory wait is still active, do not apply yet.
+            if self._active_nested_mandatory_wait() is not None:
+                return
+
+            step = self._active_runtime_step()
+            if not isinstance(step, HoldState):
+                return
+            expected = (step.expected or "").strip().lower()
+            if not expected:
+                return
+            if expected not in self._mandatory_wait_buffered:
+                return
+            if expected not in self.currently_pressed:
+                return
+
+            # Clear buffer first to avoid loops.
+            self._mandatory_wait_buffer_for_id = None
+            self._mandatory_wait_buffered = set()
+            # Treat as if the press happened "now" (buffered input triggers immediately on unlock).
+            self._process_press_unlocked(expected)
+        except Exception:
+            return
 
     def _ensure_attempt_started(self, now: float) -> None:
         """On first accepted input of an attempt, start timing and send Recording status."""
@@ -850,6 +936,7 @@ class ComboTrackerEngine:
         self._update_shortcuts()
         self._maybe_start_wait_step()
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        self.ui_adapter.set_active_step_signature(self)
 
     def _fail_combo(self, reason: str, now: float, *, expected_label: str | None = None, actual: str | None = None) -> None:
         """Record failure, reset all steps, send status and timeline."""
@@ -948,6 +1035,9 @@ class ComboTrackerEngine:
         self.current_index += 1
         self._reset_wait_state()
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        # If a mandatory wait (possibly nested) just ended and the user was already holding
+        # the next hold key, start the hold immediately (game-like input buffer).
+        self._apply_buffered_hold_if_possible(now)
 
         # If a wait step was (accidentally) the last step, don't get stuck past the end.
         if self.current_index >= len(self.runtime_steps):
@@ -961,6 +1051,13 @@ class ComboTrackerEngine:
         if not self.wait_in_progress:
             step.start(time.perf_counter())
             self._start_wait(int(step.required_ms))
+
+    def _sync_wait_animation_ui(self, now: float) -> None:
+        """UI hook: nested wait begin/end (delegated to UI adapter)."""
+        try:
+            self.ui_adapter.sync_wait_animation(self, emit=self._send)
+        except Exception:
+            return
 
     def _complete_hold(self, now: float, *, auto: bool):
         step = self._active_runtime_step()
@@ -985,6 +1082,12 @@ class ComboTrackerEngine:
             self.record_hit(label, split_ms, total_ms)
             self.last_input_time = now
             self.last_success_input = target_input
+            # Ensure the HoldState is no longer considered active.
+            try:
+                step.in_progress = False
+                step.completed = True
+            except Exception:
+                pass
 
             # If this hold was gated by a wait right before it, mark that wait green (timing satisfied).
             if self.current_index > 0:
@@ -992,11 +1095,10 @@ class ComboTrackerEngine:
                 if isinstance(prev, WaitState):
                     self._mark_step(self.current_index - 1, "ok")
 
-            self.current_index += 1
+            # Advance using the standard path so shortcuts update correctly.
+            self._advance_step(now)
             if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
                 return True
-            self._maybe_start_wait_step()
-
             if self.current_index >= len(self.runtime_steps):
                 self._on_combo_completed(total_ms)
         else:
@@ -1014,7 +1116,6 @@ class ComboTrackerEngine:
             return False
 
         self._reset_hold_state()
-        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
         return ok
 
     def _record_fail_detail(
@@ -1162,6 +1263,13 @@ class ComboTrackerEngine:
 
         now = time.perf_counter()
 
+        # Input buffer during mandatory waits (animation locks), including nested waits
+        # inside sequences/groups. We still ignore the input for progression, but we
+        # remember it so that when the lock ends we can immediately begin the next hold.
+        nested_ws = self._active_nested_mandatory_wait()
+        if nested_ws is not None:
+            self._buffer_press_during_mandatory_wait(input_name, nested_ws)
+
         # 1) Active wait
         if self.wait and self.wait.in_progress:
             result = self.wait.process_press(input_name, now)
@@ -1201,8 +1309,15 @@ class ComboTrackerEngine:
                 self.record_hit(input_name, split_ms, total_ms)
             self.last_input_time = now
             self.last_success_input = input_name
+            # If this press started a nested wait (e.g. press_wait inside a group/sequence),
+            # kick off the client-side wait animation immediately.
+            self._sync_wait_animation_ui(now)
             if result.advance:
                 self._advance_step(now)
+                self._sync_wait_animation_ui(now)
+                # If a mandatory wait ended and we advanced into a hold step that is already held,
+                # apply the buffered hold immediately.
+                self._apply_buffered_hold_if_possible(now)
                 if self.current_index >= len(self.runtime_steps):
                     self._on_combo_completed((now - self.start_time) * 1000.0 if self.start_time else 0.0)
                     return
@@ -1215,28 +1330,15 @@ class ComboTrackerEngine:
             if isinstance(step, HoldState):
                 self._start_hold(step.expected, step.required_ms, now)
             elif isinstance(step, GroupState):
-                if step.wait_active and not self._group_wait_begin_sent:
-                    for item in step.items:
-                        if (
-                            item.kind == "anim_wait"
-                            and isinstance(item.state, WaitState)
-                            and item.state.in_progress
-                        ):
-                            self._send({
-                                "type": "wait_begin",
-                                "required_ms": int(item.state.required_ms),
-                                "mode": "mandatory",
-                                "wait_for": str(item.state.wait_for or ""),
-                            })
-                            self._group_wait_begin_sent = True
-                            break
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
             return
         if isinstance(result, FailResult):
             self._fail_combo(result.reason, now)
+            self._sync_wait_animation_ui(now)
             return
         if isinstance(result, CompleteResult):
             self._advance_step(now)
+            self._sync_wait_animation_ui(now)
             if self.current_index >= len(self.runtime_steps):
                 self._on_combo_completed((now - self.start_time) * 1000.0 if self.start_time else 0.0)
                 return
@@ -1300,6 +1402,7 @@ class ComboTrackerEngine:
                     self._complete_hold(now, auto=False)
                 else:
                     self._advance_step(now)
+                    self._sync_wait_animation_ui(now)
                     if self.current_index >= len(self.runtime_steps):
                         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
                         self._on_combo_completed(total_ms)
@@ -1316,6 +1419,7 @@ class ComboTrackerEngine:
             return
         if isinstance(result, FailResult):
             self._fail_combo(result.reason, now, actual="released (hold too short)")
+            self._sync_wait_animation_ui(now)
             return
 
     def tick(self):
@@ -1343,6 +1447,8 @@ class ComboTrackerEngine:
 
             now = time.perf_counter()
             self._maybe_start_wait_step()
+            # Keep nested wait animations in sync (without spamming timeline frames).
+            self._sync_wait_animation_ui(now)
 
             step = self._active_runtime_step()
             if step is None:
@@ -1358,10 +1464,8 @@ class ComboTrackerEngine:
                     st = self.get_status()
                     self._send({"type": "status", "text": st.text, "color": st.color})
                 else:
-                    if isinstance(step, GroupState) and self._group_wait_begin_sent:
-                        self._send({"type": "wait_end"})
-                        self._group_wait_begin_sent = False
                     self._advance_step(now)
+                    self._sync_wait_animation_ui(now)
                     if self.current_index >= len(self.runtime_steps):
                         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
                         self._on_combo_completed(total_ms)
@@ -1370,5 +1474,14 @@ class ComboTrackerEngine:
                     else:
                         st = self.get_status()
                         self._send({"type": "status", "text": st.text, "color": st.color})
+                # State advanced; signature is handled by _advance_step / _complete_wait / resets.
+                return
+
+            # No top-level advance, but nested state may have changed (e.g. wait inside a SequenceState
+            # finished, enabling the next press). Emit a single timeline_update on that transition.
+            self.ui_adapter.maybe_emit_timeline_update_on_change(self, emit=self._send)
+            # Also, if a nested mandatory wait just ended and the next step is a hold that is already held,
+            # start it immediately.
+            self._apply_buffered_hold_if_possible(now)
         except Exception:
             return

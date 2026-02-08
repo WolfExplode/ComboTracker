@@ -717,6 +717,41 @@ function updateTimeline(steps) {
         el.appendChild(span);
     };
 
+    // Shared renderer for "step group-item" tiles (used by normal group items and mini-sequences)
+    // so they always look identical (images, durations, corner key, progress bars, etc.).
+    const createGroupItemTile = (it, characterId) => {
+        const el = document.createElement('div');
+        el.className = 'step group-item';
+
+        if (it.type === 'wait') {
+            el.classList.add('wait');
+            if (it.duration <= 100) el.classList.add('short-wait');
+            const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
+            el.style.setProperty('--wait-pct', `${pct}%`);
+        } else if (it.type === 'press_wait') {
+            el.classList.add('press-wait');
+            if (it.duration <= 100) el.classList.add('short-wait');
+            const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
+            el.style.setProperty('--wait-pct', `${pct}%`);
+        } else if (it.type === 'hold') {
+            el.classList.add('hold');
+            applyHoldWidth(el, it.duration);
+            el.style.setProperty('--hold-pct', it.completed ? '100%' : '0%');
+        }
+
+        if (it.active) el.classList.add('active');
+        if (it.completed) el.classList.add('completed');
+
+        appendStepContent(el, it, characterId);
+
+        let keyForCorner = '';
+        if (it.type === 'wait' && it.wait_for) keyForCorner = it.wait_for;
+        else if (it.input) keyForCorner = it.input;
+        if (keyForCorner) addCornerKey(el, keyForCorner);
+
+        return el;
+    };
+
     if (!steps || steps.length === 0) {
         container.innerHTML = '<div class="help-text">No combo selected</div>';
         return;
@@ -755,36 +790,22 @@ function updateTimeline(steps) {
                     if (it.active) seqEl.classList.add('active');
                     if (it.completed) seqEl.classList.add('completed');
 
-                    const seqHeader = document.createElement('div');
-                    seqHeader.className = 'mini-sequence-header';
-                    seqEl.appendChild(seqHeader);
-
                     const seqItems = document.createElement('div');
                     seqItems.className = 'mini-sequence-items';
-                    (it.items || []).forEach((seqIt, seqIdx) => {
+                    const seqArr = (it.items || []);
+                    for (let seqIdx = 0; seqIdx < seqArr.length; seqIdx++) {
+                        const seqIt = seqArr[seqIdx];
+
                         const seqItInp = (seqIt.input || '').toString().toLowerCase();
                         const seqItWait = (seqIt.wait_for || '').toString().toLowerCase();
 
                         if (['1', '2', '3'].includes(seqItInp)) activeChar = seqItInp;
                         else if (['1', '2', '3'].includes(seqItWait)) activeChar = seqItWait;
 
-                        const seqItEl = document.createElement('div');
-                        seqItEl.className = 'mini-sequence-step';
-                        if (seqIt.active) seqItEl.classList.add('mini-sequence-step-active');
-                        if (seqIt.completed) seqItEl.classList.add('mini-sequence-step-completed');
-
-                        // Append content directly
-                        appendStepContent(seqItEl, seqIt, activeChar);
-                        seqItems.appendChild(seqItEl);
-
-                        // Add arrow between steps
-                        if (seqIdx < (it.items || []).length - 1) {
-                            const arrow = document.createElement('span');
-                            arrow.className = 'mini-sequence-arrow';
-                            arrow.textContent = '→';
-                            seqItems.appendChild(arrow);
-                        }
-                    });
+                        // Backend is the single source of truth for merge/collapse rules.
+                        // (No frontend-side sequence merging here.)
+                        seqItems.appendChild(createGroupItemTile(seqIt, activeChar));
+                    }
                     seqEl.appendChild(seqItems);
                     items.appendChild(seqEl);
                 } else {
@@ -792,34 +813,7 @@ function updateTimeline(steps) {
                     if (['1', '2', '3'].includes(itInp)) activeChar = itInp;
                     else if (['1', '2', '3'].includes(itWait)) activeChar = itWait;
 
-                    const itEl = document.createElement('div');
-                    itEl.className = 'step group-item';
-
-                    if (it.type === 'wait') {
-                        itEl.classList.add('wait');
-                        if (it.duration <= 100) itEl.classList.add('short-wait');
-                        itEl.style.setProperty('--wait-pct', it.completed ? '100%' : '0%');
-                    } else if (it.type === 'press_wait') {
-                        itEl.classList.add('press-wait');
-                        if (it.duration <= 100) itEl.classList.add('short-wait');
-                        itEl.style.setProperty('--wait-pct', it.completed ? '100%' : '0%');
-                    } else if (it.type === 'hold') {
-                        itEl.classList.add('hold');
-                        applyHoldWidth(itEl, it.duration);
-                        itEl.style.setProperty('--hold-pct', it.completed ? '100%' : '0%');
-                    }
-
-                    if (it.active) itEl.classList.add('active');
-                    if (it.completed) itEl.classList.add('completed');
-
-                    appendStepContent(itEl, it, activeChar);
-                    // Also add corner key for group items
-                    let keyForCorner = '';
-                    if (it.type === 'wait' && it.wait_for) keyForCorner = it.wait_for;
-                    else if (it.input) keyForCorner = it.input;
-
-                    if (keyForCorner) addCornerKey(itEl, keyForCorner);
-                    items.appendChild(itEl);
+                    items.appendChild(createGroupItemTile(it, activeChar));
                 }
             });
             tile.appendChild(items);
