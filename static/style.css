@@ -101,6 +101,18 @@ textarea {
     margin-top: -8px;
 }
 
+.help-inline {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
 .button-row {
     margin-top: 15px;
     display: flex;
@@ -667,6 +679,7 @@ button.danger:hover {
 .step.mark-missed,
 .step.mark-wrong {
     border-color: var(--accent-red);
+    border-width: 3px;
     background: rgba(255, 74, 74, 0.14);
 }
 
@@ -674,6 +687,14 @@ button.danger:hover {
     border-color: var(--accent-blue);
     box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
     animation: pulse 1s infinite;
+}
+
+/* Failed step stays red even when still "active" (current step that failed) */
+.step.active.mark-early,
+.step.active.mark-missed,
+.step.active.mark-wrong {
+    border-color: var(--accent-red);
+    border-width: 3px;
 }
 
 @keyframes pulse {
@@ -1052,10 +1073,18 @@ button.danger:hover {
 .timeline-section .step.mark-wrong,
 .timeline-section .step.mark-early {
     border-color: var(--accent-red);
+    border-width: 3px;
 }
 
 .timeline-section .step.active {
     border-color: var(--accent-blue);
+}
+
+.timeline-section .step.active.mark-early,
+.timeline-section .step.active.mark-missed,
+.timeline-section .step.active.mark-wrong {
+    border-color: var(--accent-red);
+    border-width: 3px;
 }
 
 .timeline-section .step .step-primary,

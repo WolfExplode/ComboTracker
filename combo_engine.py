@@ -101,6 +101,9 @@ class ComboTrackerEngine:
         self._ui_last_success_combo: str | None = None
         self._ui_last_success_steps_len: int = 0
 
+        # No-fail (practice) mode: on failure, mark step red and advance instead of resetting combo.
+        self.no_fail_mode: bool = False
+
         # Stats
         self.combo_stats: dict[str, dict[str, Any]] = {}
         # Per-combo metadata (kept minimal on purpose)
@@ -842,6 +845,9 @@ class ComboTrackerEngine:
 
     def _reset_after_fail(self) -> None:
         """Full reset after a combo failure: clear index, time, step state, and notify UI."""
+        # Snapshot timeline while the failed step is still marked (step_marks), so the UI
+        # can show the red outline on the failed step before we clear everything.
+        steps_snapshot = self.timeline_steps()
         self.current_index = 0
         self.start_time = 0.0
         self.last_input_time = 0.0
@@ -853,7 +859,7 @@ class ComboTrackerEngine:
         self._reset_group_state()
         self._reset_attempt_marks()
         self._update_shortcuts()
-        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        self._send({"type": "timeline_update", "steps": steps_snapshot})
         self._mandatory_wait_buffer_for_id = None
         self._mandatory_wait_buffered = set()
 
@@ -938,8 +944,39 @@ class ComboTrackerEngine:
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
         self.ui_adapter.set_active_step_signature(self)
 
+    def _mark_current_and_skip(self, now: float, mark: str | None = None) -> None:
+        """No-fail mode: mark current step as failed and advance without ending the combo."""
+        idx = int(self.current_index)
+        if idx not in self.step_marks:
+            self._mark_step(idx, mark if mark else "wrong")
+        step = self._active_runtime_step()
+        if step is None:
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            return
+        if step.skip_and_advance(now):
+            self._advance_step(now)
+            self._sync_wait_animation_ui(now)
+            self._send({"type": "status", "text": "Missed - continuing", "color": "fail"})
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            if self.current_index >= len(self.runtime_steps):
+                self._send({"type": "status", "text": "Practice run finished", "color": "fail"})
+                self._reset_to_start()
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            else:
+                self._apply_buffered_hold_if_possible(now)
+        else:
+            self._send({"type": "status", "text": "Missed - continuing", "color": "fail"})
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+    def set_no_fail_mode(self, enabled: bool) -> None:
+        """Enable or disable no-fail (practice) mode."""
+        self.no_fail_mode = bool(enabled)
+
     def _fail_combo(self, reason: str, now: float, *, expected_label: str | None = None, actual: str | None = None) -> None:
         """Record failure, reset all steps, send status and timeline."""
+        # Mark the failed step so the timeline snapshot (sent in _reset_after_fail) shows red outline.
+        if int(self.current_index) not in self.step_marks:
+            self._mark_step(int(self.current_index), "wrong")
         self._send({"type": "status", "text": "Combo Dropped (" + (reason or "fail") + ")", "color": "fail"})
         elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
         self.record_combo_fail(
@@ -962,6 +999,9 @@ class ComboTrackerEngine:
         expected = str(self._expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
         actual = str(input_name or "").strip().lower()
         self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
+        if self.no_fail_mode:
+            self._mark_current_and_skip(now, mark="missed")
+            return
         self._fail_combo("Combo Ender", now, actual=actual, expected_label=expected)
 
     def _start_hold(self, input_name: str, required_ms: int, now: float):
@@ -1277,11 +1317,43 @@ class ComboTrackerEngine:
                 self._complete_wait(now, fail=False)
                 return self._process_press_unlocked(input_name)
             if isinstance(result, FailResult):
-                self._complete_wait(now, fail=True, reason=result.reason)
+                if self.no_fail_mode:
+                    self._mark_step(int(self.current_index), "early")
+                    self._reset_wait_state()
+                    step = self._active_runtime_step()
+                    if step is not None and step.skip_and_advance(now):
+                        self._advance_step(now)
+                        self._sync_wait_animation_ui(now)
+                    self._send({"type": "status", "text": "Missed - continuing", "color": "fail"})
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    if self.current_index >= len(self.runtime_steps):
+                        self._send({"type": "status", "text": "Practice run finished", "color": "fail"})
+                        self._reset_to_start()
+                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    else:
+                        self._apply_buffered_hold_if_possible(now)
+                else:
+                    self._complete_wait(now, fail=True, reason=result.reason)
                 return
             if self.wait.mode in ("soft", "hard") and self._is_combo_ender(input_name):
                 if not self._should_ignore_ender_miss(input_name):
-                    self._complete_wait(now, fail=True, reason=f"{input_name} (ender) during wait")
+                    if self.no_fail_mode:
+                        self._mark_step(int(self.current_index), "wrong")
+                        self._reset_wait_state()
+                        step = self._active_runtime_step()
+                        if step is not None and step.skip_and_advance(now):
+                            self._advance_step(now)
+                            self._sync_wait_animation_ui(now)
+                        self._send({"type": "status", "text": "Missed - continuing", "color": "fail"})
+                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                        if self.current_index >= len(self.runtime_steps):
+                            self._send({"type": "status", "text": "Practice run finished", "color": "fail"})
+                            self._reset_to_start()
+                            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                        else:
+                            self._apply_buffered_hold_if_possible(now)
+                    else:
+                        self._complete_wait(now, fail=True, reason=f"{input_name} (ender) during wait")
             return
 
         # 2) Active hold
@@ -1291,6 +1363,10 @@ class ComboTrackerEngine:
             if self.hold.check_complete(now):
                 self._complete_hold(now, auto=True)
                 return self._process_press_unlocked(input_name)
+            if self.no_fail_mode:
+                self._mark_current_and_skip(now)
+                self._sync_wait_animation_ui(now)
+                return
             self._fail_combo("hold too short", now, actual="wrong key / released early")
             return
 
@@ -1333,6 +1409,11 @@ class ComboTrackerEngine:
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
             return
         if isinstance(result, FailResult):
+            if self.no_fail_mode:
+                mark = "early" if "early" in (result.reason or "").lower() else "wrong"
+                self._mark_current_and_skip(now, mark=mark)
+                self._sync_wait_animation_ui(now)
+                return
             self._fail_combo(result.reason, now)
             self._sync_wait_animation_ui(now)
             return
@@ -1369,6 +1450,10 @@ class ComboTrackerEngine:
             self._mark_step(int(self.current_index), "missed")
             # Attempt Log rows are driven by "hit" messages; record the ender as a FAIL.
             self.record_hit(f"{actual} (Exp: {expected}) [wrong key]", "FAIL", "FAIL")
+            if self.no_fail_mode:
+                self._mark_current_and_skip(now, mark="missed")
+                self._sync_wait_animation_ui(now)
+                return
             self._fail_combo(f"expected {expected}", now, actual=input_name, expected_label=expected)
             return
         return
@@ -1418,6 +1503,10 @@ class ComboTrackerEngine:
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
             return
         if isinstance(result, FailResult):
+            if self.no_fail_mode:
+                self._mark_current_and_skip(now)
+                self._sync_wait_animation_ui(now)
+                return
             self._fail_combo(result.reason, now, actual="released (hold too short)")
             self._sync_wait_animation_ui(now)
             return

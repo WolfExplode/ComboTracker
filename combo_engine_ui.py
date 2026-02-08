@@ -574,6 +574,7 @@ def init_payload(engine) -> dict[str, Any]:
         "type": "init",
         "combos": sorted(engine.combos.keys()),
         "active_combo": engine.active_combo_name,
+        "no_fail_mode": getattr(engine, "no_fail_mode", False),
         "status": {"text": st.text, "color": st.color},
         "stats": stats_text(engine),
         "min_time": min_time_text(engine),

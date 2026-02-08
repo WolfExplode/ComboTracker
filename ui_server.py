@@ -132,6 +132,9 @@ async def ws_handler(websocket, _path=None):
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "new_combo":
                 engine.new_combo()
+            elif mtype == "set_no_fail":
+                engine.set_no_fail_mode(bool(msg.get("enabled", False)))
+                engine.save_combos()
             elif mtype == "clear_history":
                 engine.clear_history_and_stats()
     finally:

@@ -78,6 +78,10 @@ class StepState(Protocol):
         """Reset for new attempt."""
         ...
 
+    def skip_and_advance(self, now: float) -> bool:
+        """No-fail mode: skip current (failed) and advance. Returns True if this step is now complete (engine should advance)."""
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Simple states (Press, Hold, Wait)
@@ -109,6 +113,9 @@ class PressState:
 
     def reset(self) -> None:
         self.completed = False
+
+    def skip_and_advance(self, now: float) -> bool:
+        return True
 
 
 @dataclass
@@ -169,6 +176,9 @@ class HoldState:
         self.in_progress = False
         self.started_at = 0.0
         self.completed = False
+
+    def skip_and_advance(self, now: float) -> bool:
+        return True
 
 
 @dataclass
@@ -241,6 +251,9 @@ class WaitState:
         self.in_progress = False
         self.started_at = 0.0
         self.completed = False
+
+    def skip_and_advance(self, now: float) -> bool:
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -354,6 +367,10 @@ class SequenceState:
         self.started = False
         for s in self.steps:
             s.reset()
+
+    def skip_and_advance(self, now: float) -> bool:
+        """Skip current inner step and advance. Returns True if sequence is now complete."""
+        return self._advance_inner(now)
 
 
 @dataclass
@@ -545,6 +562,13 @@ class GroupState:
         for item in self.items:
             item.completed_count = 0
             item.state.reset()
+
+    def skip_and_advance(self, now: float) -> bool:
+        """Skip current active item (count as done) and advance. Returns True if group is now complete."""
+        if self.active_item is not None:
+            self.active_item.completed_count += 1
+            self.active_item = None
+        return self._is_complete()
 
 
 # ---------------------------------------------------------------------------

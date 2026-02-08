@@ -323,6 +323,9 @@ def load_engine_state(engine) -> None:
                 if engine.ww.ww_active_team_id is None:
                     engine.ww.ww_active_team_id = team_id
 
+        no_fail = data.get("no_fail_mode")
+        engine.no_fail_mode = bool(no_fail) if no_fail is not None else getattr(engine, "no_fail_mode", False)
+
         last_active = data.get("last_active_combo")
         if last_active in engine.combos:
             engine.set_active_combo(str(last_active), emit=False)
@@ -354,6 +357,7 @@ def save_engine_state(engine) -> None:
         payload = {
             "version": 1,
             "last_active_combo": engine.active_combo_name,
+            "no_fail_mode": getattr(engine, "no_fail_mode", False),
             "combos": dict(engine.combos),
             "combo_enders": dict(engine.combo_enders),
             "combo_stats": dict(engine.combo_stats),

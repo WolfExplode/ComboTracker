@@ -40,6 +40,9 @@ function initializeUI(data) {
     setDifficultyColor(document.getElementById('userDifficultyDisplay'), data.user_difficulty_value);
     if (data.timeline) updateTimeline(data.timeline);
     if (data.failures) updateFailures(data.failures);
+
+    const noFailEl = document.getElementById('noFailMode');
+    if (noFailEl) noFailEl.checked = !!data.no_fail_mode;
 }
 
 // Step display config (per-combo, loaded from backend editor payload)
@@ -870,7 +873,7 @@ function updateTimeline(steps) {
             if (s.active) tile.classList.add('active');
             if (s.completed) tile.classList.add('completed');
             if (s.mark === 'success') tile.classList.add('mark-ok');
-            if (s.mark === 'fail') tile.classList.add('mark-wrong');
+            if (s.mark === 'fail' || s.mark === 'wrong') tile.classList.add('mark-wrong');
             if (s.mark === 'missed') tile.classList.add('mark-missed');
             if (s.mark === 'early') tile.classList.add('mark-early');
 
@@ -1136,6 +1139,13 @@ if (comboSelector) {
         if (name) {
             ws.send(JSON.stringify({ type: 'select_combo', name }));
         }
+    });
+}
+
+const noFailModeEl = document.getElementById('noFailMode');
+if (noFailModeEl) {
+    noFailModeEl.addEventListener('change', () => {
+        ws.send(JSON.stringify({ type: 'set_no_fail', enabled: noFailModeEl.checked }));
     });
 }
 
