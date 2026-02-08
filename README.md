@@ -117,7 +117,25 @@ Durations accept:
 In the UI, enter them like:
 - `q:0.2, e:0.2, lmb, 1, 2, 3`
 
-Where `key:seconds` is a small grace window (useful if a key is legitimately pressed at the end of a combo and you don’t want immediate re-presses to drop it).
+Where `key:seconds` is a small grace window (parsed as seconds → stored internally as milliseconds; see `combo_commands.apply_enders_from_text`).
+
+### Grace window rule (how the timing works)
+The grace window only applies to **re-pressing the same ender key** that was the **last successfully accepted input**:
+- Engine tracks `last_success_input` and `last_input_time` (time of the last accepted step).
+- If you press an ender key `k` and:
+  - `k == last_success_input`, and
+  - \( (now - last_input_time) \le grace\_ms \)
+  then that press is **ignored** (it will not drop the combo).
+
+Example:
+- Combo: `q, e, r,`
+- Enders: `q:2, e:2, r:2, 1:2, 2:2, 3:2, space:2`
+- After you successfully press `q`, pressing `q` again within 2 seconds is ignored (doesn’t end/drop the combo).
+
+### When enders actually drop a combo
+- **Before the attempt starts** (no accepted input yet): stray keys are ignored; the combo does not “drop”.
+- **During an active attempt**: if the current step rejects an input and it’s *not* covered by the grace rule above, the combo drops (status typically shows `expected <key>`).
+- **During `wait:` steps (soft/hard)**: pressing an ender drops the combo unless it’s covered by the grace rule above.
 
 Data is stored in `ComboTracker/combos.json`.
 

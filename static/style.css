@@ -655,6 +655,7 @@ button.danger:hover {
 .step.completed {
     border-color: var(--accent-green);
     background: rgba(74, 255, 136, 0.1);
+    border-width: 3px;
 }
 
 .step.mark-ok {

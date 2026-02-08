@@ -5,19 +5,25 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from Game_Wuthering_Waves import WutheringWavesGame
+from Game_Wuthering_Waves import (
+    WutheringWavesGame,
+    set_active_ww_team,
+    save_or_update_ww_team,
+    delete_ww_team,
+    select_team_stateless,
+    update_target_game_stateless,
+)
 import combo_engine_ui as ui
 from combo_engine_ui import Status
 from persistence import load_engine_state, save_engine_state
 
+import combo_commands
+import input_normalization
 from parser import expanded_ast_from_tokens
-from parser import split_inputs as _parser_split_inputs
-from parser import steps_from_tokens
 from states import (
     AcceptResult,
     CompleteResult,
     FailResult,
-    GroupItemTracker,
     GroupState,
     HoldState,
     IgnoreResult,
@@ -170,60 +176,17 @@ class ComboTrackerEngine:
                 logger.debug("Emitter raised while sending message", exc_info=True)
 
     # -------------------------
-    # Normalization helpers
+    # Normalization helpers (delegate to input_normalization)
     # -------------------------
 
     def normalize_key(self, key) -> str:
-        """
-        Normalize pynput keyboard events to our internal string tokens.
-
-        pynput uses a mix of types:
-        - KeyCode: usually has .char (may be None for non-character keys)
-        - Key: has .name (e.g. "space", "shift")
-        Some edge cases on Windows can produce KeyCode with char=None and no .name.
-        This function must never throw (listener callbacks should not crash).
-        """
-        try:
-            ch = getattr(key, "char", None)
-            if isinstance(ch, str) and ch:
-                return ch.lower()
-
-            name = getattr(key, "name", None)
-            if isinstance(name, str) and name:
-                return name.lower()
-
-            # Fallback: stringify.
-            # Examples:
-            # - "Key.space" -> "space"
-            # - "'a'" -> "a"
-            s = str(key)
-            s = s.replace("Key.", "").strip().strip("'").strip('"')
-            return s.lower()
-        except Exception:
-            return ""
+        return input_normalization.normalize_key(key)
 
     def normalize_mouse(self, button) -> str:
-        # Import here to keep module import light in non-mouse contexts
-        from pynput import mouse
-
-        if button == mouse.Button.left:
-            return "lmb"
-        if button == mouse.Button.right:
-            return "rmb"
-        if button == mouse.Button.middle:
-            return "mmb"
-        return "mouse_extra"
-
-    # -------------------------
-    # Parsing
-    # -------------------------
+        return input_normalization.normalize_mouse(button)
 
     def split_inputs(self, keys_str: str):
-        """
-        Split a user-entered Inputs string into top-level comma-separated tokens.
-        Delegates to parser.split_inputs. Tokens are validated by parser.parse_step when building steps.
-        """
-        return _parser_split_inputs(keys_str or "")
+        return input_normalization.split_inputs(keys_str or "")
 
     def _parse_duration(self, raw: str):
         token = (raw or "").lower().strip()
@@ -249,41 +212,10 @@ class ComboTrackerEngine:
             return None
         return int(millis)
 
-    def _step_time_ms(self, s: Any) -> int:
-        """Sum of wait + hold ms for one step (for calc_min_combo_time_ms)."""
-        if isinstance(s, WaitState):
-            return int(s.required_ms or 0)
-        if isinstance(s, HoldState):
-            return int(s.required_ms or 0)
-        if isinstance(s, PressState):
-            return 0
-        if isinstance(s, SequenceState):
-            return sum(self._step_time_ms(x) for x in s.steps)
-        if isinstance(s, GroupState):
-            return sum(self._step_time_ms(item.state) for item in s.items)
-        if isinstance(s, dict):
-            w = s.get("wait_ms")
-            h = s.get("hold_ms")
-            out = 0
-            if w is not None:
-                out += int(w)
-            if h is not None:
-                out += int(h)
-            return out
-        return 0
-
-    def calc_min_combo_time_ms(self, steps):
-        total = 0
-        for s in steps or []:
-            if isinstance(s, dict):
-                if s.get("is_sequence"):
-                    for seq_s in (s.get("sequence_steps") or []):
-                        if isinstance(seq_s, dict):
-                            total += int(seq_s.get("wait_ms") or 0) + int(seq_s.get("hold_ms") or 0)
-                else:
-                    total += int(s.get("wait_ms") or 0) + int(s.get("hold_ms") or 0)
-            else:
-                total += self._step_time_ms(s)
+    def calc_min_combo_time_ms(self, steps: list[Any] | None) -> int:
+        """Fastest possible combo time in ms. Delegates to combo_analytics."""
+        import combo_analytics
+        total = sum(combo_analytics._step_time_ms(s) for s in (steps or []))
         return max(0, int(total))
 
     def _format_ms(self, ms: int):
@@ -310,7 +242,7 @@ class ComboTrackerEngine:
             return f"{hold_ms // 1000:d}s"
         return f"{hold_ms / 1000.0:.3g}s"
 
-    def _expected_label_for_runtime_step(self, step: Any) -> str:
+    def _expected_label_for_step(self, step: Any) -> str:
         """Return display label for a StepState (used by UI and fail reporting)."""
         if step is None:
             return "—"
@@ -365,159 +297,6 @@ class ComboTrackerEngine:
             opts = [o for o in opts if o]
             return f"any-order({'|'.join(opts)})" if opts else "any-order(—)"
         return "—"
-
-    def _expected_label_for_step(self, step: dict | Any):
-        if step is None:
-            return "—"
-        if not isinstance(step, dict):
-            return self._expected_label_for_runtime_step(step)
-        # Handle sequential subgroups {step1, step2, ...}
-        if step.get("is_sequence"):
-            seq_steps = step.get("sequence_steps") or []
-            if not seq_steps:
-                return "seq(—)"
-            # Build a label showing the sequence steps
-            labels = []
-            for s in seq_steps:
-                if not isinstance(s, dict):
-                    continue
-                # Get label for each step in the sequence
-                if s.get("wait_ms") is not None:
-                    w = int(s.get("wait_ms") or 0)
-                    mode = str(s.get("wait_mode") or "soft").strip().lower()
-                    if mode == "hard":
-                        labels.append(f"wait-hard({w}ms)")
-                    elif mode == "mandatory":
-                        k = str(s.get("wait_for") or "").strip().lower()
-                        if k:
-                            labels.append(f"{k}+wait({w}ms)")
-                        else:
-                            labels.append(f"wait({w}ms)")
-                    else:
-                        labels.append(f"wait({w}ms)")
-                elif s.get("hold_ms") is not None:
-                    h = int(s.get("hold_ms") or 0)
-                    inp = str(s.get("input") or "").strip().lower()
-                    if inp:
-                        labels.append(f"hold({inp},{h}ms)")
-                    else:
-                        labels.append(f"hold({h}ms)")
-                else:
-                    inp = str(s.get("input") or "").strip().lower()
-                    if inp:
-                        labels.append(inp)
-            if labels:
-                return f"seq({' → '.join(labels)})"
-            return "seq(—)"
-        if step.get("group_presses") is not None:
-            opts = [str(x or "").strip().lower() for x in (step.get("group_presses") or [])]
-            opts = [o for o in opts if o]
-            # Include press+wait keys in the group label.
-            pw_meta = step.get("group_pw_meta")
-            if isinstance(pw_meta, dict) and pw_meta:
-                pw_keys = []
-                for _sig, meta in pw_meta.items():
-                    k = str((meta or {}).get("input") or "").strip().lower()
-                    if k:
-                        pw_keys.append(k)
-                if pw_keys:
-                    opts = pw_keys + opts
-            # Include holds in the group label (use the hold key name).
-            hold_meta = step.get("group_hold_meta")
-            hold_need = step.get("group_hold_need_counts")
-            if isinstance(hold_meta, dict) and isinstance(hold_need, dict) and hold_need:
-                hold_keys = []
-                for sig, cnt in hold_need.items():
-                    if int(cnt or 0) <= 0:
-                        continue
-                    meta = hold_meta.get(sig) if isinstance(hold_meta, dict) else None
-                    hk = str((meta or {}).get("input") or "").strip().lower()
-                    if hk:
-                        hold_keys.append(hk)
-                if hold_keys:
-                    opts = hold_keys + opts
-            mw = step.get("group_mandatory_wait")
-            if isinstance(mw, dict):
-                mw_for = str(mw.get("wait_for") or "").strip().lower()
-                if mw_for:
-                    opts = [mw_for] + opts
-
-            
-            # --- Fix: Include sequential subgroups in the label ---
-            seq_meta = step.get("group_seq_meta")
-            if isinstance(seq_meta, dict) and seq_meta:
-                sorted_seqs = sorted(seq_meta.values(), key=lambda x: x.get("sequence_id", ""))
-                
-                # Use seq_order_ids if available to preserve order
-                seq_order_ids = step.get("group_seq_order_ids")
-                if seq_order_ids and isinstance(seq_order_ids, list):
-                    temp = []
-                    for sid in seq_order_ids:
-                        if sid in seq_meta:
-                            temp.append(seq_meta[sid])
-                    if temp:
-                        sorted_seqs = temp
-
-                for sm in sorted_seqs:
-                    # Generate a label for this sequence
-                    seq_steps = sm.get("sequence_steps") or []
-                    if not seq_steps:
-                        continue
-                        
-                    labels = []
-                    for s in seq_steps:
-                        if not isinstance(s, dict):
-                            continue
-                        if s.get("wait_ms") is not None:
-                            w = int(s.get("wait_ms") or 0)
-                            mode = str(s.get("wait_mode") or "soft").strip().lower()
-                            if mode == "hard":
-                                labels.append(f"wait-hard({w}ms)")
-                            elif mode == "mandatory":
-                                k = str(s.get("wait_for") or "").strip().lower()
-                                if k:
-                                    labels.append(f"{k}+wait({w}ms)")
-                                else:
-                                    labels.append(f"wait({w}ms)")
-                            else:
-                                labels.append(f"wait({w}ms)")
-                        elif s.get("hold_ms") is not None:
-                            h = int(s.get("hold_ms") or 0)
-                            inp = str(s.get("input") or "").strip().lower()
-                            if inp:
-                                labels.append(f"hold({inp},{h}ms)")
-                            else:
-                                labels.append(f"hold({h}ms)")
-                        else:
-                            inp = str(s.get("input") or "").strip().lower()
-                            if inp:
-                                labels.append(inp)
-                    
-                    if labels:
-                        # Add to the any-order options
-                        seq_label = f"seq({' → '.join(labels)})"
-                        opts.append(seq_label)
-
-            if opts:
-                return f"any-order({ '|'.join(opts) })"
-            return "any-order(—)"
-        if step.get("wait_ms") is not None:
-            w = int(step.get("wait_ms") or 0)
-            mode = str(step.get("wait_mode") or "soft").strip().lower()
-            if mode == "hard":
-                return f"wait-hard(≥{w}ms)"
-            if mode == "mandatory":
-                k = str(step.get("wait_for") or "").strip().lower()
-                if k:
-                    return f"anim-wait({k},≥{w}ms)"
-                return f"anim-wait(≥{w}ms)"
-            return f"wait(≥{w}ms)"
-        if step.get("hold_ms") is not None:
-            h = int(step.get("hold_ms") or 0)
-            inp = str(step.get("input") or "").strip().lower()
-            return f"hold({inp},≥{h}ms)" if inp else f"hold(≥{h}ms)"
-        inp = str(step.get("input") or "").strip().lower()
-        return inp or "—"
 
     def _step_accepts_input(self, step: Any, input_name: str) -> bool:
         """True if this step could accept input_name (for find next/prev)."""
@@ -639,13 +418,7 @@ class ComboTrackerEngine:
         except Exception:
             return False
 
-        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-        self.record_combo_success(total_ms)
-        self.current_index = 0
-        self._reset_hold_state()
-        self._reset_wait_state()
-        self._reset_group_state()
-        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        self._on_combo_completed(total_ms)
         return True
 
     # -------------------------
@@ -714,21 +487,6 @@ class ComboTrackerEngine:
     def min_time_text(self) -> str:
         return ui.min_time_text(self)
 
-    # -------------------------
-    # Difficulty (Practical APM + simple timing model)
-    # -------------------------
-
-    def _clamp01(self, x: float) -> float:
-        try:
-            x = float(x)
-        except Exception:
-            return 0.0
-        if x < 0.0:
-            return 0.0
-        if x > 1.0:
-            return 1.0
-        return x
-
     def _parse_expected_time_ms(self, raw: str | None) -> int | None:
         raw = (raw or "").strip().lower()
         if not raw:
@@ -740,100 +498,16 @@ class ComboTrackerEngine:
             return None
         return int(ms)
 
-    def _count_step_actions_runtime(self, s: Any) -> tuple[int, int]:
-        """(press_count, hold_count) for one StepState."""
-        if isinstance(s, PressState):
-            return (1, 0)
-        if isinstance(s, HoldState):
-            return (0, 1)
-        if isinstance(s, WaitState):
-            return (0, 0)
-        if isinstance(s, SequenceState):
-            p = h = 0
-            for sub in s.steps:
-                pp, hh = self._count_step_actions_runtime(sub)
-                p += pp
-                h += hh
-            return (p, h)
-        if isinstance(s, GroupState):
-            p = h = 0
-            for item in s.items:
-                pp, hh = self._count_step_actions_runtime(item.state)
-                n = int(item.required_count or 1)
-                p += pp * n
-                h += hh * n
-            return (p, h)
-        return (0, 0)
-
-    def _count_combo_actions(self, steps: list[dict[str, Any]] | list[Any] | None) -> tuple[int, int, int]:
-        """
-        Returns (press_count, hold_count, total_actions).
-        Accepts either legacy dicts or runtime StepState list.
-        """
-        press = 0
-        hold = 0
-        for s in steps or []:
-            if not isinstance(s, dict):
-                pp, hh = self._count_step_actions_runtime(s)
-                press += pp
-                hold += hh
-                continue
-            # Handle sequential subgroups (legacy dict)
-            if s.get("is_sequence"):
-                seq_steps = s.get("sequence_steps") or []
-                for seq_s in seq_steps:
-                    if not isinstance(seq_s, dict):
-                        continue
-                    if seq_s.get("wait_ms") is not None:
-                        continue
-                    if seq_s.get("hold_ms") is not None:
-                        hold += 1
-                        continue
-                    press += 1
-                continue
-            # Handle any-order groups
-            if s.get("group_presses") is not None:
-                # Count plain presses
-                need_counts = s.get("group_press_need_counts") or {}
-                for inp, cnt in need_counts.items():
-                    press += int(cnt or 0)
-                # Count press+wait items
-                pw_need = s.get("group_pw_need_counts") or {}
-                for sig, cnt in pw_need.items():
-                    press += int(cnt or 0)
-                # Count holds
-                hold_need = s.get("group_hold_need_counts") or {}
-                for sig, cnt in hold_need.items():
-                    hold += int(cnt or 0)
-                # Count mandatory wait (it's triggered by a press, so count as 1 press)
-                mw = s.get("group_mandatory_wait")
-                if isinstance(mw, dict) and mw.get("wait_for"):
-                    press += 1
-                # Count sequences within the group
-                seq_need = s.get("group_seq_need_counts") or {}
-                for seq_id, cnt in seq_need.items():
-                    # Get the sequence metadata
-                    seq_meta = s.get("group_seq_meta") or {}
-                    meta = seq_meta.get(seq_id)
-                    if isinstance(meta, dict):
-                        seq_steps = meta.get("sequence_steps") or []
-                        for seq_s in seq_steps:
-                            if not isinstance(seq_s, dict):
-                                continue
-                            if seq_s.get("wait_ms") is not None:
-                                continue
-                            if seq_s.get("hold_ms") is not None:
-                                hold += 1
-                                continue
-                            press += 1
-                continue
-            # Handle regular steps
-            if s.get("wait_ms") is not None:
-                continue
-            if s.get("hold_ms") is not None:
-                hold += 1
-                continue
-            press += 1
+    def _count_combo_actions(self, steps: list[Any] | None) -> tuple[int, int, int]:
+        """Returns (press_count, hold_count, total_actions). Delegates to combo_analytics."""
+        import combo_analytics
+        if steps is None or steps is self.runtime_steps:
+            return combo_analytics.count_combo_actions(self)
+        press, hold = 0, 0
+        for s in steps:
+            pp, hh = combo_analytics._count_step_actions(s)
+            press += pp
+            hold += hh
         return press, hold, press + hold
 
     def practical_apm(self) -> float | None:
@@ -847,137 +521,6 @@ class ComboTrackerEngine:
 
     def apm_max_text(self) -> str:
         return ui.apm_max_text(self)
-
-    def _wait_triangle_score(self, wait_ms: int) -> float:
-        """
-        Triangle-shaped wait difficulty:
-        - peak at 350ms: roughly "awkward" timing for many players (not instant, not long enough to relax/spam)
-        - 0 at 0ms: no minimum delay gate at all
-        - 0 at >=600ms: long enough that it’s effectively “free” (you can reposition/spam without losing time)
-        """
-        try:
-            w = float(wait_ms)
-        except Exception:
-            return 0.0
-        if w <= 0.0:
-            return 0.0
-        # 600ms is treated as "free wait" in this model (see docstring above).
-        if w >= 600.0:
-            return 0.0
-        # Rising edge: 0..350ms ramps up to max difficulty.
-        if w < 350.0:
-            return self._clamp01(w / 350.0)
-        # Falling edge: 350..600ms ramps back down to 0.
-        return self._clamp01((600.0 - w) / 250.0)
-
-    def _hold_score(self, hold_ms: int) -> float:
-        """
-        Hold difficulty: monotonic, saturating. Longer holds are harder (finger commitment).
-        """
-        try:
-            h = float(hold_ms)
-        except Exception:
-            return 0.0
-        if h <= 0.0:
-            return 0.0
-        # H controls how quickly hold difficulty ramps up.
-        # With H=350ms:
-        # - ~350ms hold ≈ 63% difficulty
-        # - ~700ms hold ≈ 86% difficulty
-        # This matches the idea that long holds are meaningfully harder, but it saturates (they don't grow forever).
-        H = 350.0
-        return self._clamp01(1.0 - (2.718281828 ** (-h / H)))
-
-    def _timing_variation_points(self) -> int:
-        """
-        Simple rule-based "gotcha timing" score:
-        - +1 per distinct non-micro wait duration (ignores >=600ms waits)
-        - +1 per distinct hold duration
-        - micro waits (<=60ms): +1 if they occur exactly once, else +0
-        """
-        # micro_thresh: "micro waits" are treated as rhythm that you can standardize by
-        # adding extra tiny delays where missing (so they don't necessarily create variation difficulty).
-        # If a micro-wait occurs only once, we treat it as a "gotcha" (+1).
-        micro_thresh = 60
-        waits_micro_count = 0
-        non_micro_waits: set[int] = set()
-        holds: set[int] = set()
-
-        def process_wait_hold(w_ms: int | None, h_ms: int | None):
-            nonlocal waits_micro_count
-            if w_ms is not None:
-                if w_ms <= 0 or w_ms >= 600:
-                    return
-                if w_ms <= micro_thresh:
-                    waits_micro_count += 1
-                else:
-                    non_micro_waits.add(w_ms)
-            elif h_ms is not None and h_ms > 0:
-                holds.add(h_ms)
-
-        def process_step(step_dict):
-            w = step_dict.get("wait_ms")
-            h = step_dict.get("hold_ms")
-            process_wait_hold(int(w) if w is not None else None, int(h) if h is not None else None)
-
-        def process_runtime_step(s: Any):
-            if isinstance(s, WaitState):
-                process_wait_hold(s.required_ms, None)
-            elif isinstance(s, HoldState):
-                process_wait_hold(None, s.required_ms)
-            elif isinstance(s, PressState):
-                pass
-            elif isinstance(s, SequenceState):
-                for sub in s.steps:
-                    process_runtime_step(sub)
-            elif isinstance(s, GroupState):
-                for item in s.items:
-                    process_runtime_step(item.state)
-
-        for s in self.runtime_steps or []:
-            if isinstance(s, dict):
-                if s.get("is_sequence"):
-                    for seq_s in (s.get("sequence_steps") or []):
-                        if isinstance(seq_s, dict):
-                            process_step(seq_s)
-                elif s.get("group_presses") is not None:
-                    hold_meta = s.get("group_hold_meta") or {}
-                    for meta in hold_meta.values():
-                        if isinstance(meta, dict):
-                            h = meta.get("hold_ms")
-                            if h is not None:
-                                try:
-                                    process_wait_hold(None, int(h))
-                                except Exception:
-                                    pass
-                    pw_meta = s.get("group_pw_meta") or {}
-                    for meta in pw_meta.values():
-                        if isinstance(meta, dict):
-                            w = meta.get("wait_ms")
-                            if w is not None:
-                                try:
-                                    process_wait_hold(int(w), None)
-                                except Exception:
-                                    pass
-                    mw = s.get("group_mandatory_wait")
-                    if isinstance(mw, dict) and mw.get("wait_ms") is not None:
-                        try:
-                            process_wait_hold(int(mw.get("wait_ms")), None)
-                        except Exception:
-                            pass
-                    seq_meta = s.get("group_seq_meta") or {}
-                    for meta in seq_meta.values():
-                        if isinstance(meta, dict):
-                            for seq_s in (meta.get("sequence_steps") or []):
-                                if isinstance(seq_s, dict):
-                                    process_step(seq_s)
-                else:
-                    process_step(s)
-            else:
-                process_runtime_step(s)
-
-        micro_bonus = 1 if waits_micro_count == 1 else 0
-        return int(len(non_micro_waits) + len(holds) + micro_bonus)
 
     def difficulty_score_10(self) -> float | None:
         return ui.difficulty_score_10(self)
@@ -1037,38 +580,8 @@ class ComboTrackerEngine:
     # -------------------------
 
     def apply_enders_from_text(self, raw: str) -> tuple[bool, str | None]:
-        # Called from the UI thread; protect against concurrent input/tick threads.
         with self._lock:
-            raw = (raw or "").strip()
-            if not raw:
-                self.combo_enders = {}
-                self.save_combos()
-                return True, None
-
-            parsed: dict[str, int] = {}
-            for token in self.split_inputs(raw):
-                t = token.strip()
-                if not t:
-                    continue
-
-                if ":" in t:
-                    k, v = t.split(":", 1)
-                    key = k.strip().lower()
-                    if not key:
-                        continue
-                    try:
-                        sec = float(v.strip())
-                    except ValueError:
-                        return False, f"Invalid timing for '{key}'. Use seconds, e.g. {key}:0.2"
-                    parsed[key] = max(0, int(sec * 1000))
-                else:
-                    key = t.strip().lower()
-                    if key:
-                        parsed[key] = 0
-
-            self.combo_enders = parsed
-            self.save_combos()
-            return True, None
+            return combo_commands.apply_enders_from_text(self, raw)
 
     def save_or_update_combo(
         self,
@@ -1083,148 +596,31 @@ class ComboTrackerEngine:
         target_game: str | None = None,
         ww_team_id: str | None = None,
     ) -> tuple[bool, str | None]:
-        # Called from the UI thread; protect against concurrent input/tick threads.
         with self._lock:
-            name = (name or "").strip()
-            keys_str = (inputs or "").strip()
-            if not name or not keys_str:
-                return False, "Please fill in Name and Inputs."
-
-            ok, err = self.apply_enders_from_text(enders)
-            if not ok:
-                return False, err
-
-            expected_ms = None
-            expected_raw = (expected_time or "").strip()
-            if expected_raw:
-                expected_ms = self._parse_expected_time_ms(expected_raw)
-                if expected_ms is None:
-                    return False, "Invalid Expected time. Examples: 1.05s or 1050ms"
-
-            user_diff_val = None
-            ud_raw = (user_difficulty or "").strip()
-            if ud_raw:
-                try:
-                    user_diff_val = float(ud_raw)
-                except Exception:
-                    return False, "Invalid Your difficulty. Use a number from 0 to 10."
-                if not (0.0 <= user_diff_val <= 10.0):
-                    return False, "Invalid Your difficulty. Use a number from 0 to 10."
-
-            input_list = [k.strip().lower() for k in self.split_inputs(keys_str) if k.strip()]
-            if not input_list:
-                return False, "Please provide at least one input."
-
-            old_name = self.active_combo_name if self.active_combo_name in self.combos else None
-            if old_name and name != old_name:
-                if old_name in self.combo_stats and name not in self.combo_stats:
-                    self.combo_stats[name] = self.combo_stats.pop(old_name)
-                self.combos[name] = input_list
-                if old_name != name and old_name in self.combos:
-                    del self.combos[old_name]
-                if old_name in self.combo_expected_ms:
-                    # Drop old key; we'll re-apply below if the UI provided a new value.
-                    del self.combo_expected_ms[old_name]
-                if old_name in self.combo_user_difficulty:
-                    del self.combo_user_difficulty[old_name]
-                if old_name in self.combo_step_display_mode and name not in self.combo_step_display_mode:
-                    self.combo_step_display_mode[name] = self.combo_step_display_mode.pop(old_name)
-                if old_name in self.combo_key_images and name not in self.combo_key_images:
-                    self.combo_key_images[name] = self.combo_key_images.pop(old_name)
-                # Move any WW/game-specific per-combo metadata.
-                self.ww.rename_combo(old_name, name)
-            else:
-                self.combos[name] = input_list
-
-            # Apply expected execution time (per-combo metadata)
-            if expected_ms is not None:
-                self.combo_expected_ms[name] = int(expected_ms)
-            else:
-                self.combo_expected_ms.pop(name, None)
-
-            if user_diff_val is not None:
-                self.combo_user_difficulty[name] = float(user_diff_val)
-            else:
-                self.combo_user_difficulty.pop(name, None)
-
-            # Apply step display mode (per-combo metadata)
-            mode_raw = (step_display_mode or "").strip().lower()
-            if mode_raw in ("icons", "images"):
-                self.combo_step_display_mode[name] = mode_raw
-            else:
-                self.combo_step_display_mode.pop(name, None)
-
-            # Apply key images mapping (per-combo metadata)
-            cleaned_imgs: dict[str, str] = {}
-            if isinstance(key_images, dict):
-                for k, v in key_images.items():
-                    key = str(k).strip().lower()
-                    url = str(v).strip()
-                    if not key or not url:
-                        continue
-                    cleaned_imgs[key] = url
-            if cleaned_imgs:
-                self.combo_key_images[name] = cleaned_imgs
-            else:
-                # Keep existing images if caller didn't send a dict at all; otherwise allow clearing.
-                if isinstance(key_images, dict):
-                    self.combo_key_images.pop(name, None)
-
-            # Apply target game + WW team assignment (combo detail)
-            g_raw = str(target_game or "").strip().lower()
-            self.ww.set_target_game(name, g_raw)
-            self.ww.apply_combo_team_assignment(name, target_game=self.ww.get_target_game(name), ww_team_id=ww_team_id)
-
-            self._ensure_combo_stats(name)
-            self.set_active_combo(name, emit=False)
-            self.save_combos()
-
-            # Broadcast new global+active state
-            self._send({"type": "init", **self.init_payload()})
-            return True, None
+            return combo_commands.save_or_update_combo(
+                self,
+                name=name,
+                inputs=inputs,
+                enders=enders,
+                expected_time=expected_time,
+                user_difficulty=user_difficulty,
+                step_display_mode=step_display_mode,
+                key_images=key_images,
+                target_game=target_game,
+                ww_team_id=ww_team_id,
+            )
 
     def delete_combo(self, name: str) -> tuple[bool, str | None]:
         with self._lock:
-            name = (name or "").strip()
-            if not name or name not in self.combos:
-                return False, "Select a combo to delete."
-
-            del self.combos[name]
-            if name in self.combo_stats:
-                del self.combo_stats[name]
-            if name in self.combo_expected_ms:
-                del self.combo_expected_ms[name]
-            if name in self.combo_user_difficulty:
-                del self.combo_user_difficulty[name]
-            if name in self.combo_step_display_mode:
-                del self.combo_step_display_mode[name]
-            if name in self.combo_key_images:
-                del self.combo_key_images[name]
-            self.ww.delete_combo(name)
-
-            if self.active_combo_name == name:
-                self.active_combo_name = None
-                self.active_combo_tokens = []
-                self.runtime_steps = []
-                self.reset_tracking()
-
-            self.save_combos()
-            self._send({"type": "init", **self.init_payload()})
-            return True, None
+            return combo_commands.delete_combo(self, name)
 
     # -------------------------
-    # Wuthering Waves teams (presets)
+    # Wuthering Waves teams (presets) - delegate to Game_Wuthering_Waves
     # -------------------------
 
     def set_active_ww_team(self, team_id: str):
         with self._lock:
-            tid = str(team_id or "").strip()
-            if tid and tid in self.ww_teams:
-                self.ww.set_active_ww_team(tid)
-                self.save_combos()
-                # Refresh editor payload + timeline (so icons update)
-                self._send({"type": "combo_data", **self.get_editor_payload()})
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            set_active_ww_team(self, team_id)
 
     def save_or_update_ww_team(
         self,
@@ -1237,110 +633,35 @@ class ComboTrackerEngine:
         ability_images: Any | None,
     ) -> tuple[bool, str | None]:
         with self._lock:
-            name = str(team_name or "").strip()
-            if not name:
-                return False, "Please provide a Team name."
-
-            ok, err, _tid = self.ww.save_or_update_ww_team(
-                team_id=str(team_id or "").strip(),
-                team_name=name,
+            return save_or_update_ww_team(
+                self,
+                team_id=team_id,
+                team_name=team_name,
                 dash_image=dash_image,
                 swap_images=swap_images,
                 lmb_images=lmb_images,
                 ability_images=ability_images,
             )
-            if not ok:
-                return False, err
-
-            self.save_combos()
-            # Broadcast refresh (updates team dropdown + active team)
-            self._send({"type": "init", **self.init_payload()})
-            return True, None
 
     def delete_ww_team(self, team_id: str) -> tuple[bool, str | None]:
         with self._lock:
-            ok, err = self.ww.delete_ww_team(team_id)
-            if not ok:
-                return False, err
-            self.save_combos()
-            self._send({"type": "init", **self.init_payload()})
-            return True, None
+            return delete_ww_team(self, team_id)
 
     def select_team_stateless(self, team_id: str, target_game: str):
-        """
-        Stateless team selection - doesn't persist combo assignment, just updates UI.
-        Used when changing teams before saving a combo.
-        """
         with self._lock:
-            tid = str(team_id or "").strip()
-            game = str(target_game or "generic").strip().lower()
-            
-            # Only process if target game is WW and team exists
-            if game == "wuthering_waves" and tid and tid in self.ww.ww_teams:
-                self.ww.set_active_ww_team(tid)
-                # Don't save combos.json - this is stateless
-                # Just refresh the UI with team images
-                self._send({"type": "combo_data", **self.get_editor_payload(target_game_override=game)})
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-            elif game == "wuthering_waves" and not tid:
-                # Clear team selection (New Team mode)
-                self.ww.set_active_ww_team("")
-                self._send({"type": "combo_data", **self.get_editor_payload(target_game_override=game)})
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            select_team_stateless(self, team_id, target_game)
 
     def update_target_game_stateless(self, target_game: str):
-        """
-        Stateless target game update - doesn't persist, just updates UI.
-        Used when changing game before saving a combo.
-        """
         with self._lock:
-            # We don't actually need to persist anything here
-            # The frontend already has the target_game value
-            # But we do need to send back the correct editor payload
-            # based on the new target game
-            game = str(target_game or "generic").strip().lower()
-            if game not in ("generic", "wuthering_waves"):
-                game = "generic"
-            
-            # Send back updated editor payload with correct teams/images for this game
-            # The get_editor_payload uses combo_name which may not be saved yet
-            # So we need to temporarily set the target_game for the active combo
-            # WITHOUT persisting it
-            payload = self.get_editor_payload(target_game_override=game)
-            # Override target_game in payload to match what frontend selected
-            payload["target_game"] = game
-            self._send({"type": "combo_data", **payload})
-            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            update_target_game_stateless(self, target_game)
 
     def new_combo(self):
         with self._lock:
-            self.active_combo_name = None
-            self.active_combo_tokens = []
-            self.runtime_steps = []
-            self.reset_tracking()
-            self._send({"type": "init", **self.init_payload()})
+            combo_commands.new_combo(self)
 
     def clear_history_and_stats(self):
         with self._lock:
-            self.reset_tracking()
-            if self.active_combo_name:
-                self.combo_stats[self.active_combo_name] = {
-                    "success": 0,
-                    "fail": 0,
-                    "best_ms": None,
-                    "total_success_ms": 0,
-                    "fail_by_step": {},
-                    "fail_by_expected": {},
-                    "fail_by_reason": {},
-                    "fail_events": [],
-                }
-                self.save_combos()
-            self._send({"type": "clear_results"})
-            self._send({"type": "stat_update", "stats": self.stats_text()})
-            self._send({"type": "fail_update", "failures": self.failures_by_reason()})
-            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-            st = self.get_status()
-            self._send({"type": "status", "text": st.text, "color": st.color})
+            combo_commands.clear_history_and_stats(self)
 
     def set_active_combo(self, name: str, *, emit: bool = True):
         with self._lock:
@@ -1487,6 +808,34 @@ class ComboTrackerEngine:
         self.hold = step if isinstance(step, HoldState) else None
         self.wait = step if isinstance(step, WaitState) else None
 
+    def _reset_to_start(self) -> None:
+        """Reset index and step state after a combo completion (ready for next attempt)."""
+        self.current_index = 0
+        self._reset_hold_state()
+        self._reset_wait_state()
+        self._reset_group_state()
+
+    def _on_combo_completed(self, total_ms: float) -> None:
+        """Record success, reset to start, and notify UI. Single place for combo completion."""
+        self.record_combo_success(total_ms)
+        self._reset_to_start()
+        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
+        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+    def _reset_after_fail(self) -> None:
+        """Full reset after a combo failure: clear index, time, step state, and notify UI."""
+        self.current_index = 0
+        self.start_time = 0.0
+        self.last_input_time = 0.0
+        for s in self.runtime_steps:
+            s.reset()
+        self._reset_hold_state()
+        self._reset_wait_state()
+        self._reset_group_state()
+        self._reset_attempt_marks()
+        self._update_shortcuts()
+        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
     def _ensure_attempt_started(self, now: float) -> None:
         """On first accepted input of an attempt, start timing and send Recording status."""
         if not self.last_input_time and self.current_index == 0:
@@ -1513,17 +862,7 @@ class ComboTrackerEngine:
             reason=reason,
             elapsed_ms=elapsed_ms,
         )
-        self.current_index = 0
-        self.start_time = 0.0
-        self.last_input_time = 0.0
-        for step in self.runtime_steps:
-            step.reset()
-        self._reset_hold_state()
-        self._reset_wait_state()
-        self._reset_group_state()
-        self._reset_attempt_marks()
-        self._update_shortcuts()
-        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        self._reset_after_fail()
 
     def _check_ender_fail(self, input_name: str, now: float) -> None:
         """If key is a combo ender (and not in grace), drop the combo."""
@@ -1600,11 +939,7 @@ class ComboTrackerEngine:
                 reason="too early",
                 elapsed_ms=elapsed_ms,
             )
-            self.current_index = 0
-            self._reset_hold_state()
-            self._reset_wait_state()
-            self._reset_group_state()
-            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            self._reset_after_fail()
             return False
 
         split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0.0
@@ -1616,13 +951,7 @@ class ComboTrackerEngine:
 
         # If a wait step was (accidentally) the last step, don't get stuck past the end.
         if self.current_index >= len(self.runtime_steps):
-            self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-            self.record_combo_success(total_ms)
-            self.current_index = 0
-            self._reset_hold_state()
-            self._reset_wait_state()
-            self._reset_group_state()
-            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            self._on_combo_completed(total_ms)
         return True
 
     def _maybe_start_wait_step(self):
@@ -1665,16 +994,11 @@ class ComboTrackerEngine:
 
             self.current_index += 1
             if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
-                self._reset_hold_state()
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 return True
             self._maybe_start_wait_step()
 
             if self.current_index >= len(self.runtime_steps):
-                self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-                self.record_combo_success(total_ms)
-                self.current_index = 0
-                self._reset_group_state()
+                self._on_combo_completed(total_ms)
         else:
             self.record_hit(label, "FAIL", "FAIL")
             self._send({"type": "status", "text": "Combo Dropped (Hold Too Short)", "color": "fail"})
@@ -1682,12 +1006,12 @@ class ComboTrackerEngine:
             self.record_combo_fail(
                 actual=f"released @ {held_ms:.0f}ms",
                 expected_step_index=int(self.current_index),
-                expected_label=self._expected_label_for_runtime_step(step),
+                expected_label=self._expected_label_for_step(step),
                 reason="hold too short",
                 elapsed_ms=elapsed_ms,
             )
-            self.current_index = 0
-            self._reset_group_state()
+            self._reset_after_fail()
+            return False
 
         self._reset_hold_state()
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
@@ -1880,17 +1204,14 @@ class ComboTrackerEngine:
             if result.advance:
                 self._advance_step(now)
                 if self.current_index >= len(self.runtime_steps):
-                    self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-                    self.record_combo_success((now - self.start_time) * 1000.0 if self.start_time else 0.0)
-                    self.current_index = 0
-                    self._reset_hold_state()
-                    self._reset_wait_state()
-                    self._reset_group_state()
-                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    self._on_combo_completed((now - self.start_time) * 1000.0 if self.start_time else 0.0)
                     return
                 if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
                     return
-                return self._process_press_unlocked(input_name)
+                # Important: do NOT re-process the same input against the next step.
+                # The input was already consumed by the current step; re-processing can
+                # incorrectly treat it as an "ender during wait" (e.g., `e, wait:0.4`).
+                return
             if isinstance(step, HoldState):
                 self._start_hold(step.expected, step.required_ms, now)
             elif isinstance(step, GroupState):
@@ -1917,13 +1238,7 @@ class ComboTrackerEngine:
         if isinstance(result, CompleteResult):
             self._advance_step(now)
             if self.current_index >= len(self.runtime_steps):
-                self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-                self.record_combo_success((now - self.start_time) * 1000.0 if self.start_time else 0.0)
-                self.current_index = 0
-                self._reset_hold_state()
-                self._reset_wait_state()
-                self._reset_group_state()
-                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                self._on_combo_completed((now - self.start_time) * 1000.0 if self.start_time else 0.0)
                 return
             if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
                 return
@@ -1931,7 +1246,29 @@ class ComboTrackerEngine:
         # During group mandatory wait (animation lock), ignore all keys including enders.
         if isinstance(step, GroupState) and step.wait_active:
             return
-        self._check_ender_fail(input_name, now)
+        # Input didn't match current step (IgnoreResult) — fail with actual reason (e.g. "expected e"), not "Combo Ender".
+        if isinstance(result, IgnoreResult):
+            # If the attempt hasn't started yet (no accepted input), ignore stray keys.
+            # This prevents "dropping" a combo before the player has actually started it.
+            if not self.last_input_time and self.current_index == 0:
+                return
+            # If it's NOT a combo ender, ignore it. Combo enders are the only "wrong" inputs
+            # that should drop an in-progress attempt.
+            if not self._is_combo_ender(input_name):
+                return
+            # Combo ender grace:
+            # If the pressed key is configured as an ender *and* it's the same as the last
+            # successfully accepted input, allow a short re-press window where we ignore it.
+            # Example: combo `q, e, r` with ender `q:2` → `q` then `q` within 2s should NOT drop.
+            if self._should_ignore_ender_miss(input_name):
+                return
+            expected = self._expected_label_for_step(step) or "?"
+            actual = input_name
+            self._mark_step(int(self.current_index), "missed")
+            # Attempt Log rows are driven by "hit" messages; record the ender as a FAIL.
+            self.record_hit(f"{actual} (Exp: {expected}) [wrong key]", "FAIL", "FAIL")
+            self._fail_combo(f"expected {expected}", now, actual=input_name, expected_label=expected)
+            return
         return
 
 
@@ -1965,13 +1302,7 @@ class ComboTrackerEngine:
                     self._advance_step(now)
                     if self.current_index >= len(self.runtime_steps):
                         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
-                        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-                        self.record_combo_success(total_ms)
-                        self.current_index = 0
-                        self._reset_hold_state()
-                        self._reset_wait_state()
-                        self._reset_group_state()
-                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                        self._on_combo_completed(total_ms)
                     elif self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
                         pass
                     else:
@@ -2033,13 +1364,7 @@ class ComboTrackerEngine:
                     self._advance_step(now)
                     if self.current_index >= len(self.runtime_steps):
                         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
-                        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
-                        self.record_combo_success(total_ms)
-                        self.current_index = 0
-                        self._reset_hold_state()
-                        self._reset_wait_state()
-                        self._reset_group_state()
-                        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                        self._on_combo_completed(total_ms)
                     elif self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
                         pass
                     else:

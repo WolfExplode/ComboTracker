@@ -230,3 +230,83 @@ class WutheringWavesGame:
         if self.ww_active_team_id == tid:
             self.ww_active_team_id = None
         return True, None
+
+
+# -------------------------
+# UI command glue (engine-coupled; caller holds engine._lock)
+# -------------------------
+
+
+def set_active_ww_team(engine, team_id: str) -> None:
+    tid = str(team_id or "").strip()
+    if tid and tid in engine.ww_teams:
+        engine.ww.set_active_ww_team(tid)
+        engine.save_combos()
+        engine._send({"type": "combo_data", **engine.get_editor_payload()})
+        engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
+
+
+def save_or_update_ww_team(
+    engine,
+    *,
+    team_id: str | None,
+    team_name: str | None,
+    dash_image: str | None,
+    swap_images: Any | None,
+    lmb_images: Any | None,
+    ability_images: Any | None,
+) -> tuple[bool, str | None]:
+    name = str(team_name or "").strip()
+    if not name:
+        return False, "Please provide a Team name."
+
+    ok, err, _tid = engine.ww.save_or_update_ww_team(
+        team_id=str(team_id or "").strip(),
+        team_name=name,
+        dash_image=dash_image,
+        swap_images=swap_images,
+        lmb_images=lmb_images,
+        ability_images=ability_images,
+    )
+    if not ok:
+        return False, err
+
+    engine.save_combos()
+    engine._send({"type": "init", **engine.init_payload()})
+    return True, None
+
+
+def delete_ww_team(engine, team_id: str) -> tuple[bool, str | None]:
+    ok, err = engine.ww.delete_ww_team(team_id)
+    if not ok:
+        return False, err
+    engine.save_combos()
+    engine._send({"type": "init", **engine.init_payload()})
+    return True, None
+
+
+def select_team_stateless(engine, team_id: str, target_game: str) -> None:
+    """Stateless team selection - doesn't persist, just updates UI."""
+    tid = str(team_id or "").strip()
+    game = str(target_game or "generic").strip().lower()
+
+    if game == "wuthering_waves" and tid and tid in engine.ww.ww_teams:
+        engine.ww.set_active_ww_team(tid)
+        engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
+        engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
+    elif game == "wuthering_waves" and not tid:
+        engine.ww.set_active_ww_team("")
+        engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
+        engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
+
+
+def update_target_game_stateless(engine, target_game: str) -> None:
+    """Stateless target game update - doesn't persist, just updates UI."""
+    game = str(target_game or "generic").strip().lower()
+    if game not in ("generic", "wuthering_waves"):
+        game = "generic"
+
+    payload = engine.get_editor_payload(target_game_override=game)
+    payload["target_game"] = game
+    engine._send({"type": "combo_data", **payload})
+    engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})

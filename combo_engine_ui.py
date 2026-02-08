@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import combo_analytics
 from states import (
-    GroupItemTracker,
     GroupState,
     HoldState,
     PressState,
@@ -20,41 +20,17 @@ class Status:
 
 
 def stats_text(engine) -> str:
-    name = engine.active_combo_name
+    name = getattr(engine, "active_combo_name", None)
     if not name:
         return "Stats: —"
-    engine._ensure_combo_stats(name)
-    s = int(engine.combo_stats[name].get("success", 0))
-    f = int(engine.combo_stats[name].get("fail", 0))
+    summary = combo_analytics.combo_stats_summary(engine)
+    s = summary["success"]
+    f = summary["fail"]
     pct = engine._format_percent(s, f)
-
-    best = engine.combo_stats[name].get("best_ms", None)
-    avg = engine._combo_avg_ms(name)
-
-    # Hardest steps (top 2)
-    hardest = ""
-    by_step = engine.combo_stats[name].get("fail_by_step", {})
-    if isinstance(by_step, dict) and by_step:
-        pairs: list[tuple[int, int]] = []
-        for k, v in by_step.items():
-            try:
-                idx = int(k)
-                cnt = int(v)
-            except Exception:
-                continue
-            if cnt <= 0:
-                continue
-            pairs.append((cnt, idx))
-        pairs.sort(reverse=True)
-        parts: list[str] = []
-        for cnt, idx in pairs[:2]:
-            label = "—"
-            if 0 <= idx < len(engine.runtime_steps):
-                label = engine._expected_label_for_step(engine.runtime_steps[idx])
-            parts.append(f"#{idx+1}:{label} ({cnt})")
-        if parts:
-            hardest = " | Hardest: " + ", ".join(parts)
-
+    best = summary["best_ms"]
+    avg = summary["avg_ms"]
+    parts = [f"#{idx+1}:{label} ({cnt})" for idx, label, cnt in summary["hardest"]]
+    hardest = " | Hardest: " + ", ".join(parts) if parts else ""
     return (
         f"Stats: {s} success / {f} fail ({pct})"
         f" | Best: {engine._format_ms_brief(best)} | Avg: {engine._format_ms_brief(avg)}"
@@ -63,61 +39,24 @@ def stats_text(engine) -> str:
 
 
 def failures_by_reason(engine) -> dict[str, int]:
-    name = engine.active_combo_name
-    if not name:
-        return {}
-    engine._ensure_combo_stats(name)
-    by_reason = engine.combo_stats[name].get("fail_by_reason", {})
-    if not isinstance(by_reason, dict):
-        return {}
-    out: dict[str, int] = {}
-    for k, v in by_reason.items():
-        reason = str(k).strip() or "unknown"
-        try:
-            cnt = int(v)
-        except Exception:
-            cnt = 0
-        if cnt > 0:
-            out[reason] = cnt
-    return out
+    return combo_analytics.failures_by_reason(engine)
 
 
 def min_time_text(engine) -> str:
-    if not engine.runtime_steps:
+    if not getattr(engine, "runtime_steps", None):
         return "Fastest possible: —"
-    min_ms = engine.calc_min_combo_time_ms(engine.runtime_steps)
+    min_ms = combo_analytics.min_combo_time_ms(engine)
     return f"Fastest possible: {engine._format_ms(min_ms)}"
 
 
 def practical_apm(engine) -> float | None:
-    """
-    Practical APM uses user-entered expected execution time (ms) for the active combo.
-    """
-    name = engine.active_combo_name
-    if not name or not engine.runtime_steps:
-        return None
-    expected_ms = engine.combo_expected_ms.get(name)
-    if expected_ms is None or expected_ms <= 0:
-        return None
-    press_count, _hold_count, _actions = engine._count_combo_actions(engine.runtime_steps)
-    if press_count <= 0:
-        return None
-    return (60000.0 / float(expected_ms)) * float(press_count)
+    """Practical APM uses user-entered expected execution time (ms) for the active combo."""
+    return combo_analytics.practical_apm(engine)
 
 
 def theoretical_max_apm(engine) -> float | None:
-    """
-    Theoretical max APM uses the fastest-possible combo time (sum of waits + holds).
-    """
-    if not engine.active_combo_name or not engine.runtime_steps:
-        return None
-    min_ms = engine.calc_min_combo_time_ms(engine.runtime_steps)
-    if min_ms <= 0:
-        return None
-    press_count, _hold_count, _actions = engine._count_combo_actions(engine.runtime_steps)
-    if press_count <= 0:
-        return None
-    return (60000.0 / float(min_ms)) * float(press_count)
+    """Theoretical max APM uses the fastest-possible combo time (sum of waits + holds)."""
+    return combo_analytics.theoretical_max_apm(engine)
 
 
 def apm_text(engine) -> str:
@@ -135,57 +74,8 @@ def apm_max_text(engine) -> str:
 
 
 def difficulty_score_10(engine) -> float | None:
-    """
-    Returns a 0..10 score (float) or None if there's no active combo.
-    """
-    if not engine.runtime_steps or not engine.active_combo_name:
-        return None
-
-    # --- Keys camp (Practical APM + combo length) ---
-    apm = practical_apm(engine) or 0.0
-    _press_count, _hold_count, actions = engine._count_combo_actions(engine.runtime_steps)
-
-    # --- Normalization / scaling constants ---
-    apm_norm = engine._clamp01(apm / 200.0)
-    actions_norm = engine._clamp01(float(actions) / 8.0)
-
-    keys = (0.6 * apm_norm) + (0.4 * actions_norm)
-
-    # --- Timing camp (wait + hold + simple variation points) ---
-    wait_scores: list[float] = []
-    hold_scores: list[float] = []
-    for s in engine.runtime_steps:
-        if not isinstance(s, dict):
-            continue
-        if s.get("wait_ms") is not None:
-            try:
-                wait_scores.append(engine._wait_triangle_score(int(s.get("wait_ms") or 0)))
-            except Exception:
-                continue
-        elif s.get("hold_ms") is not None:
-            try:
-                hold_scores.append(engine._hold_score(int(s.get("hold_ms") or 0)))
-            except Exception:
-                continue
-
-    has_wait = 1.0 if wait_scores else 0.0
-    has_hold = 1.0 if hold_scores else 0.0
-    wait_avg = (sum(wait_scores) / len(wait_scores)) if wait_scores else 0.0
-    hold_avg = (sum(hold_scores) / len(hold_scores)) if hold_scores else 0.0
-
-    wait_w = 1.0
-    hold_w = 1.5
-    denom = (wait_w * has_wait) + (hold_w * has_hold)
-    timing_base = 0.0 if denom <= 0 else ((wait_avg * wait_w * has_wait) + (hold_avg * hold_w * has_hold)) / denom
-
-    var_points = engine._timing_variation_points()
-    K = 1.0
-    var_norm = engine._clamp01(1.0 - (2.718281828 ** (-float(var_points) / K)))
-
-    timing = (0.3 * engine._clamp01(timing_base)) + (0.7 * var_norm)
-
-    combined = (0.45 * keys) + (0.55 * timing)
-    return round(10.0 * engine._clamp01(combined), 1)
+    """Returns a 0..10 score (float) or None if there's no active combo."""
+    return combo_analytics.difficulty_score_10(engine)
 
 
 def difficulty_text(engine) -> str:
@@ -196,19 +86,7 @@ def difficulty_text(engine) -> str:
 
 
 def user_difficulty_value(engine) -> float | None:
-    name = engine.active_combo_name
-    if not name:
-        return None
-    d = engine.combo_user_difficulty.get(name)
-    if d is None:
-        return None
-    try:
-        d_f = float(d)
-    except Exception:
-        return None
-    if 0.0 <= d_f <= 10.0:
-        return d_f
-    return None
+    return combo_analytics.user_difficulty_value(engine)
 
 
 def user_difficulty_text(engine) -> str:

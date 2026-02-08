@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from typing import Literal, Protocol, Union
 
 from parser import (
-    GroupItemNode,
     GroupNode,
     HoldNode,
     PressNode,
