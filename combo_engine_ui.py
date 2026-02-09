@@ -108,7 +108,9 @@ def get_editor_payload(engine, target_game_override: str | None = None) -> dict[
         for k in sorted(engine.combo_enders.keys()):
             ms = int(engine.combo_enders[k])
             if ms > 0:
-                parts.append(f"{k}:{ms/1000.0:.3g}")
+                sec = ms / 1000.0
+                # Format with explicit "s" for seconds (e.g. 2s, 0.2s, 3s)
+                parts.append(f"{k}:{sec:g}s")
             else:
                 parts.append(k)
         enders = ", ".join(parts)

@@ -111,31 +111,31 @@ Durations accept:
 ---
 
 ## Combo enders
+combo enders are inputs that will end the combo when pressed but only if that ability is off cooldown. 
 
-“Combo enders” are keys/buttons that, if pressed at the wrong time, should drop the combo (instead of being ignored).
+**Notation:** `key:cooldown` e.g. `q:1.05s`. Use explicit seconds with an `s` suffix.'
 
-In the UI, enter them like:
-- `q:0.2, e:0.2, lmb, 1, 2, 3`
+the cooldown associated with the combo ender key is meant to mimic in game ability cooldowns. When you press a button, that ability goes on cooldown and pressing it again will not cast that ability. Therefore that input will not end your combo if the ability is still on cooldown.
 
-Where `key:seconds` is a small grace window (parsed as seconds → stored internally as milliseconds; see `combo_commands.apply_enders_from_text`).
+In the UI:
+- `1:3s, 2:3s, 3:3s, e:2s, q:2s, r:2s, space:2s` (cooldown in seconds)
+- Keys without a number have no cooldown: `lmb, rmb`
 
-### Grace window rule (how the timing works)
-The grace window only applies to **re-pressing the same ender key** that was the **last successfully accepted input**:
-- Engine tracks `last_success_input` and `last_input_time` (time of the last accepted step).
-- If you press an ender key `k` and:
-  - `k == last_success_input`, and
-  - \( (now - last_input_time) \le grace\_ms \)
-  then that press is **ignored** (it will not drop the combo).
+### Cooldown rule (how it works)
+- When you press a key that is **the correct next key in the combo** and that key is a combo ender, the engine **starts that key’s cooldown timer**.
+- Each ender key has its own cooldown (e.g. pressing `e` correctly starts `e`’s cooldown; pressing `q` later starts `q`’s cooldown).
+- If you press a combo ender key while **that key is still on cooldown**, the press is **ignored** (the combo does not drop). This applies **everywhere**: during waits, during holds, or when the current step expects a different key.
+- If you press a combo ender key when **that key is off cooldown**, the combo drops (unless the attempt hasn’t started yet).
 
 Example:
-- Combo: `q, e, r,`
-- Enders: `q:2, e:2, r:2, 1:2, 2:2, 3:2, space:2`
-- After you successfully press `q`, pressing `q` again within 2 seconds is ignored (doesn’t end/drop the combo).
+- Combo: `f, e, q, lmb`
+- Enders: `e:3s, q:3s`
+- You press `f, e, q, e` quickly. The second `e` is wrong (expected `lmb`), but `e` is still on cooldown from when you correctly pressed `e` earlier → the combo does **not** drop.
+- Same combo; you press `f, e, q`, wait until `e`’s cooldown has expired, then press `e` → the combo **drops** (ender `e` off cooldown).
 
-### When enders actually drop a combo
-- **Before the attempt starts** (no accepted input yet): stray keys are ignored; the combo does not “drop”.
-- **During an active attempt**: if the current step rejects an input and it’s *not* covered by the grace rule above, the combo drops (status typically shows `expected <key>`).
-- **During `wait:` steps (soft/hard)**: pressing an ender drops the combo unless it’s covered by the grace rule above.
+### When enders drop the combo
+- **Before the attempt starts**: stray keys are ignored.
+- **During the attempt**: pressing an ender key drops the combo only if that key is **off cooldown**.
 
 Data is stored in `ComboTracker/combos.json`.
 

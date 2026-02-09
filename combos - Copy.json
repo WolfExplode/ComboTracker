@@ -1,6 +1,7 @@
 {
   "version": 1,
   "last_active_combo": "Agusta, Iuno, Shorekeeper Double intro",
+  "no_fail_mode": false,
   "combos": {
     "Zani 1": [
       "f",
@@ -138,16 +139,22 @@
     ],
     "Aemeath": [
       "f",
-      "wait:0.15s",
-      "e",
-      "wait:0.15s",
-      "2",
-      "e",
-      "wait:0.20s",
       "3",
-      "[q, e, wait(r, 2.9s), {lmb, wait:0.40s, lmb, wait:0.30s, lmb, wait:0.30s, rmb, wait:0.30s, lmb, wait:0.30s, lmb, wait:0.30s, rmb}]",
-      "2",
-      "[e, q]"
+      "lmb",
+      "wait:0.35s",
+      "lmb",
+      "wait:0.30s",
+      "lmb",
+      "wait:0.20s",
+      "rmb",
+      "wait:0.15s",
+      "lmb",
+      "wait:0.2s",
+      "hold(lmb, 0.2s)",
+      "1",
+      "hold(lmb, 0.60s)",
+      "lmb",
+      "wait:0.3s"
     ],
     "Agusta, Iuno, Shorekeeper Double intro": [
       "f",
@@ -160,31 +167,33 @@
       "3",
       "[q, e, wait(r, 2.9s)]",
       "2",
-      "[e, q]",
+      "[e, wait:0.05s, q]",
       "3",
       "lmb",
-      "wait:0.40s",
-      "lmb",
       "wait:0.30s",
       "lmb",
       "wait:0.30s",
+      "lmb",
+      "wait:0.20s",
       "rmb",
-      "wait:0.30s",
+      "wait:0.1s",
       "lmb",
-      "wait:0.30s",
-      "lmb",
-      "wait:0.30s",
+      "wait:0.15s",
+      "hold(lmb, 0.1s)",
       "1",
-      "hold(lmb, 0.60s)",
+      "hold(lmb, 0.30s)",
       "lmb",
       "wait:0.3s",
       "2",
       "space",
       "wait:0.15s",
       "3",
-      "hold(lmb, 0.3s)",
-      "wait(1, 1.17s)",
-      "hold(lmb, 0.60s)",
+      "lmb",
+      "wait:0.3s",
+      "lmb",
+      "wait:0.1s",
+      "wait(1, 1s)",
+      "hold(lmb, 0.30s)",
       "lmb",
       "wait:0.3s",
       "2",
@@ -197,8 +206,8 @@
       "lmb",
       "wait:0.30s",
       "hold(lmb, 0.20s)",
-      "wait(1, 1.17s)",
-      "hold(lmb, 0.60s)",
+      "wait(1, 1s)",
+      "hold(lmb, 0.30s)",
       "lmb",
       "wait:0.3s",
       "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, r, wait:2.1s]",
@@ -207,9 +216,9 @@
     ]
   },
   "combo_enders": {
-    "1": 2000,
-    "2": 2000,
-    "3": 2000,
+    "1": 3000,
+    "2": 3000,
+    "3": 3000,
     "e": 2000,
     "q": 2000,
     "r": 2000,
@@ -257,417 +266,24 @@
       "fail_events": []
     },
     "Aemeath": {
-      "success": 7,
-      "fail": 22,
-      "best_ms": 3646,
-      "total_success_ms": 47670,
-      "fail_by_step": {
-        "1": 11,
-        "2": 6,
-        "3": 1,
-        "6": 1,
-        "5": 2,
-        "7": 1
-      },
-      "fail_by_expected": {
-        "any-order(q|lmb)": 4,
-        "2": 3,
-        "wait(\u2265150ms)": 2,
-        "e": 2,
-        "1": 3,
-        "3": 1,
-        "hold(lmb,\u2265600ms)": 1,
-        "lmb": 3,
-        "wait(\u22651000ms)": 2,
-        "hold(lmb,\u2265300ms)": 1
-      },
-      "fail_by_reason": {
-        "expected any-order(q|lmb)": 4,
-        "expected 2": 3,
-        "too early": 4,
-        "expected e": 2,
-        "expected 1": 3,
-        "expected 3": 1,
-        "hold too short (80ms < 600ms)": 1,
-        "expected lmb": 3,
-        "hold too short (176ms < 300ms)": 1
-      },
-      "fail_events": [
-        {
-          "ts": 1770525343,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "r",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 604
-        },
-        {
-          "ts": 1770525453,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "2",
-          "actual": "r",
-          "reason": "expected 2",
-          "elapsed_ms": 55106
-        },
-        {
-          "ts": 1770525475,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "space",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 40
-        },
-        {
-          "ts": 1770525552,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770525576,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "e (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 136
-        },
-        {
-          "ts": 1770525585,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1854
-        },
-        {
-          "ts": 1770525586,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 170
-        },
-        {
-          "ts": 1770525728,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "r",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 702
-        },
-        {
-          "ts": 1770525730,
-          "attempt": 3,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "r",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 188
-        },
-        {
-          "ts": 1770526814,
-          "attempt": 1,
-          "step_index": 3,
-          "expected": "1",
-          "actual": "r",
-          "reason": "expected 1",
-          "elapsed_ms": 1024
-        },
-        {
-          "ts": 1770526841,
-          "attempt": 1,
-          "step_index": 6,
-          "expected": "3",
-          "actual": "space",
-          "reason": "expected 3",
-          "elapsed_ms": 11310
-        },
-        {
-          "ts": 1770526846,
-          "attempt": 1,
-          "step_index": 5,
-          "expected": "1",
-          "actual": "2",
-          "reason": "expected 1",
-          "elapsed_ms": 3514
-        },
-        {
-          "ts": 1770526918,
-          "attempt": 1,
-          "step_index": 7,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (80ms < 600ms)",
-          "elapsed_ms": 17866
-        },
-        {
-          "ts": 1770526942,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 374
-        },
-        {
-          "ts": 1770527412,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 224
-        },
-        {
-          "ts": 1770527413,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 78
-        },
-        {
-          "ts": 1770527738,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "wait(\u22651000ms)",
-          "actual": "2 (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 938
-        },
-        {
-          "ts": 1770527742,
-          "attempt": 2,
-          "step_index": 5,
-          "expected": "1",
-          "actual": "q",
-          "reason": "expected 1",
-          "elapsed_ms": 3194
-        },
-        {
-          "ts": 1770527744,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "wait(\u22651000ms)",
-          "actual": "2 (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 1084
-        },
-        {
-          "ts": 1770527907,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "2",
-          "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 416
-        },
-        {
-          "ts": 1770528067,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265300ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (176ms < 300ms)",
-          "elapsed_ms": 906
-        },
-        {
-          "ts": 1770528103,
-          "attempt": 5,
-          "step_index": 1,
-          "expected": "2",
-          "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 628
-        }
-      ]
+      "success": 0,
+      "fail": 0,
+      "best_ms": null,
+      "total_success_ms": 0,
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
-      "success": 1,
-      "fail": 15,
-      "best_ms": 36482,
-      "total_success_ms": 36482,
-      "fail_by_step": {
-        "8": 3,
-        "5": 1,
-        "32": 3,
-        "19": 1,
-        "13": 1,
-        "9": 1,
-        "2": 4,
-        "51": 1
-      },
-      "fail_by_expected": {
-        "any-order(q|e|r|lmb)": 2,
-        "e": 5,
-        "hold(r,\u2265200ms)": 1,
-        "3": 1,
-        "lmb": 1,
-        "2": 1,
-        "any-order(q|e|r)": 1,
-        "hold(lmb,\u2265300ms)": 2,
-        "hold(lmb,\u2265600ms)": 1
-      },
-      "fail_by_reason": {
-        "expected any-order(q|e|r|lmb)": 2,
-        "expected e": 5,
-        "hold too short (70ms < 200ms)": 1,
-        "expected 3": 1,
-        "expected lmb": 1,
-        "expected 2": 1,
-        "expected any-order(q|e|r)": 1,
-        "hold too short (135ms < 300ms)": 1,
-        "hold too short (284ms < 600ms)": 1,
-        "hold too short (94ms < 300ms)": 1
-      },
-      "fail_events": [
-        {
-          "ts": 1770526731,
-          "attempt": 1,
-          "step_index": 8,
-          "expected": "any-order(q|e|r|lmb)",
-          "actual": "q",
-          "reason": "expected any-order(q|e|r|lmb)",
-          "elapsed_ms": 2634
-        },
-        {
-          "ts": 1770527803,
-          "attempt": 1,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "3",
-          "reason": "expected e",
-          "elapsed_ms": 3082
-        },
-        {
-          "ts": 1770527838,
-          "attempt": 2,
-          "step_index": 32,
-          "expected": "hold(r,\u2265200ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (70ms < 200ms)",
-          "elapsed_ms": 34851
-        },
-        {
-          "ts": 1770528290,
-          "attempt": 1,
-          "step_index": 8,
-          "expected": "any-order(q|e|r|lmb)",
-          "actual": "2",
-          "reason": "expected any-order(q|e|r|lmb)",
-          "elapsed_ms": 36533
-        },
-        {
-          "ts": 1770528371,
-          "attempt": 2,
-          "step_index": 19,
-          "expected": "3",
-          "actual": "1",
-          "reason": "expected 3",
-          "elapsed_ms": 33927
-        },
-        {
-          "ts": 1770528787,
-          "attempt": 1,
-          "step_index": 13,
-          "expected": "lmb",
-          "actual": "3",
-          "reason": "expected lmb",
-          "elapsed_ms": 15482
-        },
-        {
-          "ts": 1770529197,
-          "attempt": 1,
-          "step_index": 9,
-          "expected": "2",
-          "actual": "1",
-          "reason": "expected 2",
-          "elapsed_ms": 8630
-        },
-        {
-          "ts": 1770529227,
-          "attempt": 2,
-          "step_index": 8,
-          "expected": "any-order(q|e|r)",
-          "actual": "2",
-          "reason": "expected any-order(q|e|r)",
-          "elapsed_ms": 13818
-        },
-        {
-          "ts": 1770530027,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 162
-        },
-        {
-          "ts": 1770530032,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 192
-        },
-        {
-          "ts": 1770530114,
-          "attempt": 3,
-          "step_index": 32,
-          "expected": "hold(lmb,\u2265300ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (135ms < 300ms)",
-          "elapsed_ms": 19153
-        },
-        {
-          "ts": 1770530166,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 182
-        },
-        {
-          "ts": 1770530354,
-          "attempt": 5,
-          "step_index": 51,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (284ms < 600ms)",
-          "elapsed_ms": 35201
-        },
-        {
-          "ts": 1770530431,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1077
-        },
-        {
-          "ts": 1770530532,
-          "attempt": 7,
-          "step_index": 32,
-          "expected": "hold(lmb,\u2265300ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (94ms < 300ms)",
-          "elapsed_ms": 21171
-        }
-      ]
+      "success": 0,
+      "fail": 0,
+      "best_ms": null,
+      "total_success_ms": 0,
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     }
   },
   "combo_expected_ms": {
@@ -686,7 +302,7 @@
     "Zani 2": "images",
     "Zani 1": "images",
     "Zani Pheobe Rover Rotation": "images",
-    "Aemeath": "icons",
+    "Aemeath": "images",
     "Agusta, Iuno, Shorekeeper Double intro": "images"
   },
   "combo_key_images": {},

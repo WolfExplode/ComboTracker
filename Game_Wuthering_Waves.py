@@ -32,6 +32,14 @@ class WutheringWavesGame:
     # Per-combo assigned team (when target_game = wuthering_waves)
     combo_ww_team: dict[str, str] = field(default_factory=dict)
 
+    # Active character slot during an attempt ("1", "2", or "3").
+    # In WW, pressing the current slot (e.g. 3 when on character 3) should not end the combo
+    # until you switch off that character. Reset on new attempt / fail.
+    ww_active_character: str | None = None
+
+    # Character slot keys (for WW and future games with swap slots)
+    WW_CHARACTER_SLOTS = ("1", "2", "3")
+
     def get_target_game(self, combo_name: str) -> str:
         name = (combo_name or "").strip()
         g = str(self.combo_target_game.get(name, "generic") or "generic").strip().lower()

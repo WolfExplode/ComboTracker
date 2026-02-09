@@ -41,7 +41,7 @@ class ComboTrackerEngine:
     """
     Headless combo tracker:
     - Owns combos + stats persistence
-    - Owns state machine (press/hold/wait + ender-grace)
+    - Owns state machine (press/hold/wait + ender cooldown)
     - Emits UI events via a callback (WebSocket, etc.)
     """
 
@@ -89,9 +89,13 @@ class ComboTrackerEngine:
         # Generalized hold buffer: after any advance, if the next step is a hold and that key
         # is already in currently_pressed, we start the hold immediately (no separate buffer state).
 
-        # Combo enders: key -> grace_ms (0 means no grace; wrong press drops immediately)
+        # Combo enders: key -> cooldown_ms (0 = no cooldown; wrong press drops immediately)
         self.combo_enders: dict[str, int] = {}
         self.last_success_input: str | None = None
+        # Per-ender cooldown: key -> time.perf_counter() when that key's cooldown ends.
+        # When the user correctly presses an ender key, we set cooldown for that key so
+        # re-pressing it during a wait/hold doesn't drop the combo until cooldown expires.
+        self._ender_cooldown_until: dict[str, float] = {}
 
         # UI helper: after a successful completion we reset current_index back to 0 (ready for next attempt),
         # but we still want the timeline to stay fully "completed" (green) until the next attempt begins.
@@ -165,6 +169,10 @@ class ComboTrackerEngine:
     @combo_ww_team.setter
     def combo_ww_team(self, value: dict[str, str]):
         self.ww.combo_ww_team = value
+
+    @property
+    def ww_active_character(self) -> str | None:
+        return self.ww.ww_active_character
 
     # -------------------------
     # Emission helpers
@@ -615,23 +623,29 @@ class ComboTrackerEngine:
     def _is_combo_ender(self, input_name: str) -> bool:
         return input_name in self.combo_enders
 
-    def _ender_grace_for(self, input_name: str) -> int:
+    def _ender_cooldown_ms(self, input_name: str) -> int:
+        """Cooldown duration in ms for this ender key (0 = no cooldown)."""
         try:
             return int(self.combo_enders.get(input_name, 0))
         except Exception:
             return 0
 
-    def _within_ender_grace(self, input_name: str) -> bool:
-        grace_ms = self._ender_grace_for(input_name)
-        if not grace_ms or grace_ms <= 0:
-            return False
-        if not self.last_input_time:
+    def _start_ender_cooldown(self, input_name: str, now: float) -> None:
+        """When the user correctly presses an ender key, start that key's cooldown."""
+        if not (input_name or "").strip() or not self._is_combo_ender(input_name):
+            return
+        ms = self._ender_cooldown_ms(input_name)
+        if ms <= 0:
+            return
+        self._ender_cooldown_until[(input_name or "").strip().lower()] = now + (ms / 1000.0)
+
+    def _ender_on_cooldown(self, input_name: str) -> bool:
+        """True if this ender key was recently used correctly and is still on cooldown (ignore press)."""
+        if not (input_name or "").strip() or not self._is_combo_ender(input_name):
             return False
         now = time.perf_counter()
-        return ((now - self.last_input_time) * 1000) <= float(grace_ms)
-
-    def _should_ignore_ender_miss(self, input_name: str) -> bool:
-        return (input_name == self.last_success_input) and self._within_ender_grace(input_name)
+        until = self._ender_cooldown_until.get((input_name or "").strip().lower(), 0.0)
+        return now <= until
 
     # -------------------------
     # Commands from UI
@@ -786,6 +800,8 @@ class ComboTrackerEngine:
         self.last_input_time = 0.0
         self.attempt_counter = 0
         self.last_success_input = None
+        self._ender_cooldown_until.clear()
+        self.ww.ww_active_character = None
         self._ui_last_success_combo = None
         self._ui_last_success_steps_len = 0
         self._reset_attempt_marks()
@@ -874,6 +890,8 @@ class ComboTrackerEngine:
             self.currently_pressed.clear()
         except Exception:
             pass
+        self._ender_cooldown_until.clear()
+        self.ww.ww_active_character = None
         self._reset_hold_state()
         self._reset_wait_state()
         self._reset_group_state()
@@ -897,6 +915,8 @@ class ComboTrackerEngine:
         self.current_index = 0
         self.start_time = 0.0
         self.last_input_time = 0.0
+        self._ender_cooldown_until.clear()
+        self.ww.ww_active_character = None
         self.ui_adapter.reset()
         for s in self.runtime_steps:
             s.reset()
@@ -1026,23 +1046,38 @@ class ComboTrackerEngine:
         )
         self._reset_after_fail()
 
+    def _ww_set_active_character_if_swap(self, input_name: str) -> None:
+        """When the correct key is 1/2/3 and game is WW, track active character for ender logic."""
+        if self.ww.get_target_game(self.active_combo_name or "") != "wuthering_waves":
+            return
+        key = (input_name or "").strip().lower()
+        if key in getattr(self.ww, "WW_CHARACTER_SLOTS", ("1", "2", "3")):
+            self.ww.ww_active_character = key
+
     def _only_ender_can_drop(self, input_name: str) -> bool:
         """
         True iff this key is allowed to end the combo.
-        Single gate for the rule: only combo enders can end combos.
+        Single gate: only combo enders can end combos, and only when that key is off cooldown.
+        WW: pressing the current character slot (1/2/3) never ends the combo until you switch off.
         """
         if not (input_name or "").strip():
             return False
         if not self._is_combo_ender(input_name):
             return False
-        if self._should_ignore_ender_miss(input_name):
+        if self._ender_on_cooldown(input_name):
             return False
         if not self.last_input_time and self.current_index == 0:
             return False
+        # Wuthering Waves: pressing the active character slot (1, 2, or 3) does not end the combo
+        if self.ww.get_target_game(self.active_combo_name or "") == "wuthering_waves":
+            key = (input_name or "").strip().lower()
+            if key in getattr(self.ww, "WW_CHARACTER_SLOTS", ("1", "2", "3")):
+                if self.ww.ww_active_character and key == self.ww.ww_active_character:
+                    return False
         return True
 
     def _check_ender_fail(self, input_name: str, now: float) -> None:
-        """If key is a combo ender (and not in grace), drop the combo."""
+        """If key is a combo ender (and not on cooldown), drop the combo."""
         if not self._only_ender_can_drop(input_name):
             return
         self._mark_step(int(self.current_index), "missed")
@@ -1172,6 +1207,8 @@ class ComboTrackerEngine:
             self.record_hit(label, split_ms, total_ms)
             self.last_input_time = now
             self.last_success_input = target_input
+            self._start_ender_cooldown(target_input, now)
+            self._ww_set_active_character_if_swap(target_input)
             # Ensure the HoldState is no longer considered active.
             try:
                 step.in_progress = False
@@ -1446,6 +1483,8 @@ class ComboTrackerEngine:
                 self.record_hit(input_name, split_ms, total_ms)
             self.last_input_time = now
             self.last_success_input = input_name
+            self._start_ender_cooldown(input_name, now)
+            self._ww_set_active_character_if_swap(input_name)
             # If this press started a nested wait (e.g. press_wait inside a group/sequence),
             # kick off the client-side wait animation immediately.
             self._sync_wait_animation_ui(now)

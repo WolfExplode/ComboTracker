@@ -23,12 +23,18 @@ def apply_enders_from_text(engine, raw: str) -> tuple[bool, str | None]:
         if ":" in t:
             k, v = t.split(":", 1)
             key = k.strip().lower()
+            val = (v or "").strip().lower()
             if not key:
                 continue
+            # Require explicit "s" suffix for seconds: key:2s, key:0.2s
+            if val.endswith("s"):
+                val = val[:-1].strip()
+            else:
+                return False, f"Ender cooldown must be in seconds with 's' suffix, e.g. {key}:2s or {key}:0.2s"
             try:
-                sec = float(v.strip())
+                sec = float(val)
             except ValueError:
-                return False, f"Invalid timing for '{key}'. Use seconds, e.g. {key}:0.2"
+                return False, f"Invalid timing for '{key}'. Use seconds with 's', e.g. {key}:2s"
             parsed[key] = max(0, int(sec * 1000))
         else:
             key = t.strip().lower()

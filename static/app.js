@@ -209,7 +209,7 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
 
         const charTitle = document.createElement('div');
         charTitle.className = 'ww-ability-key';
-        charTitle.textContent = `Char ${c}`;
+        charTitle.textContent = `Character ${c}`;
 
         charBox.appendChild(charTitle);
 
