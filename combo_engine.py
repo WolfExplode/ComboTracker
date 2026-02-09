@@ -86,11 +86,8 @@ class ComboTrackerEngine:
         # So we only send wait_begin once per group mandatory wait (UI animates progress).
         self.ui_adapter = UIAdapter()
 
-        # Input buffering for mandatory waits (animation locks).
-        # While a mandatory wait is active (possibly nested), we remember keys pressed/held.
-        # When the wait ends, we can immediately apply buffered holds (game-like behavior).
-        self._mandatory_wait_buffer_for_id: int | None = None
-        self._mandatory_wait_buffered: set[str] = set()
+        # Generalized hold buffer: after any advance, if the next step is a hold and that key
+        # is already in currently_pressed, we start the hold immediately (no separate buffer state).
 
         # Combo enders: key -> grace_ms (0 means no grace; wrong press drops immediately)
         self.combo_enders: dict[str, int] = {}
@@ -307,6 +304,57 @@ class ComboTrackerEngine:
             opts = [o for o in opts if o]
             return f"any-order({'|'.join(opts)})" if opts else "any-order(—)"
         return "—"
+
+    def _start_keys_for_step(self, step: Any) -> set[str]:
+        """
+        Return the set of input keys that can *start* the given step.
+
+        Used for forgiving holds: only treat a key as an "attempt to move on" if it matches the
+        next expected action, not random keys like movement.
+        """
+        out: set[str] = set()
+        try:
+            if step is None:
+                return out
+            if isinstance(step, PressState):
+                k = str(step.expected or "").strip().lower()
+                if k:
+                    out.add(k)
+                return out
+            if isinstance(step, HoldState):
+                k = str(step.expected or "").strip().lower()
+                if k:
+                    out.add(k)
+                return out
+            if isinstance(step, WaitState):
+                return out
+            if isinstance(step, SequenceState):
+                if getattr(step, "steps", None):
+                    return self._start_keys_for_step(step.steps[0])
+                return out
+            if isinstance(step, GroupState):
+                for item in getattr(step, "items", []) or []:
+                    try:
+                        if item.kind == "press" and isinstance(item.state, PressState):
+                            k = str(item.state.expected or "").strip().lower()
+                            if k:
+                                out.add(k)
+                        elif item.kind == "hold" and isinstance(item.state, HoldState):
+                            k = str(item.state.expected or "").strip().lower()
+                            if k:
+                                out.add(k)
+                        elif item.kind == "anim_wait" and isinstance(item.state, WaitState):
+                            k = str(item.state.wait_for or "").strip().lower()
+                            if k:
+                                out.add(k)
+                        elif item.kind in ("press_wait", "sequence") and isinstance(item.state, SequenceState):
+                            out |= self._start_keys_for_step(item.state)
+                    except Exception:
+                        continue
+                return out
+        except Exception:
+            return out
+        return out
 
     def _step_accepts_input(self, step: Any, input_name: str) -> bool:
         """True if this step could accept input_name (for find next/prev)."""
@@ -830,8 +878,6 @@ class ComboTrackerEngine:
         self._reset_wait_state()
         self._reset_group_state()
         self.ui_adapter.reset()
-        self._mandatory_wait_buffer_for_id = None
-        self._mandatory_wait_buffered = set()
 
     def _on_combo_completed(self, total_ms: float) -> None:
         """Record success, reset to start, and notify UI. Single place for combo completion."""
@@ -860,8 +906,6 @@ class ComboTrackerEngine:
         self._reset_attempt_marks()
         self._update_shortcuts()
         self._send({"type": "timeline_update", "steps": steps_snapshot})
-        self._mandatory_wait_buffer_for_id = None
-        self._mandatory_wait_buffered = set()
 
     def _active_nested_mandatory_wait(self) -> WaitState | None:
         """
@@ -876,54 +920,48 @@ class ComboTrackerEngine:
             return None
         return None
 
-    def _buffer_press_during_mandatory_wait(self, input_name: str, ws: WaitState) -> None:
+    def _get_expected_hold_key(self) -> str | None:
         """
-        Record that input_name was pressed while mandatory wait ws was in progress.
-        We only buffer *current* wait instance (tracked by id(ws)).
+        If the current step is (or starts with) a hold, return that hold's expected key.
+        Used by generalized hold buffer: after any advance, we can start a hold immediately
+        if that key is already in currently_pressed.
         """
         try:
-            wid = id(ws)
-            if self._mandatory_wait_buffer_for_id != wid:
-                self._mandatory_wait_buffer_for_id = wid
-                self._mandatory_wait_buffered = set()
-            inp = (input_name or "").strip().lower()
-            if not inp:
-                return
-            # Don't bother buffering the wait_for key itself.
-            if (ws.wait_for or "").strip().lower() == inp:
-                return
-            self._mandatory_wait_buffered.add(inp)
+            step = self._active_runtime_step()
+            if step is None:
+                return None
+            if isinstance(step, HoldState):
+                return (step.expected or "").strip().lower() or None
+            if isinstance(step, SequenceState) and getattr(step, "steps", None):
+                idx = getattr(step, "current_index", 0) or 0
+                if 0 <= idx < len(step.steps):
+                    inner = step.steps[idx]
+                    if isinstance(inner, HoldState):
+                        return (inner.expected or "").strip().lower() or None
+                if step.steps and isinstance(step.steps[0], HoldState):
+                    return (step.steps[0].expected or "").strip().lower() or None
+            if isinstance(step, GroupState):
+                for item in getattr(step, "items", []) or []:
+                    if getattr(item, "completed_count", 0) >= getattr(item, "required_count", 1):
+                        continue
+                    if item.kind == "hold" and isinstance(item.state, HoldState):
+                        key = (item.state.expected or "").strip().lower()
+                        if key and key in self.currently_pressed:
+                            return key
         except Exception:
-            return
+            pass
+        return None
 
     def _apply_buffered_hold_if_possible(self, now: float) -> None:
         """
-        If we buffered keys during a mandatory wait and the lock has ended,
-        and the next expected step is a HoldState whose key is still held,
-        start the hold immediately by reusing normal input processing.
+        Generalized hold buffer: after any advance, if the next step is a hold and that key
+        is already held (in currently_pressed), start the hold immediately.
+        Works for top-level holds and for holds that are the first/current action in a sequence.
         """
         try:
-            if not self._mandatory_wait_buffer_for_id or not self._mandatory_wait_buffered:
+            expected = self._get_expected_hold_key()
+            if not expected or expected not in self.currently_pressed:
                 return
-            # If a mandatory wait is still active, do not apply yet.
-            if self._active_nested_mandatory_wait() is not None:
-                return
-
-            step = self._active_runtime_step()
-            if not isinstance(step, HoldState):
-                return
-            expected = (step.expected or "").strip().lower()
-            if not expected:
-                return
-            if expected not in self._mandatory_wait_buffered:
-                return
-            if expected not in self.currently_pressed:
-                return
-
-            # Clear buffer first to avoid loops.
-            self._mandatory_wait_buffer_for_id = None
-            self._mandatory_wait_buffered = set()
-            # Treat as if the press happened "now" (buffered input triggers immediately on unlock).
             self._process_press_unlocked(expected)
         except Exception:
             return
@@ -988,12 +1026,24 @@ class ComboTrackerEngine:
         )
         self._reset_after_fail()
 
+    def _only_ender_can_drop(self, input_name: str) -> bool:
+        """
+        True iff this key is allowed to end the combo.
+        Single gate for the rule: only combo enders can end combos.
+        """
+        if not (input_name or "").strip():
+            return False
+        if not self._is_combo_ender(input_name):
+            return False
+        if self._should_ignore_ender_miss(input_name):
+            return False
+        if not self.last_input_time and self.current_index == 0:
+            return False
+        return True
+
     def _check_ender_fail(self, input_name: str, now: float) -> None:
         """If key is a combo ender (and not in grace), drop the combo."""
-        if not self._is_combo_ender(input_name) or self._should_ignore_ender_miss(input_name):
-            return
-        # Don't drop on ender before the attempt has started (no accepted input yet).
-        if not self.last_input_time and self.current_index == 0:
+        if not self._only_ender_can_drop(input_name):
             return
         self._mark_step(int(self.current_index), "missed")
         expected = str(self._expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
@@ -1143,13 +1193,13 @@ class ComboTrackerEngine:
                 self._on_combo_completed(total_ms)
         else:
             self.record_hit(label, "FAIL", "FAIL")
-            self._send({"type": "status", "text": "Combo Dropped (Hold Too Short)", "color": "fail"})
+            self._send({"type": "status", "text": "Combo Dropped (Hold Incomplete)", "color": "fail"})
             elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
             self.record_combo_fail(
                 actual=f"released @ {held_ms:.0f}ms",
                 expected_step_index=int(self.current_index),
                 expected_label=self._expected_label_for_step(step),
-                reason="hold too short",
+                reason="hold incomplete",
                 elapsed_ms=elapsed_ms,
             )
             self._reset_after_fail()
@@ -1303,12 +1353,11 @@ class ComboTrackerEngine:
 
         now = time.perf_counter()
 
-        # Input buffer during mandatory waits (animation locks), including nested waits
-        # inside sequences/groups. We still ignore the input for progression, but we
-        # remember it so that when the lock ends we can immediately begin the next hold.
-        nested_ws = self._active_nested_mandatory_wait()
-        if nested_ws is not None:
-            self._buffer_press_during_mandatory_wait(input_name, nested_ws)
+        # During a nested mandatory wait (animation lock), ignore the key for progression.
+        # currently_pressed already has it; when the wait ends and we advance,
+        # _apply_buffered_hold_if_possible will start the hold if the next step is that key.
+        if self._active_nested_mandatory_wait() is not None:
+            return
 
         # 1) Active wait
         if self.wait and self.wait.in_progress:
@@ -1333,27 +1382,29 @@ class ComboTrackerEngine:
                     else:
                         self._apply_buffered_hold_if_possible(now)
                 else:
-                    self._complete_wait(now, fail=True, reason=result.reason)
+                    # Only enders can end combos; early press with non-ender is ignored.
+                    if self._only_ender_can_drop(input_name):
+                        self._check_ender_fail(input_name, now)
                 return
-            if self.wait.mode in ("soft", "hard") and self._is_combo_ender(input_name):
-                if not self._should_ignore_ender_miss(input_name):
-                    if self.no_fail_mode:
-                        self._mark_step(int(self.current_index), "wrong")
-                        self._reset_wait_state()
-                        step = self._active_runtime_step()
-                        if step is not None and step.skip_and_advance(now):
-                            self._advance_step(now)
-                            self._sync_wait_animation_ui(now)
-                        self._send({"type": "status", "text": "Missed - continuing", "color": "fail"})
+            # Ender during wait: use same gate as everywhere else.
+            if self.wait.mode in ("soft", "hard") and self._only_ender_can_drop(input_name):
+                if self.no_fail_mode:
+                    self._mark_step(int(self.current_index), "wrong")
+                    self._reset_wait_state()
+                    step = self._active_runtime_step()
+                    if step is not None and step.skip_and_advance(now):
+                        self._advance_step(now)
+                        self._sync_wait_animation_ui(now)
+                    self._send({"type": "status", "text": "Missed - continuing", "color": "fail"})
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                    if self.current_index >= len(self.runtime_steps):
+                        self._send({"type": "status", "text": "Practice run finished", "color": "fail"})
+                        self._reset_to_start()
                         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                        if self.current_index >= len(self.runtime_steps):
-                            self._send({"type": "status", "text": "Practice run finished", "color": "fail"})
-                            self._reset_to_start()
-                            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
-                        else:
-                            self._apply_buffered_hold_if_possible(now)
                     else:
-                        self._complete_wait(now, fail=True, reason=f"{input_name} (ender) during wait")
+                        self._apply_buffered_hold_if_possible(now)
+                else:
+                    self._check_ender_fail(input_name, now)
             return
 
         # 2) Active hold
@@ -1363,11 +1414,21 @@ class ComboTrackerEngine:
             if self.hold.check_complete(now):
                 self._complete_hold(now, auto=True)
                 return self._process_press_unlocked(input_name)
-            if self.no_fail_mode:
-                self._mark_current_and_skip(now)
-                self._sync_wait_animation_ui(now)
+            # Only enders can end combos (same gate as everywhere).
+            if self._only_ender_can_drop(input_name):
+                self._check_ender_fail(input_name, now)
                 return
-            self._fail_combo("hold too short", now, actual="wrong key / released early")
+
+            # Forgiving hold: only drop if they pressed the next step's key AND it's an ender.
+            next_step = self.runtime_steps[int(self.current_index) + 1] if (int(self.current_index) + 1) < len(self.runtime_steps) else None
+            next_keys = self._start_keys_for_step(next_step)
+            if next_keys and (input_name in next_keys) and self._only_ender_can_drop(input_name):
+                if self.no_fail_mode:
+                    self._mark_current_and_skip(now)
+                    self._sync_wait_animation_ui(now)
+                    return
+                self._fail_combo("hold incomplete", now, actual=f"pressed {input_name}")
+            # Otherwise ignore (random keys or next key that isn't an ender).
             return
 
         # 3) Dispatch to current step (polymorphic: GroupState, SequenceState, PressState, HoldState, WaitState all implement process_press)
@@ -1414,8 +1475,9 @@ class ComboTrackerEngine:
                 self._mark_current_and_skip(now, mark=mark)
                 self._sync_wait_animation_ui(now)
                 return
-            self._fail_combo(result.reason, now)
-            self._sync_wait_animation_ui(now)
+            # Only enders can end combos; wrong/early key that isn't an ender is ignored.
+            if self._only_ender_can_drop(input_name):
+                self._check_ender_fail(input_name, now)
             return
         if isinstance(result, CompleteResult):
             self._advance_step(now)
@@ -1429,32 +1491,19 @@ class ComboTrackerEngine:
         # During group mandatory wait (animation lock), ignore all keys including enders.
         if isinstance(step, GroupState) and step.wait_active:
             return
-        # Input didn't match current step (IgnoreResult) — fail with actual reason (e.g. "expected e"), not "Combo Ender".
+        # Input didn't match current step (IgnoreResult). Only enders can end combos.
         if isinstance(result, IgnoreResult):
-            # If the attempt hasn't started yet (no accepted input), ignore stray keys.
-            # This prevents "dropping" a combo before the player has actually started it.
             if not self.last_input_time and self.current_index == 0:
                 return
-            # If it's NOT a combo ender, ignore it. Combo enders are the only "wrong" inputs
-            # that should drop an in-progress attempt.
-            if not self._is_combo_ender(input_name):
-                return
-            # Combo ender grace:
-            # If the pressed key is configured as an ender *and* it's the same as the last
-            # successfully accepted input, allow a short re-press window where we ignore it.
-            # Example: combo `q, e, r` with ender `q:2` → `q` then `q` within 2s should NOT drop.
-            if self._should_ignore_ender_miss(input_name):
-                return
-            expected = self._expected_label_for_step(step) or "?"
-            actual = input_name
-            self._mark_step(int(self.current_index), "missed")
-            # Attempt Log rows are driven by "hit" messages; record the ender as a FAIL.
-            self.record_hit(f"{actual} (Exp: {expected}) [wrong key]", "FAIL", "FAIL")
-            if self.no_fail_mode:
-                self._mark_current_and_skip(now, mark="missed")
-                self._sync_wait_animation_ui(now)
-                return
-            self._fail_combo(f"expected {expected}", now, actual=input_name, expected_label=expected)
+            if self._only_ender_can_drop(input_name):
+                expected = self._expected_label_for_step(step) or "?"
+                self._mark_step(int(self.current_index), "missed")
+                self.record_hit(f"{input_name} (Exp: {expected}) [wrong key]", "FAIL", "FAIL")
+                if self.no_fail_mode:
+                    self._mark_current_and_skip(now, mark="missed")
+                    self._sync_wait_animation_ui(now)
+                    return
+                self._fail_combo(f"expected {expected}", now, actual=input_name, expected_label=expected)
             return
         return
 
@@ -1480,6 +1529,16 @@ class ComboTrackerEngine:
 
         now = time.perf_counter()
         result = step.process_release(input_name, now)
+
+        # Forgiving holds: releasing too early should end the UI "hold" indicator,
+        # but should NOT drop the combo.
+        if isinstance(step, HoldState) and input_name == str(step.expected or ""):
+            try:
+                if self.hold_in_progress and (not bool(getattr(step, "in_progress", False))) and (not bool(getattr(step, "completed", False))):
+                    self._reset_hold_state()
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            except Exception:
+                pass
 
         if isinstance(result, AcceptResult):
             if result.advance:
@@ -1507,7 +1566,9 @@ class ComboTrackerEngine:
                 self._mark_current_and_skip(now)
                 self._sync_wait_animation_ui(now)
                 return
-            self._fail_combo(result.reason, now, actual="released (hold too short)")
+            # Only enders can end combos; releasing hold key too early drops only if that key is an ender.
+            if self._only_ender_can_drop(input_name):
+                self._fail_combo(result.reason, now, actual="released (hold too short)")
             self._sync_wait_animation_ui(now)
             return
 

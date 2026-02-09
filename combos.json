@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "last_active_combo": "Agusta, Iuno, Shorekeeper Double intro",
-  "no_fail_mode": true,
+  "last_active_combo": "Aemeath",
+  "no_fail_mode": false,
   "combos": {
     "Zani 1": [
       "f",
@@ -139,16 +139,22 @@
     ],
     "Aemeath": [
       "f",
-      "wait:0.15s",
-      "e",
-      "wait:0.15s",
-      "2",
-      "e",
-      "wait:0.20s",
       "3",
-      "[q, e, wait(r, 2.9s), {lmb, wait:0.40s, lmb, wait:0.30s, lmb, wait:0.30s, rmb, wait:0.30s, lmb, wait:0.30s, lmb, wait:0.30s, rmb}]",
-      "2",
-      "[e, q]"
+      "lmb",
+      "wait:0.35s",
+      "lmb",
+      "wait:0.30s",
+      "lmb",
+      "wait:0.20s",
+      "rmb",
+      "wait:0.15s",
+      "lmb",
+      "wait:0.2s",
+      "hold(lmb, 0.2s)",
+      "1",
+      "hold(lmb, 0.60s)",
+      "lmb",
+      "wait:0.3s"
     ],
     "Agusta, Iuno, Shorekeeper Double intro": [
       "f",
@@ -161,20 +167,19 @@
       "3",
       "[q, e, wait(r, 2.9s)]",
       "2",
-      "[e, q]",
+      "[e, wait:0.10s, q]",
       "3",
       "lmb",
-      "wait:0.40s",
-      "lmb",
       "wait:0.30s",
       "lmb",
       "wait:0.30s",
+      "lmb",
+      "wait:0.20s",
       "rmb",
-      "wait:0.30s",
+      "wait:0.15s",
       "lmb",
-      "wait:0.30s",
-      "lmb",
-      "wait:0.30s",
+      "wait:0.2s",
+      "hold(lmb, 0.2s)",
       "1",
       "hold(lmb, 0.60s)",
       "lmb",
@@ -183,7 +188,10 @@
       "space",
       "wait:0.15s",
       "3",
-      "hold(lmb, 0.3s)",
+      "lmb",
+      "wait:0.3s",
+      "lmb",
+      "wait:0.1s",
       "wait(1, 1.17s)",
       "hold(lmb, 0.60s)",
       "lmb",
@@ -258,827 +266,890 @@
       "fail_events": []
     },
     "Aemeath": {
-      "success": 9,
-      "fail": 22,
-      "best_ms": 3646,
-      "total_success_ms": 85352,
+      "success": 11,
+      "fail": 90,
+      "best_ms": 3882,
+      "total_success_ms": 72133,
       "fail_by_step": {
-        "1": 11,
-        "2": 6,
+        "13": 6,
+        "12": 23,
+        "14": 5,
+        "1": 44,
+        "8": 2,
         "3": 1,
-        "6": 1,
-        "5": 2,
-        "7": 1
+        "2": 9
       },
       "fail_by_expected": {
-        "any-order(q|lmb)": 4,
-        "2": 3,
-        "wait(\u2265150ms)": 2,
-        "e": 2,
-        "1": 3,
-        "3": 1,
-        "hold(lmb,\u2265600ms)": 1,
-        "lmb": 3,
-        "wait(\u22651000ms)": 2,
-        "hold(lmb,\u2265300ms)": 1
+        "1": 6,
+        "hold(lmb,\u2265300ms)": 6,
+        "hold(lmb,\u2265600ms)": 5,
+        "3": 44,
+        "hold(lmb,\u2265200ms)": 17,
+        "rmb": 2,
+        "wait(\u2265350ms)": 1,
+        "lmb": 9
       },
       "fail_by_reason": {
-        "expected any-order(q|lmb)": 4,
-        "expected 2": 3,
-        "too early": 4,
-        "expected e": 2,
-        "expected 1": 3,
-        "expected 3": 1,
-        "hold too short (80ms < 600ms)": 1,
-        "expected lmb": 3,
-        "hold too short (176ms < 300ms)": 1
+        "expected 1": 6,
+        "hold too short (62ms < 300ms)": 1,
+        "hold too short (111ms < 300ms)": 1,
+        "expected hold(lmb,\u2265300ms)": 2,
+        "expected hold(lmb,\u2265600ms)": 2,
+        "hold too short (116ms < 600ms)": 1,
+        "hold too short (56ms < 300ms)": 1,
+        "expected 3": 44,
+        "hold too short (71ms < 300ms)": 1,
+        "hold too short (80ms < 200ms)": 1,
+        "expected hold(lmb,\u2265200ms)": 8,
+        "hold too short (93ms < 200ms)": 1,
+        "hold too short (88ms < 200ms)": 1,
+        "hold too short (107ms < 600ms)": 1,
+        "hold too short (71ms < 200ms)": 1,
+        "hold too short (74ms < 600ms)": 1,
+        "hold too short (82ms < 200ms)": 1,
+        "hold incomplete (pressed 1)": 1,
+        "hold incomplete (pressed w)": 2,
+        "hold incomplete (pressed q)": 1,
+        "expected rmb": 2,
+        "combo ender": 1,
+        "expected lmb": 9
       },
       "fail_events": [
         {
-          "ts": 1770525343,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "r",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 604
-        },
-        {
-          "ts": 1770525453,
+          "ts": 1770614560,
           "attempt": 1,
-          "step_index": 2,
-          "expected": "2",
-          "actual": "r",
-          "reason": "expected 2",
-          "elapsed_ms": 55106
-        },
-        {
-          "ts": 1770525475,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "space",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 40
-        },
-        {
-          "ts": 1770525552,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770525576,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "e (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 136
-        },
-        {
-          "ts": 1770525585,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1854
-        },
-        {
-          "ts": 1770525586,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 170
-        },
-        {
-          "ts": 1770525728,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "r",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 702
-        },
-        {
-          "ts": 1770525730,
-          "attempt": 3,
-          "step_index": 1,
-          "expected": "any-order(q|lmb)",
-          "actual": "r",
-          "reason": "expected any-order(q|lmb)",
-          "elapsed_ms": 188
-        },
-        {
-          "ts": 1770526814,
-          "attempt": 1,
-          "step_index": 3,
-          "expected": "1",
-          "actual": "r",
-          "reason": "expected 1",
-          "elapsed_ms": 1024
-        },
-        {
-          "ts": 1770526841,
-          "attempt": 1,
-          "step_index": 6,
-          "expected": "3",
-          "actual": "space",
-          "reason": "expected 3",
-          "elapsed_ms": 11310
-        },
-        {
-          "ts": 1770526846,
-          "attempt": 1,
-          "step_index": 5,
-          "expected": "1",
-          "actual": "2",
-          "reason": "expected 1",
-          "elapsed_ms": 3514
-        },
-        {
-          "ts": 1770526918,
-          "attempt": 1,
-          "step_index": 7,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (80ms < 600ms)",
-          "elapsed_ms": 17866
-        },
-        {
-          "ts": 1770526942,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 374
-        },
-        {
-          "ts": 1770527412,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 224
-        },
-        {
-          "ts": 1770527413,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 78
-        },
-        {
-          "ts": 1770527738,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "wait(\u22651000ms)",
-          "actual": "2 (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 938
-        },
-        {
-          "ts": 1770527742,
-          "attempt": 2,
-          "step_index": 5,
+          "step_index": 13,
           "expected": "1",
           "actual": "q",
           "reason": "expected 1",
-          "elapsed_ms": 3194
+          "elapsed_ms": 12256
         },
         {
-          "ts": 1770527744,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "wait(\u22651000ms)",
-          "actual": "2 (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 1084
-        },
-        {
-          "ts": 1770527907,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "2",
-          "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 416
-        },
-        {
-          "ts": 1770528067,
-          "attempt": 1,
-          "step_index": 2,
+          "ts": 1770614566,
+          "attempt": 2,
+          "step_index": 12,
           "expected": "hold(lmb,\u2265300ms)",
           "actual": "released (hold too short)",
-          "reason": "hold too short (176ms < 300ms)",
-          "elapsed_ms": 906
+          "reason": "hold too short (62ms < 300ms)",
+          "elapsed_ms": 4334
         },
         {
-          "ts": 1770528103,
+          "ts": 1770614576,
+          "attempt": 3,
+          "step_index": 13,
+          "expected": "1",
+          "actual": "2",
+          "reason": "expected 1",
+          "elapsed_ms": 3346
+        },
+        {
+          "ts": 1770614591,
+          "attempt": 4,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265300ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (111ms < 300ms)",
+          "elapsed_ms": 4088
+        },
+        {
+          "ts": 1770614600,
+          "attempt": 5,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265300ms)",
+          "actual": "2",
+          "reason": "expected hold(lmb,\u2265300ms)",
+          "elapsed_ms": 3282
+        },
+        {
+          "ts": 1770614634,
+          "attempt": 2,
+          "step_index": 13,
+          "expected": "1",
+          "actual": "e",
+          "reason": "expected 1",
+          "elapsed_ms": 7318
+        },
+        {
+          "ts": 1770614645,
+          "attempt": 3,
+          "step_index": 14,
+          "expected": "hold(lmb,\u2265600ms)",
+          "actual": "3",
+          "reason": "expected hold(lmb,\u2265600ms)",
+          "elapsed_ms": 5562
+        },
+        {
+          "ts": 1770614672,
+          "attempt": 4,
+          "step_index": 13,
+          "expected": "1",
+          "actual": "3",
+          "reason": "expected 1",
+          "elapsed_ms": 13398
+        },
+        {
+          "ts": 1770614686,
+          "attempt": 5,
+          "step_index": 14,
+          "expected": "hold(lmb,\u2265600ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (116ms < 600ms)",
+          "elapsed_ms": 4466
+        },
+        {
+          "ts": 1770614700,
+          "attempt": 6,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265300ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (56ms < 300ms)",
+          "elapsed_ms": 2269
+        },
+        {
+          "ts": 1770614742,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 23321
+        },
+        {
+          "ts": 1770614818,
+          "attempt": 8,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265300ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (71ms < 300ms)",
+          "elapsed_ms": 2217
+        },
+        {
+          "ts": 1770614912,
+          "attempt": 1,
+          "step_index": 14,
+          "expected": "hold(lmb,\u2265600ms)",
+          "actual": "e",
+          "reason": "expected hold(lmb,\u2265600ms)",
+          "elapsed_ms": 6096
+        },
+        {
+          "ts": 1770614935,
+          "attempt": 3,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265300ms)",
+          "actual": "1",
+          "reason": "expected hold(lmb,\u2265300ms)",
+          "elapsed_ms": 3057
+        },
+        {
+          "ts": 1770615017,
+          "attempt": 1,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (80ms < 200ms)",
+          "elapsed_ms": 2237
+        },
+        {
+          "ts": 1770615034,
+          "attempt": 2,
+          "step_index": 13,
+          "expected": "1",
+          "actual": "2",
+          "reason": "expected 1",
+          "elapsed_ms": 2942
+        },
+        {
+          "ts": 1770615047,
+          "attempt": 3,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "1",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 3104
+        },
+        {
+          "ts": 1770615072,
+          "attempt": 4,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "1",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 2918
+        },
+        {
+          "ts": 1770615112,
+          "attempt": 7,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (93ms < 200ms)",
+          "elapsed_ms": 2556
+        },
+        {
+          "ts": 1770615328,
+          "attempt": 1,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "1",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 3455
+        },
+        {
+          "ts": 1770615344,
+          "attempt": 2,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (88ms < 200ms)",
+          "elapsed_ms": 4754
+        },
+        {
+          "ts": 1770615369,
+          "attempt": 4,
+          "step_index": 14,
+          "expected": "hold(lmb,\u2265600ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (107ms < 600ms)",
+          "elapsed_ms": 3277
+        },
+        {
+          "ts": 1770615382,
+          "attempt": 5,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (71ms < 200ms)",
+          "elapsed_ms": 2195
+        },
+        {
+          "ts": 1770615494,
+          "attempt": 1,
+          "step_index": 14,
+          "expected": "hold(lmb,\u2265600ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (74ms < 600ms)",
+          "elapsed_ms": 3216
+        },
+        {
+          "ts": 1770615507,
+          "attempt": 2,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "1",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 3054
+        },
+        {
+          "ts": 1770615595,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 242
+        },
+        {
+          "ts": 1770615617,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 208
+        },
+        {
+          "ts": 1770615620,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 56
+        },
+        {
+          "ts": 1770615669,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 188
+        },
+        {
+          "ts": 1770615674,
           "attempt": 5,
           "step_index": 1,
-          "expected": "2",
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 32
+        },
+        {
+          "ts": 1770615700,
+          "attempt": 6,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 30
+        },
+        {
+          "ts": 1770615710,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 488
+        },
+        {
+          "ts": 1770615716,
+          "attempt": 8,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 372
+        },
+        {
+          "ts": 1770615719,
+          "attempt": 9,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 192
+        },
+        {
+          "ts": 1770615756,
+          "attempt": 10,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 570
+        },
+        {
+          "ts": 1770615789,
+          "attempt": 11,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 314
+        },
+        {
+          "ts": 1770615821,
+          "attempt": 12,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 296
+        },
+        {
+          "ts": 1770615828,
+          "attempt": 13,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 496
+        },
+        {
+          "ts": 1770615866,
+          "attempt": 14,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 216
+        },
+        {
+          "ts": 1770615904,
+          "attempt": 15,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "released (hold too short)",
+          "reason": "hold too short (82ms < 200ms)",
+          "elapsed_ms": 3500
+        },
+        {
+          "ts": 1770615950,
+          "attempt": 16,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 212
+        },
+        {
+          "ts": 1770615954,
+          "attempt": 17,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 202
+        },
+        {
+          "ts": 1770616266,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "3",
           "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 628
+          "reason": "expected 3",
+          "elapsed_ms": 230
+        },
+        {
+          "ts": 1770616276,
+          "attempt": 2,
+          "step_index": 13,
+          "expected": "1",
+          "actual": "3",
+          "reason": "expected 1",
+          "elapsed_ms": 8630
+        },
+        {
+          "ts": 1770616298,
+          "attempt": 3,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "hold incomplete (pressed 1)",
+          "reason": "hold incomplete (pressed 1)",
+          "elapsed_ms": 3664
+        },
+        {
+          "ts": 1770616311,
+          "attempt": 4,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "hold incomplete (pressed w)",
+          "reason": "hold incomplete (pressed w)",
+          "elapsed_ms": 2134
+        },
+        {
+          "ts": 1770616333,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 686
+        },
+        {
+          "ts": 1770616364,
+          "attempt": 6,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "hold incomplete (pressed w)",
+          "reason": "hold incomplete (pressed w)",
+          "elapsed_ms": 5574
+        },
+        {
+          "ts": 1770616421,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 60
+        },
+        {
+          "ts": 1770616453,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 206
+        },
+        {
+          "ts": 1770616459,
+          "attempt": 2,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "hold incomplete (pressed q)",
+          "reason": "hold incomplete (pressed q)",
+          "elapsed_ms": 4726
+        },
+        {
+          "ts": 1770616943,
+          "attempt": 1,
+          "step_index": 8,
+          "expected": "rmb",
+          "actual": "e",
+          "reason": "expected rmb",
+          "elapsed_ms": 3512
+        },
+        {
+          "ts": 1770616945,
+          "attempt": 2,
+          "step_index": 3,
+          "expected": "wait(\u2265350ms)",
+          "actual": "q",
+          "reason": "Combo Ender",
+          "elapsed_ms": 856
+        },
+        {
+          "ts": 1770616946,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 266
+        },
+        {
+          "ts": 1770616954,
+          "attempt": 4,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "e",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 7340
+        },
+        {
+          "ts": 1770617004,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 1082
+        },
+        {
+          "ts": 1770617022,
+          "attempt": 6,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 232
+        },
+        {
+          "ts": 1770617115,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 40
+        },
+        {
+          "ts": 1770617184,
+          "attempt": 8,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 190
+        },
+        {
+          "ts": 1770617413,
+          "attempt": 1,
+          "step_index": 8,
+          "expected": "rmb",
+          "actual": "e",
+          "reason": "expected rmb",
+          "elapsed_ms": 2458
+        },
+        {
+          "ts": 1770617418,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "3",
+          "reason": "expected lmb",
+          "elapsed_ms": 4994
+        },
+        {
+          "ts": 1770617423,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "expected lmb",
+          "elapsed_ms": 1556
+        },
+        {
+          "ts": 1770617424,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "expected lmb",
+          "elapsed_ms": 590
+        },
+        {
+          "ts": 1770617427,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "3",
+          "reason": "expected lmb",
+          "elapsed_ms": 2568
+        },
+        {
+          "ts": 1770617428,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "expected lmb",
+          "elapsed_ms": 340
+        },
+        {
+          "ts": 1770617431,
+          "attempt": 7,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "3",
+          "reason": "expected lmb",
+          "elapsed_ms": 2436
+        },
+        {
+          "ts": 1770617433,
+          "attempt": 8,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "e",
+          "reason": "expected lmb",
+          "elapsed_ms": 1328
+        },
+        {
+          "ts": 1770617434,
+          "attempt": 9,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 198
+        },
+        {
+          "ts": 1770617435,
+          "attempt": 10,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 230
+        },
+        {
+          "ts": 1770617436,
+          "attempt": 11,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 176
+        },
+        {
+          "ts": 1770617441,
+          "attempt": 12,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "2",
+          "reason": "expected lmb",
+          "elapsed_ms": 4348
+        },
+        {
+          "ts": 1770617454,
+          "attempt": 13,
+          "step_index": 2,
+          "expected": "lmb",
+          "actual": "1",
+          "reason": "expected lmb",
+          "elapsed_ms": 1254
+        },
+        {
+          "ts": 1770617558,
+          "attempt": 15,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "1",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 2820
+        },
+        {
+          "ts": 1770617596,
+          "attempt": 18,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "1",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 2812
+        },
+        {
+          "ts": 1770617672,
+          "attempt": 19,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 324
+        },
+        {
+          "ts": 1770617672,
+          "attempt": 20,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 182
+        },
+        {
+          "ts": 1770617674,
+          "attempt": 21,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 156
+        },
+        {
+          "ts": 1770617692,
+          "attempt": 22,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 60
+        },
+        {
+          "ts": 1770617720,
+          "attempt": 23,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 454
+        },
+        {
+          "ts": 1770617722,
+          "attempt": 24,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 252
+        },
+        {
+          "ts": 1770617728,
+          "attempt": 25,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 368
+        },
+        {
+          "ts": 1770617743,
+          "attempt": 26,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 324
+        },
+        {
+          "ts": 1770617977,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 504
+        },
+        {
+          "ts": 1770617982,
+          "attempt": 2,
+          "step_index": 12,
+          "expected": "hold(lmb,\u2265200ms)",
+          "actual": "e",
+          "reason": "expected hold(lmb,\u2265200ms)",
+          "elapsed_ms": 3364
+        },
+        {
+          "ts": 1770617988,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 222
+        },
+        {
+          "ts": 1770618007,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 86
+        },
+        {
+          "ts": 1770618084,
+          "attempt": 8,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "e",
+          "reason": "expected 3",
+          "elapsed_ms": 312
+        },
+        {
+          "ts": 1770618125,
+          "attempt": 9,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 394
+        },
+        {
+          "ts": 1770618139,
+          "attempt": 10,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 352
+        },
+        {
+          "ts": 1770618141,
+          "attempt": 11,
+          "step_index": 1,
+          "expected": "3",
+          "actual": "space",
+          "reason": "expected 3",
+          "elapsed_ms": 570
         }
       ]
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
-      "success": 3,
-      "fail": 60,
-      "best_ms": 36482,
-      "total_success_ms": 114510,
+      "success": 0,
+      "fail": 1,
+      "best_ms": null,
+      "total_success_ms": 0,
       "fail_by_step": {
-        "8": 6,
-        "5": 4,
-        "32": 4,
-        "19": 1,
-        "13": 1,
-        "9": 1,
-        "2": 18,
-        "51": 1,
-        "1": 5,
-        "31": 1,
-        "4": 15,
-        "7": 3
+        "22": 1
       },
       "fail_by_expected": {
-        "any-order(q|e|r|lmb)": 2,
-        "e": 22,
-        "hold(r,\u2265200ms)": 1,
-        "3": 5,
-        "lmb": 1,
-        "2": 16,
-        "any-order(q|e|r)": 4,
-        "hold(lmb,\u2265300ms)": 3,
-        "hold(lmb,\u2265600ms)": 1,
-        "wait(\u2265150ms)": 5
+        "lmb": 1
       },
       "fail_by_reason": {
-        "expected any-order(q|e|r|lmb)": 2,
-        "expected e": 22,
-        "hold too short (70ms < 200ms)": 1,
-        "expected 3": 5,
-        "expected lmb": 1,
-        "expected 2": 16,
-        "expected any-order(q|e|r)": 4,
-        "hold too short (135ms < 300ms)": 1,
-        "hold too short (284ms < 600ms)": 1,
-        "hold too short (94ms < 300ms)": 1,
-        "too early": 5,
-        "hold too short (173ms < 300ms)": 1
+        "expected lmb": 1
       },
       "fail_events": [
         {
-          "ts": 1770526731,
+          "ts": 1770614005,
           "attempt": 1,
-          "step_index": 8,
-          "expected": "any-order(q|e|r|lmb)",
-          "actual": "q",
-          "reason": "expected any-order(q|e|r|lmb)",
-          "elapsed_ms": 2634
-        },
-        {
-          "ts": 1770527803,
-          "attempt": 1,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "3",
-          "reason": "expected e",
-          "elapsed_ms": 3082
-        },
-        {
-          "ts": 1770527838,
-          "attempt": 2,
-          "step_index": 32,
-          "expected": "hold(r,\u2265200ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (70ms < 200ms)",
-          "elapsed_ms": 34851
-        },
-        {
-          "ts": 1770528290,
-          "attempt": 1,
-          "step_index": 8,
-          "expected": "any-order(q|e|r|lmb)",
-          "actual": "2",
-          "reason": "expected any-order(q|e|r|lmb)",
-          "elapsed_ms": 36533
-        },
-        {
-          "ts": 1770528371,
-          "attempt": 2,
-          "step_index": 19,
-          "expected": "3",
-          "actual": "1",
-          "reason": "expected 3",
-          "elapsed_ms": 33927
-        },
-        {
-          "ts": 1770528787,
-          "attempt": 1,
-          "step_index": 13,
+          "step_index": 22,
           "expected": "lmb",
-          "actual": "3",
-          "reason": "expected lmb",
-          "elapsed_ms": 15482
-        },
-        {
-          "ts": 1770529197,
-          "attempt": 1,
-          "step_index": 9,
-          "expected": "2",
           "actual": "1",
-          "reason": "expected 2",
-          "elapsed_ms": 8630
-        },
-        {
-          "ts": 1770529227,
-          "attempt": 2,
-          "step_index": 8,
-          "expected": "any-order(q|e|r)",
-          "actual": "2",
-          "reason": "expected any-order(q|e|r)",
-          "elapsed_ms": 13818
-        },
-        {
-          "ts": 1770530027,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 162
-        },
-        {
-          "ts": 1770530032,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 192
-        },
-        {
-          "ts": 1770530114,
-          "attempt": 3,
-          "step_index": 32,
-          "expected": "hold(lmb,\u2265300ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (135ms < 300ms)",
-          "elapsed_ms": 19153
-        },
-        {
-          "ts": 1770530166,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 182
-        },
-        {
-          "ts": 1770530354,
-          "attempt": 5,
-          "step_index": 51,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (284ms < 600ms)",
-          "elapsed_ms": 35201
-        },
-        {
-          "ts": 1770530431,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1077
-        },
-        {
-          "ts": 1770530532,
-          "attempt": 7,
-          "step_index": 32,
-          "expected": "hold(lmb,\u2265300ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (94ms < 300ms)",
-          "elapsed_ms": 21171
-        },
-        {
-          "ts": 1770530708,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "e (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 76
-        },
-        {
-          "ts": 1770530727,
-          "attempt": 2,
-          "step_index": 32,
-          "expected": "hold(lmb,\u2265300ms)",
-          "actual": "released (hold too short)",
-          "reason": "hold too short (173ms < 300ms)",
-          "elapsed_ms": 18099
-        },
-        {
-          "ts": 1770530792,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1084
-        },
-        {
-          "ts": 1770530818,
-          "attempt": 4,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 52
-        },
-        {
-          "ts": 1770530819,
-          "attempt": 5,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 478
-        },
-        {
-          "ts": 1770530834,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 666
-        },
-        {
-          "ts": 1770530836,
-          "attempt": 7,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 84
-        },
-        {
-          "ts": 1770530852,
-          "attempt": 8,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 810
-        },
-        {
-          "ts": 1770531100,
-          "attempt": 1,
-          "step_index": 31,
-          "expected": "3",
-          "actual": "e",
-          "reason": "expected 3",
-          "elapsed_ms": 71886
-        },
-        {
-          "ts": 1770531104,
-          "attempt": 2,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 2916
-        },
-        {
-          "ts": 1770531108,
-          "attempt": 3,
-          "step_index": 7,
-          "expected": "3",
-          "actual": "q",
-          "reason": "expected 3",
-          "elapsed_ms": 2166
-        },
-        {
-          "ts": 1770531109,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 202
-        },
-        {
-          "ts": 1770531111,
-          "attempt": 5,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "2",
-          "reason": "expected e",
-          "elapsed_ms": 592
-        },
-        {
-          "ts": 1770531116,
-          "attempt": 6,
-          "step_index": 8,
-          "expected": "any-order(q|e|r)",
-          "actual": "e",
-          "reason": "expected any-order(q|e|r)",
-          "elapsed_ms": 4242
-        },
-        {
-          "ts": 1770531196,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "e (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 144
-        },
-        {
-          "ts": 1770531196,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "e (ender) during wait",
-          "reason": "too early",
-          "elapsed_ms": 30
-        },
-        {
-          "ts": 1770531197,
-          "attempt": 3,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "3",
-          "reason": "expected e",
-          "elapsed_ms": 934
-        },
-        {
-          "ts": 1770531199,
-          "attempt": 4,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "3",
-          "reason": "expected e",
-          "elapsed_ms": 482
-        },
-        {
-          "ts": 1770531203,
-          "attempt": 5,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 534
-        },
-        {
-          "ts": 1770531205,
-          "attempt": 6,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "3",
-          "reason": "expected e",
-          "elapsed_ms": 1692
-        },
-        {
-          "ts": 1770531206,
-          "attempt": 7,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 486
-        },
-        {
-          "ts": 1770531215,
-          "attempt": 8,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 660
-        },
-        {
-          "ts": 1770531217,
-          "attempt": 9,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 512
-        },
-        {
-          "ts": 1770531227,
-          "attempt": 10,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 182
-        },
-        {
-          "ts": 1770531235,
-          "attempt": 11,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 186
-        },
-        {
-          "ts": 1770531237,
-          "attempt": 12,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "space",
-          "reason": "expected 2",
-          "elapsed_ms": 650
-        },
-        {
-          "ts": 1770531333,
-          "attempt": 1,
-          "step_index": 7,
-          "expected": "3",
-          "actual": "e",
-          "reason": "expected 3",
-          "elapsed_ms": 2954
-        },
-        {
-          "ts": 1770531336,
-          "attempt": 2,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 496
-        },
-        {
-          "ts": 1770531337,
-          "attempt": 3,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 436
-        },
-        {
-          "ts": 1770531339,
-          "attempt": 4,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "q",
-          "reason": "expected 2",
-          "elapsed_ms": 698
-        },
-        {
-          "ts": 1770531340,
-          "attempt": 5,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 462
-        },
-        {
-          "ts": 1770531341,
-          "attempt": 6,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 526
-        },
-        {
-          "ts": 1770531358,
-          "attempt": 7,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 426
-        },
-        {
-          "ts": 1770531389,
-          "attempt": 8,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "r",
-          "reason": "expected 2",
-          "elapsed_ms": 552
-        },
-        {
-          "ts": 1770531449,
-          "attempt": 9,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 1366
-        },
-        {
-          "ts": 1770531454,
-          "attempt": 10,
-          "step_index": 8,
-          "expected": "any-order(q|e|r)",
-          "actual": "q",
-          "reason": "expected any-order(q|e|r)",
-          "elapsed_ms": 4006
-        },
-        {
-          "ts": 1770531459,
-          "attempt": 11,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "q",
-          "reason": "expected 2",
-          "elapsed_ms": 1022
-        },
-        {
-          "ts": 1770531460,
-          "attempt": 12,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "2",
-          "reason": "expected e",
-          "elapsed_ms": 334
-        },
-        {
-          "ts": 1770531461,
-          "attempt": 13,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "2",
-          "reason": "expected e",
-          "elapsed_ms": 364
-        },
-        {
-          "ts": 1770531462,
-          "attempt": 14,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "2",
-          "reason": "expected e",
-          "elapsed_ms": 292
-        },
-        {
-          "ts": 1770531463,
-          "attempt": 15,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "2",
-          "reason": "expected e",
-          "elapsed_ms": 294
-        },
-        {
-          "ts": 1770531465,
-          "attempt": 16,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 958
-        },
-        {
-          "ts": 1770531468,
-          "attempt": 17,
-          "step_index": 7,
-          "expected": "3",
-          "actual": "q",
-          "reason": "expected 3",
-          "elapsed_ms": 2308
-        },
-        {
-          "ts": 1770531476,
-          "attempt": 18,
-          "step_index": 8,
-          "expected": "any-order(q|e|r)",
-          "actual": "2",
-          "reason": "expected any-order(q|e|r)",
-          "elapsed_ms": 7574
-        },
-        {
-          "ts": 1770531521,
-          "attempt": 19,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1210
+          "reason": "expected lmb",
+          "elapsed_ms": 8798
         }
       ]
     }
@@ -1099,7 +1170,7 @@
     "Zani 2": "images",
     "Zani 1": "images",
     "Zani Pheobe Rover Rotation": "images",
-    "Aemeath": "icons",
+    "Aemeath": "images",
     "Agusta, Iuno, Shorekeeper Double intro": "images"
   },
   "combo_key_images": {},
@@ -1206,7 +1277,7 @@
       }
     }
   },
-  "ww_active_team_id": "cd717b20ac",
+  "ww_active_team_id": "c70c25857f",
   "combo_ww_team": {
     "Zani Pheobe Rover Rotation": "986f16f581",
     "Zani 1": "986f16f581",

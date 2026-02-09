@@ -130,6 +130,8 @@ class HoldState:
 
     def process_press(self, key: str, now: float) -> ProcessResult:
         if key != self.expected:
+            # Forgiving hold: ignore other keys.
+            # The engine decides whether a key is an "attempt to move on" (e.g., next expected combo input).
             return IgnoreResult()
 
         if not self.in_progress:
@@ -151,8 +153,9 @@ class HoldState:
         if held_ms >= self.required_ms:
             self.completed = True
             return AcceptResult(advance=True)
-        else:
-            return FailResult(f"hold too short ({held_ms:.0f}ms < {self.required_ms}ms)")
+        # Forgiving hold: releasing too early does NOT fail immediately.
+        # Failure happens only if the user attempts to move on (presses another key).
+        return IgnoreResult()
 
     def tick(self, now: float) -> ProcessResult:
         return IgnoreResult()
