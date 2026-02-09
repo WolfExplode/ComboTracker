@@ -564,7 +564,7 @@ function addResultRow(data) {
     const row = document.createElement('div');
     row.className = 'result-row';
 
-    if (data.split_ms === 'FAIL' || data.total_ms === 'FAIL') {
+    if (data.fail === true || data.split_ms === 'FAIL' || data.total_ms === 'FAIL') {
         row.classList.add('fail');
     } else {
         row.classList.add('success');
@@ -1400,6 +1400,11 @@ function handleMessage(msg) {
             stopWaitAnimation();
             break;
         case 'hit':
+            addResultRow(msg);
+            break;
+        case 'combo_dropped':
+            // Same row shape as 'hit' (input, split_ms, total_ms); also update status line
+            updateStatus(msg.input, msg.color || 'fail');
             addResultRow(msg);
             break;
         case 'clear_results':

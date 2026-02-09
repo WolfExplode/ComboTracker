@@ -69,6 +69,8 @@ class ComboTrackerEngine:
         self.hold_expected_input: str | None = None
         self.hold_started_at = 0.0
         self.hold_required_ms: int | None = None
+        # Max hold duration observed this step (for drop message: "but held for Xms")
+        self._hold_max_held_ms: float = 0.0
 
         self.wait_in_progress = False
         self.wait_started_at = 0.0
@@ -849,6 +851,7 @@ class ComboTrackerEngine:
         self.hold_expected_input = None
         self.hold_started_at = 0.0
         self.hold_required_ms = None
+        # _hold_max_held_ms is NOT cleared here so release-too-early keeps the max for the drop message
 
     def _reset_wait_state(self):
         # If we were showing a wait indicator in the UI, clear it.
@@ -917,6 +920,7 @@ class ComboTrackerEngine:
         self.last_input_time = 0.0
         self._ender_cooldown_until.clear()
         self.ww.ww_active_character = None
+        self._hold_max_held_ms = 0.0
         self.ui_adapter.reset()
         for s in self.runtime_steps:
             s.reset()
@@ -1030,12 +1034,38 @@ class ComboTrackerEngine:
         """Enable or disable no-fail (practice) mode."""
         self.no_fail_mode = bool(enabled)
 
+    def _send_combo_dropped(self, full_status_text: str, now: float) -> None:
+        """Send one message for both status display and attempt log (single source of truth).
+        Uses same row shape as 'hit' (input, split_ms, total_ms) so the frontend can treat
+        both as attempt-log rows; combo_dropped also updates the status line.
+        Timings are computed from engine state before reset (same format as success rows)."""
+        total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+        split_ms = (now - self.last_input_time) * 1000.0 if self.last_input_time else 0.0
+        split_s = f"{float(split_ms):.1f}" if isinstance(split_ms, (float, int)) else str(split_ms)
+        total_s = f"{float(total_ms):.1f}" if isinstance(total_ms, (float, int)) else str(total_ms)
+        self._send({
+            "type": "combo_dropped",
+            "input": full_status_text,
+            "split_ms": split_s,
+            "total_ms": total_s,
+            "color": "fail",
+            "fail": True,
+        })
+
     def _fail_combo(self, reason: str, now: float, *, expected_label: str | None = None, actual: str | None = None) -> None:
         """Record failure, reset all steps, send status and timeline."""
         # Mark the failed step so the timeline snapshot (sent in _reset_after_fail) shows red outline.
         if int(self.current_index) not in self.step_marks:
             self._mark_step(int(self.current_index), "wrong")
-        self._send({"type": "status", "text": "Combo Dropped (" + (reason or "fail") + ")", "color": "fail"})
+        msg_reason = reason or "fail"
+        if "hold" in msg_reason.lower():
+            if self.hold_in_progress:
+                held_ms = (now - self.hold_started_at) * 1000
+                self._hold_max_held_ms = max(self._hold_max_held_ms, held_ms)
+            if self._hold_max_held_ms > 0:
+                msg_reason += f" but held for {int(self._hold_max_held_ms)}ms"
+        full_text = "Combo Dropped (" + msg_reason + ")"
+        self._send_combo_dropped(full_text, now)
         elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
         self.record_combo_fail(
             actual=actual or reason,
@@ -1083,7 +1113,6 @@ class ComboTrackerEngine:
         self._mark_step(int(self.current_index), "missed")
         expected = str(self._expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
         actual = str(input_name or "").strip().lower()
-        self.record_hit(f"{actual} (Exp: {expected}) [ender]", "FAIL", "FAIL")
         if self.no_fail_mode:
             self._mark_current_and_skip(now, mark="missed")
             return
@@ -1094,6 +1123,7 @@ class ComboTrackerEngine:
         self.hold_expected_input = input_name
         self.hold_started_at = now
         self.hold_required_ms = required_ms
+        # Keep _hold_max_held_ms across retries (multiple short releases) so drop message shows max
         self._send({"type": "hold_begin", "input": str(input_name or ""), "required_ms": int(required_ms)})
         st = self.get_status()
         self._send({"type": "status", "text": st.text, "color": st.color})
@@ -1141,8 +1171,7 @@ class ComboTrackerEngine:
         if fail:
             if reason:
                 label += f" [{reason}]"
-            self.record_hit(label, "FAIL", "FAIL")
-            self._send({"type": "status", "text": "Combo Dropped (Too Early)", "color": "fail"})
+            self._send_combo_dropped("Combo Dropped (Too Early)", now)
             elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
             self.record_combo_fail(
                 actual=str(reason or ""),
@@ -1193,6 +1222,7 @@ class ComboTrackerEngine:
         target_hold_ms = int(step.required_ms or 0)
 
         held_ms = (now - self.hold_started_at) * 1000
+        self._hold_max_held_ms = max(self._hold_max_held_ms, held_ms)
         ok = held_ms >= float(target_hold_ms)
 
         req_s = self._format_hold_requirement(target_hold_ms)
@@ -1223,14 +1253,17 @@ class ComboTrackerEngine:
                     self._mark_step(self.current_index - 1, "ok")
 
             # Advance using the standard path so shortcuts update correctly.
+            self._hold_max_held_ms = 0.0
             self._advance_step(now)
             if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms):
                 return True
             if self.current_index >= len(self.runtime_steps):
                 self._on_combo_completed(total_ms)
         else:
-            self.record_hit(label, "FAIL", "FAIL")
-            self._send({"type": "status", "text": "Combo Dropped (Hold Incomplete)", "color": "fail"})
+            drop_text = "Combo Dropped (Hold Incomplete)"
+            if self._hold_max_held_ms > 0:
+                drop_text += f" but held for {int(self._hold_max_held_ms)}ms"
+            self._send_combo_dropped(drop_text, now)
             elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
             self.record_combo_fail(
                 actual=f"released @ {held_ms:.0f}ms",
@@ -1537,7 +1570,6 @@ class ComboTrackerEngine:
             if self._only_ender_can_drop(input_name):
                 expected = self._expected_label_for_step(step) or "?"
                 self._mark_step(int(self.current_index), "missed")
-                self.record_hit(f"{input_name} (Exp: {expected}) [wrong key]", "FAIL", "FAIL")
                 if self.no_fail_mode:
                     self._mark_current_and_skip(now, mark="missed")
                     self._sync_wait_animation_ui(now)
@@ -1568,6 +1600,12 @@ class ComboTrackerEngine:
 
         now = time.perf_counter()
         result = step.process_release(input_name, now)
+
+        # Track max hold duration when release was too short (for drop message later)
+        if isinstance(step, HoldState) and input_name == str(step.expected or "") and self.hold_in_progress:
+            if isinstance(result, IgnoreResult):
+                held_ms = (now - self.hold_started_at) * 1000
+                self._hold_max_held_ms = max(self._hold_max_held_ms, held_ms)
 
         # Forgiving holds: releasing too early should end the UI "hold" indicator,
         # but should NOT drop the combo.
