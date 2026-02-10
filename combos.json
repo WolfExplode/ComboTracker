@@ -1186,407 +1186,101 @@
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
       "success": 0,
-      "fail": 41,
+      "fail": 8,
       "best_ms": null,
       "total_success_ms": 0,
       "fail_by_step": {
-        "5": 2,
-        "4": 7,
-        "2": 13,
-        "1": 15,
-        "9": 1,
-        "3": 2,
-        "7": 1
+        "4": 1,
+        "1": 2,
+        "7": 1,
+        "11": 1,
+        "2": 3
       },
       "fail_by_expected": {
-        "e": 15,
-        "2": 8,
-        "wait(\u2265150ms)": 17,
-        "3": 1
+        "2": 1,
+        "wait(\u2265150ms)": 2,
+        "3": 2,
+        "e": 3
       },
       "fail_by_reason": {
-        "expected e": 15,
-        "expected 2": 8,
-        "only waited for 0.07s, combo ended by space": 1,
-        "only waited for 0.14s, combo ended by r": 1,
-        "only waited for 0.03s, combo ended by r": 1,
-        "only waited for 0.06s, combo ended by space": 6,
-        "only waited for 0.08s, combo ended by space": 1,
-        "only waited for 0.10s, combo ended by space": 1,
-        "only waited for 0.12s, combo ended by e": 1,
-        "expected 3": 1,
-        "only waited for 0.05s, combo ended by space": 3,
-        "only waited for 0.02s, combo ended by space": 2
+        "expected 2": 1,
+        "only waited for 0.09s, combo ended by e": 1,
+        "expected 3": 2,
+        "only waited for 0.10s, combo ended by q": 1,
+        "expected e": 3
       },
       "fail_events": [
         {
-          "ts": 1770750367,
-          "attempt": 1,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "3",
-          "reason": "expected e",
-          "elapsed_ms": 1402
-        },
-        {
-          "ts": 1770750371,
-          "attempt": 2,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 920
-        },
-        {
-          "ts": 1770750409,
-          "attempt": 3,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 37141
-        },
-        {
-          "ts": 1770750412,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 152
-        },
-        {
-          "ts": 1770750422,
-          "attempt": 5,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.07s, combo ended by space",
-          "elapsed_ms": 72
-        },
-        {
-          "ts": 1770751195,
+          "ts": 1770761297,
           "attempt": 1,
           "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 420
-        },
-        {
-          "ts": 1770752330,
-          "attempt": 1,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 522
-        },
-        {
-          "ts": 1770752338,
-          "attempt": 2,
-          "step_index": 9,
           "expected": "2",
           "actual": "q",
           "reason": "expected 2",
-          "elapsed_ms": 6954
+          "elapsed_ms": 792
         },
         {
-          "ts": 1770756046,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 166
-        },
-        {
-          "ts": 1770756054,
+          "ts": 1770761303,
           "attempt": 2,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 930
-        },
-        {
-          "ts": 1770756056,
-          "attempt": 3,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "r",
-          "reason": "only waited for 0.14s, combo ended by r",
-          "elapsed_ms": 142
-        },
-        {
-          "ts": 1770756060,
-          "attempt": 4,
-          "step_index": 3,
-          "expected": "wait(\u2265150ms)",
-          "actual": "r",
-          "reason": "only waited for 0.03s, combo ended by r",
-          "elapsed_ms": 390
-        },
-        {
-          "ts": 1770756075,
-          "attempt": 5,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "r",
-          "reason": "expected 2",
-          "elapsed_ms": 758
-        },
-        {
-          "ts": 1770756077,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 710
-        },
-        {
-          "ts": 1770756083,
-          "attempt": 7,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.06s, combo ended by space",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770756084,
-          "attempt": 8,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 246
-        },
-        {
-          "ts": 1770756091,
-          "attempt": 9,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.06s, combo ended by space",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770756092,
-          "attempt": 10,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 234
-        },
-        {
-          "ts": 1770756099,
-          "attempt": 11,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.08s, combo ended by space",
-          "elapsed_ms": 82
-        },
-        {
-          "ts": 1770756112,
-          "attempt": 12,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 986
-        },
-        {
-          "ts": 1770756122,
-          "attempt": 13,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "space",
-          "reason": "expected 2",
-          "elapsed_ms": 910
-        },
-        {
-          "ts": 1770756124,
-          "attempt": 14,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.10s, combo ended by space",
-          "elapsed_ms": 102
-        },
-        {
-          "ts": 1770756150,
-          "attempt": 15,
           "step_index": 1,
           "expected": "wait(\u2265150ms)",
           "actual": "e",
-          "reason": "only waited for 0.12s, combo ended by e",
-          "elapsed_ms": 124
+          "reason": "only waited for 0.09s, combo ended by e",
+          "elapsed_ms": 90
         },
         {
-          "ts": 1770756151,
-          "attempt": 16,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "3",
-          "reason": "expected 2",
-          "elapsed_ms": 688
-        },
-        {
-          "ts": 1770756153,
-          "attempt": 17,
+          "ts": 1770761307,
+          "attempt": 3,
           "step_index": 7,
           "expected": "3",
-          "actual": "q",
+          "actual": "e",
           "reason": "expected 3",
-          "elapsed_ms": 1448
+          "elapsed_ms": 3468
         },
         {
-          "ts": 1770756301,
-          "attempt": 18,
+          "ts": 1770761315,
+          "attempt": 4,
+          "step_index": 11,
+          "expected": "3",
+          "actual": "r",
+          "reason": "expected 3",
+          "elapsed_ms": 6916
+        },
+        {
+          "ts": 1770761315,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "wait(\u2265150ms)",
+          "actual": "q",
+          "reason": "only waited for 0.10s, combo ended by q",
+          "elapsed_ms": 100
+        },
+        {
+          "ts": 1770761316,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "q",
+          "reason": "expected e",
+          "elapsed_ms": 177
+        },
+        {
+          "ts": 1770761362,
+          "attempt": 7,
           "step_index": 2,
           "expected": "e",
           "actual": "r",
           "reason": "expected e",
-          "elapsed_ms": 332
+          "elapsed_ms": 840
         },
         {
-          "ts": 1770756305,
-          "attempt": 19,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "space",
-          "reason": "expected 2",
-          "elapsed_ms": 666
-        },
-        {
-          "ts": 1770756330,
-          "attempt": 20,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.06s, combo ended by space",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770756392,
-          "attempt": 21,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 298
-        },
-        {
-          "ts": 1770756399,
-          "attempt": 22,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.06s, combo ended by space",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770756776,
-          "attempt": 23,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.05s, combo ended by space",
-          "elapsed_ms": 54
-        },
-        {
-          "ts": 1770756777,
-          "attempt": 24,
+          "ts": 1770761363,
+          "attempt": 8,
           "step_index": 2,
           "expected": "e",
           "actual": "r",
           "reason": "expected e",
-          "elapsed_ms": 760
-        },
-        {
-          "ts": 1770756778,
-          "attempt": 25,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.06s, combo ended by space",
-          "elapsed_ms": 56
-        },
-        {
-          "ts": 1770756780,
-          "attempt": 26,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.02s, combo ended by space",
-          "elapsed_ms": 20
-        },
-        {
-          "ts": 1770756792,
-          "attempt": 27,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 688
-        },
-        {
-          "ts": 1770757017,
-          "attempt": 28,
-          "step_index": 3,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.06s, combo ended by space",
-          "elapsed_ms": 434
-        },
-        {
-          "ts": 1770757022,
-          "attempt": 29,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.05s, combo ended by space",
-          "elapsed_ms": 52
-        },
-        {
-          "ts": 1770757025,
-          "attempt": 30,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1022
-        },
-        {
-          "ts": 1770757025,
-          "attempt": 31,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 180
-        },
-        {
-          "ts": 1770757039,
-          "attempt": 32,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.05s, combo ended by space",
-          "elapsed_ms": 46
-        },
-        {
-          "ts": 1770757042,
-          "attempt": 33,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "space",
-          "reason": "only waited for 0.02s, combo ended by space",
-          "elapsed_ms": 22
+          "elapsed_ms": 872
         }
       ]
     }

@@ -1,6 +1,8 @@
 // WebSocket connection
 const ws = new WebSocket('ws://localhost:8765');
 
+const getEl = (id) => document.getElementById(id);
+
 ws.onopen = () => {
     console.log('Connected to Combo Trainer backend');
 };
@@ -10,9 +12,33 @@ ws.onclose = () => {
     updateStatus('ERROR: Backend disconnected', 'fail');
 };
 
+function sendMessage(type, payload = {}) {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type, ...payload }));
+}
+
+// Single app state (replaces scattered globals)
+const appState = {
+    stepDisplayMode: 'icons',
+    keyImages: {},
+    lastTimelineSteps: null,
+    lastFailByStep: {},
+    showFailCount: false,
+    autoScrollEnabled: false,
+    targetGame: 'generic',
+    wwAbilityImages: { "1": {}, "2": {}, "3": {} },
+    wwSwapImages: { "1": "", "2": "", "3": "" },
+    wwLmbImages: { "1": "", "2": "", "3": "" },
+    wwDashImage: "",
+    wwTeams: [],
+    wwTeamId: '',
+    batchQueue: [],
+    isProcessingBatch: false,
+};
+
 // UI Initialization
 function initializeUI(data) {
-    const selector = document.getElementById('comboSelector');
+    const selector = getEl('comboSelector');
     selector.innerHTML = '<option value="">— Select Combo —</option>';
     data.combos.forEach(name => {
         const opt = document.createElement('option');
@@ -25,9 +51,9 @@ function initializeUI(data) {
     }
 
     // Clear live tables on init (fresh UI state)
-    document.getElementById('resultsBody').innerHTML = '';
+    getEl('resultsBody').innerHTML = '';
 
-    if (data.fail_by_step) lastFailByStep = data.fail_by_step;
+    if (data.fail_by_step) appState.lastFailByStep = data.fail_by_step;
 
     if (data.editor) setEditorFields(data.editor);
     if (data.status) updateStatus(data.status.text, data.status.color);
@@ -37,30 +63,13 @@ function initializeUI(data) {
     if (data.user_difficulty !== undefined) updateUserDifficulty(data.user_difficulty);
     if (data.apm !== undefined) updateAPM(data.apm);
     if (data.apm_max !== undefined) updateAPMMax(data.apm_max);
-    setDifficultyColor(document.getElementById('difficultyDisplay'), data.difficulty_value);
-    setDifficultyColor(document.getElementById('userDifficultyDisplay'), data.user_difficulty_value);
+    setDifficultyColor(getEl('difficultyDisplay'), data.difficulty_value);
+    setDifficultyColor(getEl('userDifficultyDisplay'), data.user_difficulty_value);
     if (data.timeline) updateTimeline(data.timeline);
 
-    const noFailEl = document.getElementById('noFailMode');
+    const noFailEl = getEl('noFailMode');
     if (noFailEl) noFailEl.checked = !!data.no_fail_mode;
 }
-
-// Step display config (per-combo, loaded from backend editor payload)
-let currentStepDisplayMode = 'icons'; // "icons" | "images"
-let currentKeyImages = {}; // key -> url
-let lastTimelineSteps = null;
-let autoScrollEnabled = false;
-let showFailCount = false;
-let lastFailByStep = {};
-
-// Per-combo game config
-let currentTargetGame = 'generic'; // "generic" | "wuthering_waves"
-let currentWwAbilityImages = { "1": {}, "2": {}, "3": {} }; // char -> {e/q/r -> url}
-let currentWwSwapImages = { "1": "", "2": "", "3": "" }; // swap key images for 1/2/3 (from team)
-let currentWwLmbImages = { "1": "", "2": "", "3": "" }; // per-character LMB images (from team)
-let currentWwDashImage = ""; // shared RMB/dash image (from team)
-let currentWwTeams = []; // [{id,name}]
-let currentWwTeamId = ''; // selected team id (combo assignment / active team)
 
 function normalizeTargetGame(v) {
     const g = (v || '').toString().trim().toLowerCase();
@@ -92,34 +101,34 @@ function ensureWwSlotShape(obj) {
 }
 
 function syncGameUIVisibility() {
-    const imagesOn = currentStepDisplayMode === 'images' || !!document.getElementById('stepDisplayToggle')?.checked;
-    const wwDetails = document.getElementById('wwAbilityDetails');
+    const imagesOn = appState.stepDisplayMode === 'images' || !!getEl('stepDisplayToggle')?.checked;
+    const wwDetails = getEl('wwAbilityDetails');
     if (wwDetails) {
         // Only show WW editor when WW mode AND images are enabled.
-        wwDetails.classList.toggle('hidden', !(currentTargetGame === 'wuthering_waves' && imagesOn));
+        wwDetails.classList.toggle('hidden', !(appState.targetGame === 'wuthering_waves' && imagesOn));
     }
-    const keyDetails = document.getElementById('keyImagesDetails');
+    const keyDetails = getEl('keyImagesDetails');
     if (keyDetails) {
         // In WW mode, the WW panel replaces key images completely.
-        keyDetails.classList.toggle('hidden', currentTargetGame === 'wuthering_waves');
+        keyDetails.classList.toggle('hidden', appState.targetGame === 'wuthering_waves');
     }
 
-    const teamLabel = document.getElementById('wwTeamLabel');
-    const teamControls = document.getElementById('wwTeamControls');
-    if (teamLabel) teamLabel.classList.toggle('hidden', currentTargetGame !== 'wuthering_waves');
-    if (teamControls) teamControls.classList.toggle('hidden', currentTargetGame !== 'wuthering_waves');
+    const teamLabel = getEl('wwTeamLabel');
+    const teamControls = getEl('wwTeamControls');
+    if (teamLabel) teamLabel.classList.toggle('hidden', appState.targetGame !== 'wuthering_waves');
+    if (teamControls) teamControls.classList.toggle('hidden', appState.targetGame !== 'wuthering_waves');
 
     // Re-render key images editor (generic mode only).
     renderKeyImagesEditor();
 }
 
 function readWwDataFromUI() {
-    const container = document.getElementById('wwAbilityEditor');
+    const container = getEl('wwAbilityEditor');
     if (!container) return;
 
-    currentWwAbilityImages = { "1": {}, "2": {}, "3": {} };
-    currentWwSwapImages = { "1": "", "2": "", "3": "" };
-    currentWwLmbImages = { "1": "", "2": "", "3": "" };
+    appState.wwAbilityImages = { "1": {}, "2": {}, "3": {} };
+    appState.wwSwapImages = { "1": "", "2": "", "3": "" };
+    appState.wwLmbImages = { "1": "", "2": "", "3": "" };
 
     const isValidChar = c => ['1', '2', '3'].includes(c);
 
@@ -128,7 +137,7 @@ function readWwDataFromUI() {
         const a = inp.getAttribute('data-ability')?.trim().toLowerCase();
         if (!isValidChar(c) || !['e', 'q', 'r'].includes(a)) return;
         const url = (inp.value || '').toString().trim();
-        if (url) currentWwAbilityImages[c][a] = url;
+        if (url) appState.wwAbilityImages[c][a] = url;
     });
 
     const readFlat = (attr, target) => {
@@ -139,10 +148,10 @@ function readWwDataFromUI() {
         });
     };
 
-    readFlat('swap', currentWwSwapImages);
-    readFlat('lmb', currentWwLmbImages);
+    readFlat('swap', appState.wwSwapImages);
+    readFlat('lmb', appState.wwLmbImages);
 
-    currentWwDashImage = (document.getElementById('wwDashImageInput')?.value || '').toString().trim();
+    appState.wwDashImage = (getEl('wwDashImageInput')?.value || '').toString().trim();
 }
 
 function renderWwAbilityEditor({ preserveEdits = true } = {}) {
@@ -151,7 +160,7 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
     if (preserveEdits) {
         readWwDataFromUI();
     }
-    const container = document.getElementById('wwAbilityEditor');
+    const container = getEl('wwAbilityEditor');
     if (!container) return;
     container.innerHTML = '';
 
@@ -187,14 +196,14 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
     dashInput.type = 'text';
     dashInput.placeholder = 'https://... or 💨';
     dashInput.id = 'wwDashImageInput';
-    dashInput.value = (currentWwDashImage || '').toString();
+    dashInput.value = (appState.wwDashImage || '').toString();
 
     const dashPreview = document.createElement('div');
     dashPreview.className = 'ww-ability-preview';
     setPreview(dashPreview, dashInput.value);
 
     dashInput.addEventListener('input', () => {
-        currentWwDashImage = dashInput.value.trim();
+        appState.wwDashImage = dashInput.value.trim();
         setPreview(dashPreview, dashInput.value);
     });
 
@@ -226,14 +235,14 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
         lmbInput.type = 'text';
         lmbInput.setAttribute('data-lmb', c);
         lmbInput.placeholder = 'https://... or ⚔️';
-        lmbInput.value = (currentWwLmbImages[c] || '').toString();
+        lmbInput.value = (appState.wwLmbImages[c] || '').toString();
 
         const lmbPreview = document.createElement('div');
         lmbPreview.className = 'ww-ability-preview';
         setPreview(lmbPreview, lmbInput.value);
 
         lmbInput.addEventListener('input', () => {
-            currentWwLmbImages[c] = lmbInput.value.trim();
+            appState.wwLmbImages[c] = lmbInput.value.trim();
             setPreview(lmbPreview, lmbInput.value);
         });
 
@@ -253,14 +262,14 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
         swapInput.type = 'text';
         swapInput.setAttribute('data-swap', c);
         swapInput.placeholder = 'https://... or 🔄';
-        swapInput.value = (currentWwSwapImages[c] || '').toString();
+        swapInput.value = (appState.wwSwapImages[c] || '').toString();
 
         const swapPreview = document.createElement('div');
         swapPreview.className = 'ww-ability-preview';
         setPreview(swapPreview, swapInput.value);
 
         swapInput.addEventListener('input', () => {
-            currentWwSwapImages[c] = swapInput.value.trim();
+            appState.wwSwapImages[c] = swapInput.value.trim();
             setPreview(swapPreview, swapInput.value);
         });
 
@@ -284,19 +293,19 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
             input.setAttribute('data-ability', a.toLowerCase());
             input.placeholder = 'https://... or emoji';
             const key = a.toLowerCase();
-            input.value = ((currentWwAbilityImages[c] || {})[key] || '').toString();
+            input.value = ((appState.wwAbilityImages[c] || {})[key] || '').toString();
 
             const preview = document.createElement('div');
             preview.className = 'ww-ability-preview';
             setPreview(preview, input.value);
 
             input.addEventListener('input', () => {
-                if (!currentWwAbilityImages[c]) currentWwAbilityImages[c] = {};
+                if (!appState.wwAbilityImages[c]) appState.wwAbilityImages[c] = {};
                 const v = input.value.trim();
                 if (v) {
-                    currentWwAbilityImages[c][key] = v;
+                    appState.wwAbilityImages[c][key] = v;
                 } else {
-                    delete currentWwAbilityImages[c][key];
+                    delete appState.wwAbilityImages[c][key];
                 }
                 setPreview(preview, input.value);
             });
@@ -313,7 +322,7 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
 
 // Extract keys from inputs text
 function extractKeysFromInputs() {
-    const txt = (document.getElementById('comboInputs')?.value || '').toString();
+    const txt = (getEl('comboInputs')?.value || '').toString();
     if (!txt.trim()) return [];
 
     const parts = txt.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
@@ -368,7 +377,7 @@ function extractKeysFromInputs() {
 }
 
 function readKeyImagesFromUI() {
-    const container = document.getElementById('keyImagesEditor');
+    const container = getEl('keyImagesEditor');
     if (!container) return;
     const inputs = container.querySelectorAll('input[data-key]');
     const next = {};
@@ -377,15 +386,15 @@ function readKeyImagesFromUI() {
         const url = (inp.value || '').toString().trim();
         if (k && url) next[k] = url;
     });
-    currentKeyImages = next;
+    appState.keyImages = next;
 }
 
 function renderKeyImagesEditor() {
     // Generic mode only
-    if (currentTargetGame === 'wuthering_waves') return;
+    if (appState.targetGame === 'wuthering_waves') return;
 
     readKeyImagesFromUI();
-    const container = document.getElementById('keyImagesEditor');
+    const container = getEl('keyImagesEditor');
     if (!container) return;
     container.innerHTML = '';
 
@@ -407,11 +416,11 @@ function renderKeyImagesEditor() {
         input.type = 'text';
         input.setAttribute('data-key', k);
         input.placeholder = 'https://... or emoji';
-        input.value = (currentKeyImages[k] || '').toString();
+        input.value = (appState.keyImages[k] || '').toString();
 
         const preview = document.createElement('div');
         preview.className = 'key-image-preview';
-        const v = (currentKeyImages[k] || '').toString().trim();
+        const v = (appState.keyImages[k] || '').toString().trim();
         if (v) {
             preview.style.display = 'flex';
             if (/^https?:\/\//i.test(v)) {
@@ -426,7 +435,7 @@ function renderKeyImagesEditor() {
         input.addEventListener('input', () => {
             const url = input.value.trim();
             if (url) {
-                currentKeyImages[k] = url;
+                appState.keyImages[k] = url;
                 preview.style.display = 'flex';
                 if (/^https?:\/\//i.test(url)) {
                     preview.innerHTML = `<img src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:24px;height:24px;object-fit:contain;" />`;
@@ -434,7 +443,7 @@ function renderKeyImagesEditor() {
                     preview.innerHTML = `<span>${escapeHtml(url)}</span>`;
                 }
             } else {
-                delete currentKeyImages[k];
+                delete appState.keyImages[k];
                 preview.style.display = 'none';
             }
         });
@@ -448,30 +457,30 @@ function renderKeyImagesEditor() {
 
 // Editor fields update (from backend)
 function setEditorFields(data) {
-    document.getElementById('comboName').value = data.name || '';
-    document.getElementById('comboInputs').value = data.inputs || '';
-    document.getElementById('comboEnders').value = data.enders || '';
-    document.getElementById('comboExpectedTime').value = data.expected_time || '';
-    document.getElementById('comboUserDifficulty').value = data.user_difficulty || '';
+    getEl('comboName').value = data.name || '';
+    getEl('comboInputs').value = data.inputs || '';
+    getEl('comboEnders').value = data.enders || '';
+    getEl('comboExpectedTime').value = data.expected_time || '';
+    getEl('comboUserDifficulty').value = data.user_difficulty || '';
 
-    currentStepDisplayMode = (data.step_display_mode || 'icons').toString().trim().toLowerCase();
-    if (!['icons', 'images'].includes(currentStepDisplayMode)) currentStepDisplayMode = 'icons';
-    const toggle = document.getElementById('stepDisplayToggle');
-    if (toggle) toggle.checked = (currentStepDisplayMode === 'images');
+    appState.stepDisplayMode = (data.step_display_mode || 'icons').toString().trim().toLowerCase();
+    if (!['icons', 'images'].includes(appState.stepDisplayMode)) appState.stepDisplayMode = 'icons';
+    const toggle = getEl('stepDisplayToggle');
+    if (toggle) toggle.checked = (appState.stepDisplayMode === 'images');
 
-    currentKeyImages = (typeof data.key_images === 'object' && data.key_images !== null) ? { ...data.key_images } : {};
+    appState.keyImages = (typeof data.key_images === 'object' && data.key_images !== null) ? { ...data.key_images } : {};
 
     // Target game & WW data
-    currentTargetGame = normalizeTargetGame(data.target_game || 'generic');
-    const gameSelect = document.getElementById('targetGameSelect');
-    if (gameSelect) gameSelect.value = currentTargetGame;
+    appState.targetGame = normalizeTargetGame(data.target_game || 'generic');
+    const gameSelect = getEl('targetGameSelect');
+    if (gameSelect) gameSelect.value = appState.targetGame;
 
     // WW teams list
-    currentWwTeams = Array.isArray(data.ww_teams) ? [...data.ww_teams] : [];
-    const teamSelect = document.getElementById('wwTeamSelect');
+    appState.wwTeams = Array.isArray(data.ww_teams) ? [...data.ww_teams] : [];
+    const teamSelect = getEl('wwTeamSelect');
     if (teamSelect) {
         teamSelect.innerHTML = '<option value="">— New Team —</option>';
-        currentWwTeams.forEach(t => {
+        appState.wwTeams.forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.id;
             opt.textContent = t.name;
@@ -480,16 +489,16 @@ function setEditorFields(data) {
     }
 
     // Selected team (from combo assignment or active team)
-    currentWwTeamId = (data.ww_team_id || '').toString().trim();
-    if (teamSelect) teamSelect.value = currentWwTeamId;
+    appState.wwTeamId = (data.ww_team_id || '').toString().trim();
+    if (teamSelect) teamSelect.value = appState.wwTeamId;
 
-    const teamNameEl = document.getElementById('wwTeamName');
+    const teamNameEl = getEl('wwTeamName');
     if (teamNameEl) teamNameEl.value = (data.ww_team_name || '').toString();
 
-    currentWwDashImage = (data.ww_team_dash_image || '').toString().trim();
-    currentWwSwapImages = ensureWwSlotShape(data.ww_team_swap_images);
-    currentWwLmbImages = ensureWwSlotShape(data.ww_team_lmb_images);
-    currentWwAbilityImages = ensureWwAbilityShape(data.ww_team_ability_images);
+    appState.wwDashImage = (data.ww_team_dash_image || '').toString().trim();
+    appState.wwSwapImages = ensureWwSlotShape(data.ww_team_swap_images);
+    appState.wwLmbImages = ensureWwSlotShape(data.ww_team_lmb_images);
+    appState.wwAbilityImages = ensureWwAbilityShape(data.ww_team_ability_images);
 
     syncGameUIVisibility();
     renderWwAbilityEditor({ preserveEdits: false });
@@ -497,7 +506,7 @@ function setEditorFields(data) {
 
 // Status display
 function updateStatus(text, color) {
-    const el = document.getElementById('statusDisplay');
+    const el = getEl('statusDisplay');
     if (!el) return;
     el.textContent = text || 'Status: Ready';
     el.className = 'status-' + (color || 'neutral');
@@ -505,32 +514,32 @@ function updateStatus(text, color) {
 
 // Stats
 function updateStats(text) {
-    const el = document.getElementById('statsDisplay');
+    const el = getEl('statsDisplay');
     if (el) el.textContent = text || 'Stats: —';
 }
 
 function updateMinTime(text) {
-    const el = document.getElementById('minTimeDisplay');
+    const el = getEl('minTimeDisplay');
     if (el) el.textContent = text || 'Fastest possible: —';
 }
 
 function updateDifficulty(text) {
-    const el = document.getElementById('difficultyDisplay');
+    const el = getEl('difficultyDisplay');
     if (el) el.textContent = text || 'Difficulty: —';
 }
 
 function updateUserDifficulty(text) {
-    const el = document.getElementById('userDifficultyDisplay');
+    const el = getEl('userDifficultyDisplay');
     if (el) el.textContent = text || 'Your difficulty: —';
 }
 
 function updateAPM(text) {
-    const el = document.getElementById('apmDisplay');
+    const el = getEl('apmDisplay');
     if (el) el.textContent = text || 'Practical APM: —';
 }
 
 function updateAPMMax(text) {
-    const el = document.getElementById('apmMaxDisplay');
+    const el = getEl('apmMaxDisplay');
     if (el) el.textContent = text || 'Theoretical max APM: —';
 }
 
@@ -547,11 +556,11 @@ function setDifficultyColor(el, value) {
 
 // Attempt log
 function clearAttemptLog() {
-    document.getElementById('resultsBody').innerHTML = '';
+    getEl('resultsBody').innerHTML = '';
 }
 
 function addAttemptSeparator(name, attempt) {
-    const body = document.getElementById('resultsBody');
+    const body = getEl('resultsBody');
     if (!body) return;
     const row = document.createElement('div');
     row.className = 'result-row separator';
@@ -561,7 +570,7 @@ function addAttemptSeparator(name, attempt) {
 }
 
 function addResultRow(data) {
-    const body = document.getElementById('resultsBody');
+    const body = getEl('resultsBody');
     if (!body) return;
     const row = document.createElement('div');
     row.className = 'result-row';
@@ -673,17 +682,28 @@ function startWaitAnimation(requiredMs) {
 
 // Timeline rendering
 function refreshTimelineIfLoaded() {
-    if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+    if (appState.lastTimelineSteps) updateTimeline(appState.lastTimelineSteps);
 }
 
 function updateTimeline(steps) {
-    lastTimelineSteps = steps;
-    const container = document.getElementById('comboTimeline');
+    appState.lastTimelineSteps = steps;
+    const container = getEl('comboTimeline');
     if (!container) return;
     container.innerHTML = '';
 
+    const ctx = {
+        failByStep: appState.lastFailByStep,
+        stepDisplayMode: appState.stepDisplayMode,
+        keyImages: appState.keyImages,
+        targetGame: appState.targetGame,
+        wwSwapImages: appState.wwSwapImages,
+        wwDashImage: appState.wwDashImage,
+        wwLmbImages: appState.wwLmbImages,
+        wwAbilityImages: appState.wwAbilityImages,
+        showFailCount: appState.showFailCount,
+    };
+
     const BASE_STEP_WIDTH_PX = 90;
-    // Duration (ms) → width scale; larger divisor = narrower tiles (e.g. 250 → 400ms ≈ 128px).
     const DURATION_WIDTH_DIVISOR = 350;
     const applyHoldWidth = (el, durationMs) => {
         const ms = Number(durationMs);
@@ -699,9 +719,8 @@ function updateTimeline(steps) {
         el.style.minWidth = `${BASE_STEP_WIDTH_PX}px`;
         el.style.width = `${w}px`;
     };
-
     const addCornerKey = (el, key) => {
-        if (currentStepDisplayMode !== 'images') return;
+        if (ctx.stepDisplayMode !== 'images') return;
         const k = (key || '').toString().trim();
         if (!k) return;
         const span = document.createElement('span');
@@ -710,9 +729,7 @@ function updateTimeline(steps) {
         el.appendChild(span);
     };
 
-    // Shared renderer for "step group-item" tiles (used by normal group items and mini-sequences)
-    // so they always look identical (images, durations, corner key, progress bars, etc.).
-    const createGroupItemTile = (it, characterId) => {
+    function createGroupItemTile(it, characterId) {
         const el = document.createElement('div');
         el.className = 'step group-item';
 
@@ -737,7 +754,7 @@ function updateTimeline(steps) {
         if (it.active) el.classList.add('active');
         if (it.completed) el.classList.add('completed');
 
-        appendStepContent(el, it, characterId);
+        appendStepContent(el, it, characterId, ctx);
 
         let keyForCorner = '';
         if (it.type === 'wait' && it.wait_for) keyForCorner = it.wait_for;
@@ -745,7 +762,156 @@ function updateTimeline(steps) {
         if (keyForCorner) addCornerKey(el, keyForCorner);
 
         return el;
-    };
+    }
+
+    function renderGroupStep(s, idx, activeChar) {
+        const indices = Array.isArray(s.step_indices) ? s.step_indices : [idx];
+        const failCount = indices.reduce((n, i) => n + (ctx.failByStep[String(i)] || ctx.failByStep[i] || 0), 0);
+        const showFailForStep = ctx.showFailCount && failCount > 0;
+
+        const tile = document.createElement('div');
+        tile.className = 'step-group';
+        if (s.active) tile.classList.add('active');
+        if (s.completed) tile.classList.add('completed');
+        if (s.mark) {
+            const m = String(s.mark).toLowerCase();
+            if (m === 'ok') tile.classList.add('mark-ok');
+            else if (m === 'early') tile.classList.add('mark-early');
+            else if (m === 'missed') tile.classList.add('mark-missed');
+            else if (m === 'wrong') tile.classList.add('mark-wrong');
+        }
+        if (showFailForStep) {
+            tile.classList.add('mark-missed');
+            const badge = document.createElement('span');
+            badge.className = 'step-fail-count';
+            badge.textContent = String(failCount);
+            tile.appendChild(badge);
+        }
+
+        const items = document.createElement('div');
+        items.className = 'step-group-items';
+        let nextChar = activeChar;
+
+        (s.items || []).forEach(it => {
+            const itInp = (it.input || '').toString().toLowerCase();
+            const itWait = (it.wait_for || '').toString().toLowerCase();
+
+            if (it.type === 'sequence') {
+                const seqEl = document.createElement('div');
+                seqEl.className = 'step group-item group-item-sequence';
+                if (it.active) seqEl.classList.add('active');
+                if (it.completed) seqEl.classList.add('completed');
+
+                const seqItems = document.createElement('div');
+                seqItems.className = 'mini-sequence-items';
+                (it.items || []).forEach(seqIt => {
+                    const seqItInp = (seqIt.input || '').toString().toLowerCase();
+                    const seqItWait = (seqIt.wait_for || '').toString().toLowerCase();
+                    if (['1', '2', '3'].includes(seqItInp)) nextChar = seqItInp;
+                    else if (['1', '2', '3'].includes(seqItWait)) nextChar = seqItWait;
+                    seqItems.appendChild(createGroupItemTile(seqIt, nextChar));
+                });
+                seqEl.appendChild(seqItems);
+                items.appendChild(seqEl);
+            } else {
+                if (['1', '2', '3'].includes(itInp)) nextChar = itInp;
+                else if (['1', '2', '3'].includes(itWait)) nextChar = itWait;
+                items.appendChild(createGroupItemTile(it, nextChar));
+            }
+        });
+        tile.appendChild(items);
+        return { tile, nextActiveChar: nextChar };
+    }
+
+    function renderSequenceStep(s, idx, activeChar) {
+        const indices = Array.isArray(s.step_indices) ? s.step_indices : [idx];
+        const failCount = indices.reduce((n, i) => n + (ctx.failByStep[String(i)] || ctx.failByStep[i] || 0), 0);
+        const showFailForStep = ctx.showFailCount && failCount > 0;
+
+        const tile = document.createElement('div');
+        tile.className = 'step-sequence';
+        if (s.active) tile.classList.add('active');
+        if (s.completed) tile.classList.add('completed');
+        if (showFailForStep) {
+            tile.classList.add('mark-missed');
+            const badge = document.createElement('span');
+            badge.className = 'step-fail-count';
+            badge.textContent = String(failCount);
+            tile.appendChild(badge);
+        }
+
+        const items = document.createElement('div');
+        items.className = 'sequence-items';
+        let nextChar = activeChar;
+
+        (s.items || []).forEach(it => {
+            const itInp = (it.input || '').toString().toLowerCase();
+            const itWait = (it.wait_for || '').toString().toLowerCase();
+            if (['1', '2', '3'].includes(itInp)) nextChar = itInp;
+            else if (['1', '2', '3'].includes(itWait)) nextChar = itWait;
+
+            const itEl = document.createElement('div');
+            itEl.className = 'step sequence-item';
+            if (it.active) itEl.classList.add('active');
+            if (it.completed) itEl.classList.add('completed');
+            appendStepContent(itEl, it, nextChar, ctx);
+            items.appendChild(itEl);
+        });
+        tile.appendChild(items);
+        return { tile, nextActiveChar: nextChar };
+    }
+
+    function renderNormalStep(s, idx, activeChar) {
+        const indices = Array.isArray(s.step_indices) ? s.step_indices : [idx];
+        const failCount = indices.reduce((n, i) => n + (ctx.failByStep[String(i)] || ctx.failByStep[i] || 0), 0);
+        const showFailForStep = ctx.showFailCount && failCount > 0;
+
+        const sInp = (s.input || '').toString().toLowerCase();
+        const sWait = (s.wait_for || '').toString().toLowerCase();
+        let nextChar = activeChar;
+        if (['1', '2', '3'].includes(sInp)) nextChar = sInp;
+        else if (['1', '2', '3'].includes(sWait)) nextChar = sWait;
+
+        const tile = document.createElement('div');
+        tile.className = 'step';
+        if (s.active) tile.classList.add('active');
+        if (s.completed) tile.classList.add('completed');
+        if (s.mark === 'success') tile.classList.add('mark-ok');
+        if (s.mark === 'fail' || s.mark === 'wrong') tile.classList.add('mark-wrong');
+        if (s.mark === 'missed' || showFailForStep) tile.classList.add('mark-missed');
+        if (s.mark === 'early') tile.classList.add('mark-early');
+        if (showFailForStep) {
+            const badge = document.createElement('span');
+            badge.className = 'step-fail-count';
+            badge.textContent = String(failCount);
+            tile.appendChild(badge);
+        }
+
+        if (s.type) tile.classList.add(s.type.replace('_', '-'));
+        let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
+        if (s.type === 'wait' || s.type === 'press_wait') {
+            tile.style.setProperty('--wait-pct', `${pct}%`);
+            if (s.duration <= 150) tile.classList.add('short-wait');
+            if (s.duration) applyWaitWidth(tile, s.duration);
+        } else if (s.type === 'hold') {
+            tile.style.setProperty('--hold-pct', `${pct}%`);
+            if (s.duration) applyHoldWidth(tile, s.duration);
+        }
+
+        let keyForCorner = '';
+        if (s.type === 'wait' && s.wait_for) keyForCorner = s.wait_for;
+        else if (s.input) keyForCorner = s.input;
+        if (keyForCorner) addCornerKey(tile, keyForCorner);
+
+        appendStepContent(tile, s, nextChar, ctx);
+        return { tile, nextActiveChar: nextChar };
+    }
+
+    function renderStep(s, idx, activeChar) {
+        if (s.type === 'group') return renderGroupStep(s, idx, activeChar);
+        if (s.type === 'sequence') return renderSequenceStep(s, idx, activeChar);
+        return renderNormalStep(s, idx, activeChar);
+    }
 
     if (!steps || steps.length === 0) {
         container.innerHTML = '<div class="help-text">No combo selected</div>';
@@ -753,165 +919,13 @@ function updateTimeline(steps) {
     }
 
     let activeChar = '1';
-
     steps.forEach((s, idx) => {
-        const tile = document.createElement('div');
-        // Backend sends step_indices (runtime step index or list when merged) so fail_by_step aligns
-        const indices = Array.isArray(s.step_indices) ? s.step_indices : [idx];
-        const failCount = indices.reduce((n, i) => n + (lastFailByStep[String(i)] || lastFailByStep[i] || 0), 0);
-        const showFailForStep = showFailCount && failCount > 0;
-
-        // Handle class assignment based on type
-        if (s.type === 'group') {
-            tile.className = 'step-group';
-            if (s.active) tile.classList.add('active');
-            if (s.completed) tile.classList.add('completed');
-            // Add performance marks if applicable to group? Usually on items.
-            if (s.mark) {
-                const m = String(s.mark).toLowerCase();
-                if (m === 'ok') tile.classList.add('mark-ok');
-                else if (m === 'early') tile.classList.add('mark-early');
-                else if (m === 'missed') tile.classList.add('mark-missed');
-                else if (m === 'wrong') tile.classList.add('mark-wrong');
-            }
-            if (showFailForStep) {
-                tile.classList.add('mark-missed');
-                const badge = document.createElement('span');
-                badge.className = 'step-fail-count';
-                badge.textContent = String(failCount);
-                tile.appendChild(badge);
-            }
-
-            const items = document.createElement('div');
-            items.className = 'step-group-items';
-
-            (s.items || []).forEach(it => {
-                const itInp = (it.input || '').toString().toLowerCase();
-                const itWait = (it.wait_for || '').toString().toLowerCase();
-
-                if (it.type === 'sequence') {
-                    // Render a mini sequence within the group
-                    const seqEl = document.createElement('div');
-                    seqEl.className = 'step group-item group-item-sequence';
-                    if (it.active) seqEl.classList.add('active');
-                    if (it.completed) seqEl.classList.add('completed');
-
-                    const seqItems = document.createElement('div');
-                    seqItems.className = 'mini-sequence-items';
-                    const seqArr = (it.items || []);
-                    for (let seqIdx = 0; seqIdx < seqArr.length; seqIdx++) {
-                        const seqIt = seqArr[seqIdx];
-
-                        const seqItInp = (seqIt.input || '').toString().toLowerCase();
-                        const seqItWait = (seqIt.wait_for || '').toString().toLowerCase();
-
-                        if (['1', '2', '3'].includes(seqItInp)) activeChar = seqItInp;
-                        else if (['1', '2', '3'].includes(seqItWait)) activeChar = seqItWait;
-
-                        // Backend is the single source of truth for merge/collapse rules.
-                        // (No frontend-side sequence merging here.)
-                        seqItems.appendChild(createGroupItemTile(seqIt, activeChar));
-                    }
-                    seqEl.appendChild(seqItems);
-                    items.appendChild(seqEl);
-                } else {
-                    // Regular group item
-                    if (['1', '2', '3'].includes(itInp)) activeChar = itInp;
-                    else if (['1', '2', '3'].includes(itWait)) activeChar = itWait;
-
-                    items.appendChild(createGroupItemTile(it, activeChar));
-                }
-            });
-            tile.appendChild(items);
-
-        } else if (s.type === 'sequence') {
-            // Sequential subgroup
-            tile.className = 'step-sequence';
-            if (s.active) tile.classList.add('active');
-            if (s.completed) tile.classList.add('completed');
-            if (showFailForStep) {
-                tile.classList.add('mark-missed');
-                const badge = document.createElement('span');
-                badge.className = 'step-fail-count';
-                badge.textContent = String(failCount);
-                tile.appendChild(badge);
-            }
-
-            const items = document.createElement('div');
-            items.className = 'sequence-items';
-
-            (s.items || []).forEach((it, seqIdx) => {
-                const itInp = (it.input || '').toString().toLowerCase();
-                const itWait = (it.wait_for || '').toString().toLowerCase();
-
-                if (['1', '2', '3'].includes(itInp)) activeChar = itInp;
-                else if (['1', '2', '3'].includes(itWait)) activeChar = itWait;
-
-                const itEl = document.createElement('div');
-                itEl.className = 'step sequence-item';
-                if (it.active) itEl.classList.add('active');
-                if (it.completed) itEl.classList.add('completed');
-
-                // Render sequence item label
-                appendStepContent(itEl, it, activeChar);
-
-                items.appendChild(itEl);
-            });
-            tile.appendChild(items);
-
-        } else {
-            // Normal Step
-            const sInp = (s.input || '').toString().toLowerCase();
-            const sWait = (s.wait_for || '').toString().toLowerCase();
-
-            if (['1', '2', '3'].includes(sInp)) activeChar = sInp;
-            else if (['1', '2', '3'].includes(sWait)) activeChar = sWait;
-
-            tile.className = 'step';
-            if (s.active) tile.classList.add('active');
-            if (s.completed) tile.classList.add('completed');
-            if (s.mark === 'success') tile.classList.add('mark-ok');
-            if (s.mark === 'fail' || s.mark === 'wrong') tile.classList.add('mark-wrong');
-            if (s.mark === 'missed' || showFailForStep) tile.classList.add('mark-missed');
-            if (s.mark === 'early') tile.classList.add('mark-early');
-            if (showFailForStep) {
-                const badge = document.createElement('span');
-                badge.className = 'step-fail-count';
-                badge.textContent = String(failCount);
-                tile.appendChild(badge);
-            }
-
-            // Add type class (wait, hold, press-wait)
-            if (s.type) {
-                tile.classList.add(s.type.replace('_', '-'));
-            }
-
-            // check if wait/hold/press-wait logic for pct/width
-            let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
-            if (s.type === 'wait' || s.type === 'press_wait') {
-                tile.style.setProperty('--wait-pct', `${pct}%`);
-                if (s.duration <= 150) tile.classList.add('short-wait');
-                if (s.duration) applyWaitWidth(tile, s.duration);
-            } else if (s.type === 'hold') {
-                tile.style.setProperty('--hold-pct', `${pct}%`);
-                if (s.duration) {
-                    applyHoldWidth(tile, s.duration);
-                }
-            }
-
-            // Add corner key (except group/seq handled above)
-            let keyForCorner = '';
-            if (s.type === 'wait' && s.wait_for) keyForCorner = s.wait_for;
-            else if (s.input) keyForCorner = s.input;
-            if (keyForCorner) addCornerKey(tile, keyForCorner);
-
-            appendStepContent(tile, s, activeChar);
-        }
-
+        const { tile, nextActiveChar } = renderStep(s, idx, activeChar);
+        activeChar = nextActiveChar;
         container.appendChild(tile);
     });
 
-    if (autoScrollEnabled) {
+    if (appState.autoScrollEnabled) {
         requestAnimationFrame(() => applyAutoScroll());
     }
 }
@@ -948,8 +962,8 @@ function getMouseIconSvg(type) {
     return '';
 }
 
-function appendStepContent(parent, s, characterId) {
-    const useImages = (currentStepDisplayMode === 'images') || !!document.getElementById('stepDisplayToggle')?.checked;
+function appendStepContent(parent, s, characterId, ctx) {
+    const useImages = (ctx && ctx.stepDisplayMode === 'images') || !!getEl('stepDisplayToggle')?.checked;
     const inp = (s.input || '').toString().toLowerCase();
     const label = (s.input || '').toString().toUpperCase();
     const charId = characterId || '1';
@@ -978,10 +992,10 @@ function appendStepContent(parent, s, characterId) {
     // Resolve image URL based on current game/mode (WW vs generic); returns null when no image.
     const resolveImage = (key) => {
         if (!useImages) return null;
-        if (currentTargetGame === 'wuthering_waves') {
-            return getWwImage(key, charId);
+        if (ctx && ctx.targetGame === 'wuthering_waves') {
+            return getWwImage(key, charId, ctx);
         }
-        return currentKeyImages[key] || null;
+        return (ctx && ctx.keyImages[key]) || null;
     };
 
     // Append primary content: image if available, else icon/text.
@@ -1020,33 +1034,34 @@ function appendStepContent(parent, s, characterId) {
     }
 }
 
-function getWwImage(key, characterId) {
+function getWwImage(key, characterId, ctx) {
+    if (!ctx) return null;
     const k = key.toLowerCase();
     const cid = characterId || '1';
 
     // Check if it's a swap key (1/2/3) - Return the swap icon for that character regardless of who is active
     if (['1', '2', '3'].includes(k)) {
-        return currentWwSwapImages[k] || null;
+        return ctx.wwSwapImages[k] || null;
     }
     // Check if it's RMB (dash) - shared dash image
     if (k === 'rmb') {
-        return currentWwDashImage || null;
+        return ctx.wwDashImage || null;
     }
 
     // Check if it's LMB - use active character
     if (k === 'lmb') {
-        return currentWwLmbImages[cid] || null;
+        return ctx.wwLmbImages[cid] || null;
     }
 
     // Check if it's an ability (e/q/r) - use active character
     if (['e', 'q', 'r'].includes(k)) {
-        if (currentWwAbilityImages[cid] && currentWwAbilityImages[cid][k]) {
-            return currentWwAbilityImages[cid][k];
+        if (ctx.wwAbilityImages[cid] && ctx.wwAbilityImages[cid][k]) {
+            return ctx.wwAbilityImages[cid][k];
         }
         // Fallback: search all characters if not found for specific one (legacy behavior, optional)
         for (const c of ['1', '2', '3']) {
-            if (currentWwAbilityImages[c] && currentWwAbilityImages[c][k]) {
-                return currentWwAbilityImages[c][k];
+            if (ctx.wwAbilityImages[c] && ctx.wwAbilityImages[c][k]) {
+                return ctx.wwAbilityImages[c][k];
             }
         }
     }
@@ -1065,11 +1080,11 @@ function createImageElement(url) {
 }
 
 function setAutoScrollEnabled(enabled) {
-    autoScrollEnabled = !!enabled;
-    const vp = document.getElementById('comboTimelineViewport');
-    const timeline = document.getElementById('comboTimeline');
+    appState.autoScrollEnabled = !!enabled;
+    const vp = getEl('comboTimelineViewport');
+    const timeline = getEl('comboTimeline');
     if (vp) {
-        if (autoScrollEnabled) {
+        if (appState.autoScrollEnabled) {
             vp.classList.add('auto-scroll-on');
         } else {
             vp.classList.remove('auto-scroll-on');
@@ -1079,9 +1094,9 @@ function setAutoScrollEnabled(enabled) {
 }
 
 function applyAutoScroll() {
-    if (!autoScrollEnabled) return;
-    const viewport = document.getElementById('comboTimelineViewport');
-    const timeline = document.getElementById('comboTimeline');
+    if (!appState.autoScrollEnabled) return;
+    const viewport = getEl('comboTimelineViewport');
+    const timeline = getEl('comboTimeline');
     if (!viewport || !timeline) return;
 
     // Target the specific active step (item), not the group container
@@ -1136,82 +1151,81 @@ function attachTwoClickConfirm(btn, opts) {
 }
 
 // Combo selector
-const comboSelector = document.getElementById('comboSelector');
+const comboSelector = getEl('comboSelector');
 if (comboSelector) {
     comboSelector.addEventListener('change', () => {
         const name = comboSelector.value;
         if (name) {
-            ws.send(JSON.stringify({ type: 'select_combo', name }));
+            sendMessage('select_combo', { name });
         }
     });
 }
 
-const noFailModeEl = document.getElementById('noFailMode');
+const noFailModeEl = getEl('noFailMode');
 if (noFailModeEl) {
     noFailModeEl.addEventListener('change', () => {
-        ws.send(JSON.stringify({ type: 'set_no_fail', enabled: noFailModeEl.checked }));
+        sendMessage('set_no_fail', { enabled: noFailModeEl.checked });
     });
 }
 
 // Save/Update button
-const saveBtn = document.getElementById('saveBtn');
+const saveBtn = getEl('saveBtn');
 if (saveBtn) {
     saveBtn.addEventListener('click', () => {
         readKeyImagesFromUI();
         readWwDataFromUI();
 
-        const name = (document.getElementById('comboName')?.value || '').toString();
-        const inputs = (document.getElementById('comboInputs')?.value || '').toString();
-        const enders = (document.getElementById('comboEnders')?.value || '').toString();
-        const expectedTime = (document.getElementById('comboExpectedTime')?.value || '').toString();
-        const userDifficulty = (document.getElementById('comboUserDifficulty')?.value || '').toString();
-        const toggle = document.getElementById('stepDisplayToggle');
+        const name = (getEl('comboName')?.value || '').toString();
+        const inputs = (getEl('comboInputs')?.value || '').toString();
+        const enders = (getEl('comboEnders')?.value || '').toString();
+        const expectedTime = (getEl('comboExpectedTime')?.value || '').toString();
+        const userDifficulty = (getEl('comboUserDifficulty')?.value || '').toString();
+        const toggle = getEl('stepDisplayToggle');
         const mode = toggle?.checked ? 'images' : 'icons';
 
-        ws.send(JSON.stringify({
-            type: 'save_combo',
+        sendMessage('save_combo', {
             name,
             inputs,
             enders,
             expected_time: expectedTime,
             user_difficulty: userDifficulty,
             step_display_mode: mode,
-            key_images: currentKeyImages,
-            target_game: currentTargetGame,
-            ww_team_id: currentWwTeamId || ''
-        }));
+            key_images: appState.keyImages,
+            target_game: appState.targetGame,
+            ww_team_id: appState.wwTeamId || ''
+        });
     });
 }
 
 // New combo button
-const newBtn = document.getElementById('newBtn');
+const newBtn = getEl('newBtn');
 if (newBtn) {
     newBtn.addEventListener('click', () => {
-        ws.send(JSON.stringify({ type: 'new_combo' }));
+        sendMessage('new_combo');
     });
 }
 
 // Delete combo button
-const deleteBtn = document.getElementById('deleteBtn');
+const deleteBtn = getEl('deleteBtn');
 if (deleteBtn) {
     attachTwoClickConfirm(deleteBtn, {
         confirmText: 'Confirm delete',
         onConfirm: () => {
-            const name = (document.getElementById('comboName')?.value || '').toString();
+            const name = (getEl('comboName')?.value || '').toString();
             if (name) {
-                ws.send(JSON.stringify({ type: 'delete_combo', name }));
+                sendMessage('delete_combo', { name });
             }
         }
     });
 }
 
 // Clear history button
-const clearBtn = document.getElementById('clearBtn');
+const clearBtn = getEl('clearBtn');
 if (clearBtn) {
     attachTwoClickConfirm(clearBtn, {
         confirmText: 'Clear all',
         onConfirm: () => {
-            ws.send(JSON.stringify({ type: 'clear_history' }));
+            sendMessage('clear_history');
         }
     });
 }
@@ -1228,16 +1242,16 @@ function escapeHtml(text) {
 }
 
 // Wire up editor UI events
-const stepToggleEl = document.getElementById('stepDisplayToggle');
+const stepToggleEl = getEl('stepDisplayToggle');
 if (stepToggleEl) {
     stepToggleEl.addEventListener('change', () => {
-        currentStepDisplayMode = stepToggleEl.checked ? 'images' : 'icons';
+        appState.stepDisplayMode = stepToggleEl.checked ? 'images' : 'icons';
         syncGameUIVisibility();
         refreshTimelineIfLoaded();
     });
 }
 
-const autoScrollToggleEl = document.getElementById('autoScrollToggle');
+const autoScrollToggleEl = getEl('autoScrollToggle');
 if (autoScrollToggleEl) {
     setAutoScrollEnabled(autoScrollToggleEl.checked);
     autoScrollToggleEl.addEventListener('change', () => {
@@ -1246,19 +1260,19 @@ if (autoScrollToggleEl) {
     });
 }
 
-const showFailCountEl = document.getElementById('showFailCount');
+const showFailCountEl = getEl('showFailCount');
 if (showFailCountEl) {
     showFailCountEl.addEventListener('change', () => {
-        showFailCount = showFailCountEl.checked;
+        appState.showFailCount = showFailCountEl.checked;
         refreshTimelineIfLoaded();
     });
 }
 
 window.addEventListener('resize', () => {
-    if (autoScrollEnabled) applyAutoScroll();
+    if (appState.autoScrollEnabled) applyAutoScroll();
 });
 
-const inputsEl = document.getElementById('comboInputs');
+const inputsEl = getEl('comboInputs');
 if (inputsEl) {
     let t = null;
     inputsEl.addEventListener('input', () => {
@@ -1269,7 +1283,7 @@ if (inputsEl) {
     });
 }
 
-const keyImagesDetails = document.getElementById('keyImagesDetails');
+const keyImagesDetails = getEl('keyImagesDetails');
 if (keyImagesDetails) {
     keyImagesDetails.addEventListener('toggle', () => {
         // Ensure UI is up-to-date when opening/closing
@@ -1277,79 +1291,71 @@ if (keyImagesDetails) {
     });
 }
 
-const targetGameEl = document.getElementById('targetGameSelect');
+const targetGameEl = getEl('targetGameSelect');
 if (targetGameEl) {
     targetGameEl.addEventListener('change', () => {
-        currentTargetGame = normalizeTargetGame(targetGameEl.value);
+        appState.targetGame = normalizeTargetGame(targetGameEl.value);
         // Send target game change to backend immediately for stateless operation
-        ws.send(JSON.stringify({
-            type: 'update_target_game',
-            target_game: currentTargetGame
-        }));
+        sendMessage('update_target_game', { target_game: appState.targetGame });
         syncGameUIVisibility();
         renderWwAbilityEditor({ preserveEdits: true });
         refreshTimelineIfLoaded();
     });
 }
 
-const wwTeamSelectEl = document.getElementById('wwTeamSelect');
+const wwTeamSelectEl = getEl('wwTeamSelect');
 if (wwTeamSelectEl) {
     wwTeamSelectEl.addEventListener('change', () => {
-        currentWwTeamId = (wwTeamSelectEl.value || '').toString();
+        appState.wwTeamId = (wwTeamSelectEl.value || '').toString();
         // Send both team_id AND target_game for stateless operation
-        ws.send(JSON.stringify({
-            type: 'select_team',
-            team_id: currentWwTeamId,
-            target_game: currentTargetGame
-        }));
+        sendMessage('select_team', { team_id: appState.wwTeamId, target_game: appState.targetGame });
     });
 }
 
-const saveTeamBtn = document.getElementById('saveTeamBtn');
+const saveTeamBtn = getEl('saveTeamBtn');
 if (saveTeamBtn) {
     saveTeamBtn.addEventListener('click', () => {
         readWwDataFromUI();
-        const name = (document.getElementById('wwTeamName')?.value || '').toString();
-        ws.send(JSON.stringify({
-            type: 'save_team',
-            team_id: currentWwTeamId || '',
+        const name = (getEl('wwTeamName')?.value || '').toString();
+        sendMessage('save_team', {
+            team_id: appState.wwTeamId || '',
             team_name: name,
-            dash_image: currentWwDashImage || '',
-            swap_images: currentWwSwapImages || {},
-            lmb_images: currentWwLmbImages || {},
-            ability_images: currentWwAbilityImages || {}
-        }));
+            dash_image: appState.wwDashImage || '',
+            swap_images: appState.wwSwapImages || {},
+            lmb_images: appState.wwLmbImages || {},
+            ability_images: appState.wwAbilityImages || {}
+        });
     });
 }
 
-const newTeamBtn = document.getElementById('newTeamBtn');
+const newTeamBtn = getEl('newTeamBtn');
 if (newTeamBtn) {
     newTeamBtn.addEventListener('click', () => {
-        currentWwTeamId = '';
-        const teamSel = document.getElementById('wwTeamSelect');
+        appState.wwTeamId = '';
+        const teamSel = getEl('wwTeamSelect');
         if (teamSel) teamSel.value = '';
-        const nameEl = document.getElementById('wwTeamName');
+        const nameEl = getEl('wwTeamName');
         if (nameEl) nameEl.value = '';
-        currentWwSwapImages = { "1": "", "2": "", "3": "" };
-        currentWwLmbImages = { "1": "", "2": "", "3": "" };
-        currentWwDashImage = "";
-        currentWwAbilityImages = { "1": {}, "2": {}, "3": {} };
+        appState.wwSwapImages = { "1": "", "2": "", "3": "" };
+        appState.wwLmbImages = { "1": "", "2": "", "3": "" };
+        appState.wwDashImage = "";
+        appState.wwAbilityImages = { "1": {}, "2": {}, "3": {} };
         renderWwAbilityEditor({ preserveEdits: false });
     });
 }
 
-const deleteTeamBtn = document.getElementById('deleteTeamBtn');
+const deleteTeamBtn = getEl('deleteTeamBtn');
 if (deleteTeamBtn) {
     attachTwoClickConfirm(deleteTeamBtn, {
         confirmText: 'Confirm delete',
         onConfirm: () => {
-            if (!currentWwTeamId) return;
-            ws.send(JSON.stringify({ type: 'delete_team', team_id: currentWwTeamId }));
+            if (!appState.wwTeamId) return;
+            sendMessage('delete_team', { team_id: appState.wwTeamId });
         }
     });
 }
 
-const wwDetails = document.getElementById('wwAbilityDetails');
+const wwDetails = getEl('wwAbilityDetails');
 if (wwDetails) {
     wwDetails.addEventListener('toggle', () => {
         renderWwAbilityEditor({ preserveEdits: true });
@@ -1357,106 +1363,77 @@ if (wwDetails) {
 }
 
 // Batched message handling (keeps UI smooth with lots of hits)
-let batchQueue = [];
-let isProcessingBatch = false;
+
+function handleComboList(msg) {
+    const selector = getEl('comboSelector');
+    const active = msg.active || '';
+    selector.innerHTML = '<option value="">— Select Combo —</option>';
+    (msg.combos || []).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        selector.appendChild(opt);
+    });
+    selector.value = active;
+}
+
+const MESSAGE_HANDLERS = {
+    init: (msg) => initializeUI(msg),
+    combo_list: (msg) => handleComboList(msg),
+    combo_data: (msg) => setEditorFields(msg),
+    min_time: (msg) => updateMinTime(msg.text),
+    difficulty_update: (msg) => {
+        updateDifficulty(msg.text);
+        setDifficultyColor(getEl('difficultyDisplay'), msg.value);
+    },
+    user_difficulty_update: (msg) => {
+        updateUserDifficulty(msg.text);
+        setDifficultyColor(getEl('userDifficultyDisplay'), msg.value);
+    },
+    apm_update: (msg) => updateAPM(msg.text),
+    apm_max_update: (msg) => updateAPMMax(msg.text),
+    hold_begin: (msg) => startHoldAnimation(msg.required_ms),
+    hold_end: () => stopHoldAnimation(),
+    wait_begin: (msg) => startWaitAnimation(msg.required_ms),
+    wait_end: () => stopWaitAnimation(),
+    hit: (msg) => addResultRow(msg),
+    combo_dropped: (msg) => {
+        updateStatus(msg.input, msg.color || 'fail');
+        addResultRow(msg);
+    },
+    clear_results: () => clearAttemptLog(),
+    status: (msg) => updateStatus(msg.text, msg.color),
+    stat_update: (msg) => updateStats(msg.stats),
+    attempt_start: (msg) => addAttemptSeparator(msg.name, msg.attempt),
+    timeline_update: (msg) => updateTimeline(msg.steps),
+    fail_update: (msg) => {
+        appState.lastFailByStep = msg.fail_by_step || {};
+        refreshTimelineIfLoaded();
+    },
+};
 
 function handleMessage(msg) {
-    switch (msg.type) {
-        case 'init':
-            initializeUI(msg);
-            break;
-        case 'combo_list': {
-            const selector = document.getElementById('comboSelector');
-            const active = msg.active || '';
-            selector.innerHTML = '<option value="">— Select Combo —</option>';
-            (msg.combos || []).forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
-                selector.appendChild(opt);
-            });
-            selector.value = active;
-            break;
-        }
-        case 'combo_data':
-            setEditorFields(msg);
-            break;
-        case 'min_time':
-            updateMinTime(msg.text);
-            break;
-        case 'difficulty_update':
-            updateDifficulty(msg.text);
-            setDifficultyColor(document.getElementById('difficultyDisplay'), msg.value);
-            break;
-        case 'user_difficulty_update':
-            updateUserDifficulty(msg.text);
-            setDifficultyColor(document.getElementById('userDifficultyDisplay'), msg.value);
-            break;
-        case 'apm_update':
-            updateAPM(msg.text);
-            break;
-        case 'apm_max_update':
-            updateAPMMax(msg.text);
-            break;
-        case 'hold_begin':
-            startHoldAnimation(msg.required_ms);
-            break;
-        case 'hold_end':
-            stopHoldAnimation();
-            break;
-        case 'wait_begin':
-            startWaitAnimation(msg.required_ms);
-            break;
-        case 'wait_end':
-            stopWaitAnimation();
-            break;
-        case 'hit':
-            addResultRow(msg);
-            break;
-        case 'combo_dropped':
-            // Same row shape as 'hit' (input, split_ms, total_ms); also update status line
-            updateStatus(msg.input, msg.color || 'fail');
-            addResultRow(msg);
-            break;
-        case 'clear_results':
-            clearAttemptLog();
-            break;
-        case 'status':
-            updateStatus(msg.text, msg.color);
-            break;
-        case 'stat_update':
-            updateStats(msg.stats);
-            break;
-        case 'attempt_start':
-            addAttemptSeparator(msg.name, msg.attempt);
-            break;
-        case 'timeline_update':
-            updateTimeline(msg.steps);
-            break;
-        case 'fail_update':
-            lastFailByStep = msg.fail_by_step || {};
-            refreshTimelineIfLoaded();
-            break;
-    }
+    const fn = MESSAGE_HANDLERS[msg.type];
+    if (fn) fn(msg);
 }
 
 function processBatch() {
-    if (batchQueue.length === 0) {
-        isProcessingBatch = false;
+    if (appState.batchQueue.length === 0) {
+        appState.isProcessingBatch = false;
         return;
     }
-    isProcessingBatch = true;
+    appState.isProcessingBatch = true;
 
     requestAnimationFrame(() => {
-        const batch = batchQueue.splice(0, batchQueue.length);
+        const batch = appState.batchQueue.splice(0, appState.batchQueue.length);
         batch.forEach(handleMessage);
-        isProcessingBatch = false;
-        if (batchQueue.length > 0) processBatch();
+        appState.isProcessingBatch = false;
+        if (appState.batchQueue.length > 0) processBatch();
     });
 }
 
 ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-    batchQueue.push(msg);
-    if (!isProcessingBatch) processBatch();
+    appState.batchQueue.push(msg);
+    if (!appState.isProcessingBatch) processBatch();
 };
