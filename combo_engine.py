@@ -15,7 +15,7 @@ from Game_Wuthering_Waves import (
 )
 import combo_engine_ui as ui
 from combo_engine_ui import Status
-from persistence import load_engine_state, save_engine_state
+from persistence import fresh_combo_stats, load_engine_state, save_engine_state
 
 import combo_commands
 import input_normalization
@@ -191,6 +191,10 @@ class ComboTrackerEngine:
             except Exception:
                 # Never let UI plumbing crash input processing
                 logger.debug("Emitter raised while sending message", exc_info=True)
+
+    def _emit_stats_and_fail(self):
+        self._send({"type": "stat_update", "stats": self.stats_text()})
+        self._send({"type": "fail_update", "fail_by_step": self.failures_by_step()})
 
     # -------------------------
     # Normalization helpers (delegate to input_normalization)
@@ -511,26 +515,12 @@ class ComboTrackerEngine:
     def _ensure_combo_stats(self, name: str):
         if not name:
             return
+        fresh = fresh_combo_stats()
         if name not in self.combo_stats or not isinstance(self.combo_stats.get(name), dict):
-            self.combo_stats[name] = {
-                "success": 0,
-                "fail": 0,
-                "best_ms": None,
-                "total_success_ms": 0,
-                "fail_by_step": {},
-                "fail_by_expected": {},
-                "fail_by_reason": {},
-                "fail_events": [],
-            }
+            self.combo_stats[name] = dict(fresh)
         else:
-            self.combo_stats[name].setdefault("success", 0)
-            self.combo_stats[name].setdefault("fail", 0)
-            self.combo_stats[name].setdefault("best_ms", None)
-            self.combo_stats[name].setdefault("total_success_ms", 0)
-            self.combo_stats[name].setdefault("fail_by_step", {})
-            self.combo_stats[name].setdefault("fail_by_expected", {})
-            self.combo_stats[name].setdefault("fail_by_reason", {})
-            self.combo_stats[name].setdefault("fail_events", [])
+            for k, v in fresh.items():
+                self.combo_stats[name].setdefault(k, v)
 
     def _combo_avg_ms(self, name: str):
         self._ensure_combo_stats(name)
@@ -548,6 +538,9 @@ class ComboTrackerEngine:
 
     def stats_text(self):
         return ui.stats_text(self)
+
+    def failures_by_step(self) -> dict[str, int]:
+        return ui.failures_by_step(self)
 
     def failures_by_reason(self) -> dict[str, int]:
         return ui.failures_by_reason(self)
@@ -786,8 +779,7 @@ class ComboTrackerEngine:
                 )
                 self._send({"type": "apm_update", "text": self.apm_text()})
                 self._send({"type": "apm_max_update", "text": self.apm_max_text()})
-                self._send({"type": "stat_update", "stats": self.stats_text()})
-                self._send({"type": "fail_update", "failures": self.failures_by_reason()})
+                self._emit_stats_and_fail()
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 self._send({"type": "status", "text": st.text, "color": st.color})
                 self._send({"type": "combo_list", "combos": sorted(self.combos.keys()), "active": self.active_combo_name})
@@ -1116,7 +1108,12 @@ class ComboTrackerEngine:
         if self.no_fail_mode:
             self._mark_current_and_skip(now, mark="missed")
             return
-        self._fail_combo("Combo Ender", now, actual=actual, expected_label=expected)
+        if self.wait_in_progress and self.wait_started_at:
+            waited_s = (now - self.wait_started_at)
+            reason = f"only waited for {waited_s:.2f}s, combo ended by {actual}"
+        else:
+            reason = f"combo ended by {actual}"
+        self._fail_combo(reason, now, actual=actual, expected_label=expected)
 
     def _start_hold(self, input_name: str, required_ms: int, now: float):
         self.hold_in_progress = True
@@ -1357,8 +1354,7 @@ class ComboTrackerEngine:
                 self.combo_stats[self.active_combo_name]["best_ms"] = ms
 
         self.save_combos()
-        self._send({"type": "stat_update", "stats": self.stats_text()})
-        self._send({"type": "fail_update", "failures": self.failures_by_reason()})
+        self._emit_stats_and_fail()
 
     def record_combo_fail(
         self,
@@ -1400,8 +1396,7 @@ class ComboTrackerEngine:
         )
 
         self.save_combos()
-        self._send({"type": "stat_update", "stats": self.stats_text()})
-        self._send({"type": "fail_update", "failures": self.failures_by_reason()})
+        self._emit_stats_and_fail()
 
     # -------------------------
     # Input processing (called from pynput)

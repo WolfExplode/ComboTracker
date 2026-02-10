@@ -26,7 +26,8 @@ function initializeUI(data) {
 
     // Clear live tables on init (fresh UI state)
     document.getElementById('resultsBody').innerHTML = '';
-    document.getElementById('failBody').innerHTML = '';
+
+    if (data.fail_by_step) lastFailByStep = data.fail_by_step;
 
     if (data.editor) setEditorFields(data.editor);
     if (data.status) updateStatus(data.status.text, data.status.color);
@@ -39,7 +40,6 @@ function initializeUI(data) {
     setDifficultyColor(document.getElementById('difficultyDisplay'), data.difficulty_value);
     setDifficultyColor(document.getElementById('userDifficultyDisplay'), data.user_difficulty_value);
     if (data.timeline) updateTimeline(data.timeline);
-    if (data.failures) updateFailures(data.failures);
 
     const noFailEl = document.getElementById('noFailMode');
     if (noFailEl) noFailEl.checked = !!data.no_fail_mode;
@@ -50,6 +50,8 @@ let currentStepDisplayMode = 'icons'; // "icons" | "images"
 let currentKeyImages = {}; // key -> url
 let lastTimelineSteps = null;
 let autoScrollEnabled = false;
+let showFailCount = false;
+let lastFailByStep = {};
 
 // Per-combo game config
 let currentTargetGame = 'generic'; // "generic" | "wuthering_waves"
@@ -580,32 +582,6 @@ function addResultRow(data) {
     scrollToBottom('resultsTable');
 }
 
-// Failure analysis
-function updateFailures(failures) {
-    const body = document.getElementById('failBody');
-    if (!body) return;
-    body.innerHTML = '';
-
-    if (!failures || typeof failures !== 'object') return;
-    const entries = Object.entries(failures).sort((a, b) => b[1] - a[1]);
-    if (entries.length === 0) return;
-
-    entries.forEach(([reason, count]) => {
-        const row = document.createElement('div');
-        row.className = 'fail-row';
-
-        const cellReason = document.createElement('span');
-        cellReason.textContent = reason;
-        row.appendChild(cellReason);
-
-        const cellCount = document.createElement('span');
-        cellCount.textContent = count.toString();
-        row.appendChild(cellCount);
-
-        body.appendChild(row);
-    });
-}
-
 // Hold / Wait animations (global UI state, not per-combo)
 let holdAnim = { active: false, requiredMs: 0, startedAt: 0 };
 let holdRafId = null;
@@ -696,6 +672,10 @@ function startWaitAnimation(requiredMs) {
 }
 
 // Timeline rendering
+function refreshTimelineIfLoaded() {
+    if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+}
+
 function updateTimeline(steps) {
     lastTimelineSteps = steps;
     const container = document.getElementById('comboTimeline');
@@ -776,6 +756,10 @@ function updateTimeline(steps) {
 
     steps.forEach((s, idx) => {
         const tile = document.createElement('div');
+        // Backend sends step_indices (runtime step index or list when merged) so fail_by_step aligns
+        const indices = Array.isArray(s.step_indices) ? s.step_indices : [idx];
+        const failCount = indices.reduce((n, i) => n + (lastFailByStep[String(i)] || lastFailByStep[i] || 0), 0);
+        const showFailForStep = showFailCount && failCount > 0;
 
         // Handle class assignment based on type
         if (s.type === 'group') {
@@ -789,6 +773,13 @@ function updateTimeline(steps) {
                 else if (m === 'early') tile.classList.add('mark-early');
                 else if (m === 'missed') tile.classList.add('mark-missed');
                 else if (m === 'wrong') tile.classList.add('mark-wrong');
+            }
+            if (showFailForStep) {
+                tile.classList.add('mark-missed');
+                const badge = document.createElement('span');
+                badge.className = 'step-fail-count';
+                badge.textContent = String(failCount);
+                tile.appendChild(badge);
             }
 
             const items = document.createElement('div');
@@ -838,6 +829,13 @@ function updateTimeline(steps) {
             tile.className = 'step-sequence';
             if (s.active) tile.classList.add('active');
             if (s.completed) tile.classList.add('completed');
+            if (showFailForStep) {
+                tile.classList.add('mark-missed');
+                const badge = document.createElement('span');
+                badge.className = 'step-fail-count';
+                badge.textContent = String(failCount);
+                tile.appendChild(badge);
+            }
 
             const items = document.createElement('div');
             items.className = 'sequence-items';
@@ -874,8 +872,14 @@ function updateTimeline(steps) {
             if (s.completed) tile.classList.add('completed');
             if (s.mark === 'success') tile.classList.add('mark-ok');
             if (s.mark === 'fail' || s.mark === 'wrong') tile.classList.add('mark-wrong');
-            if (s.mark === 'missed') tile.classList.add('mark-missed');
+            if (s.mark === 'missed' || showFailForStep) tile.classList.add('mark-missed');
             if (s.mark === 'early') tile.classList.add('mark-early');
+            if (showFailForStep) {
+                const badge = document.createElement('span');
+                badge.className = 'step-fail-count';
+                badge.textContent = String(failCount);
+                tile.appendChild(badge);
+            }
 
             // Add type class (wait, hold, press-wait)
             if (s.type) {
@@ -1229,8 +1233,7 @@ if (stepToggleEl) {
     stepToggleEl.addEventListener('change', () => {
         currentStepDisplayMode = stepToggleEl.checked ? 'images' : 'icons';
         syncGameUIVisibility();
-        // Re-render timeline immediately if we have one
-        if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+        refreshTimelineIfLoaded();
     });
 }
 
@@ -1239,7 +1242,15 @@ if (autoScrollToggleEl) {
     setAutoScrollEnabled(autoScrollToggleEl.checked);
     autoScrollToggleEl.addEventListener('change', () => {
         setAutoScrollEnabled(autoScrollToggleEl.checked);
-        if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+        refreshTimelineIfLoaded();
+    });
+}
+
+const showFailCountEl = document.getElementById('showFailCount');
+if (showFailCountEl) {
+    showFailCountEl.addEventListener('change', () => {
+        showFailCount = showFailCountEl.checked;
+        refreshTimelineIfLoaded();
     });
 }
 
@@ -1277,7 +1288,7 @@ if (targetGameEl) {
         }));
         syncGameUIVisibility();
         renderWwAbilityEditor({ preserveEdits: true });
-        if (lastTimelineSteps) updateTimeline(lastTimelineSteps);
+        refreshTimelineIfLoaded();
     });
 }
 
@@ -1423,7 +1434,8 @@ function handleMessage(msg) {
             updateTimeline(msg.steps);
             break;
         case 'fail_update':
-            updateFailures(msg.failures);
+            lastFailByStep = msg.fail_by_step || {};
+            refreshTimelineIfLoaded();
             break;
     }
 }

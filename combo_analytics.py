@@ -324,6 +324,32 @@ def combo_stats_summary(engine) -> dict[str, Any]:
     }
 
 
+def failures_by_step(engine) -> dict[str, int]:
+    """Read-only fail-by-step-index counts for the active combo (for timeline fail-count UI)."""
+    name = getattr(engine, "active_combo_name", None)
+    if not name:
+        return {}
+    stats = getattr(engine, "combo_stats", {})
+    rec = stats.get(name)
+    if not isinstance(rec, dict):
+        return {}
+    by_step = rec.get("fail_by_step", {})
+    if not isinstance(by_step, dict):
+        return {}
+    out: dict[str, int] = {}
+    for k, v in by_step.items():
+        key = str(k).strip()
+        if not key:
+            continue
+        try:
+            cnt = int(v)
+        except Exception:
+            cnt = 0
+        if cnt > 0:
+            out[key] = cnt
+    return out
+
+
 def failures_by_reason(engine) -> dict[str, int]:
     """Read-only fail-by-reason counts for the active combo."""
     name = getattr(engine, "active_combo_name", None)

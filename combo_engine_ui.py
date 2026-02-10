@@ -31,13 +31,14 @@ def stats_text(engine) -> str:
     pct = engine._format_percent(s, f)
     best = summary["best_ms"]
     avg = summary["avg_ms"]
-    parts = [f"#{idx+1}:{label} ({cnt})" for idx, label, cnt in summary["hardest"]]
-    hardest = " | Hardest: " + ", ".join(parts) if parts else ""
     return (
         f"Stats: {s} success / {f} fail ({pct})"
         f" | Best: {engine._format_ms_brief(best)} | Avg: {engine._format_ms_brief(avg)}"
-        f"{hardest}"
     )
+
+
+def failures_by_step(engine) -> dict[str, int]:
+    return combo_analytics.failures_by_step(engine)
 
 
 def failures_by_reason(engine) -> dict[str, int]:
@@ -355,7 +356,10 @@ def _render_sequence_items(
 
 
 def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSteps:
-    """Build timeline payload from engine.runtime_steps (state objects)."""
+    """Build timeline payload from engine.runtime_steps (state objects).
+    Each step dict includes step_indices: list of runtime_steps indices this tile represents
+    (one index for normal steps, two when press+wait are merged). fail_by_step is keyed by
+    runtime index, so the frontend uses step_indices to look up fail counts correctly."""
     arr = engine.runtime_steps
     if not arr:
         return []
@@ -460,6 +464,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                     "mark": mark,
                     "items": items_payload,
                     "progress": {"done": int(done_count), "total": int(total)},
+                    "step_indices": [idx],
                 })
                 i += 1
                 continue
@@ -478,6 +483,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                     "mark": mark,
                     "items": seq_items,
                     "progress": {"done": step.current_index if step.started else 0, "total": len(step.steps)},
+                    "step_indices": [idx],
                 })
                 i += 1
                 continue
@@ -496,6 +502,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                             "active": (cur == idx) or (cur == i + 1),
                             "completed": cur > i + 1,
                             "mark": wait_mark,
+                            "step_indices": [idx, i + 1],
                         })
                         i += 2
                         continue
@@ -509,6 +516,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                             "active": (cur == idx) or (cur == i + 1),
                             "completed": cur > i + 1,
                             "mark": w_mark,
+                            "step_indices": [idx, i + 1],
                         }
                         prog = _wait_progress(nxt, now)
                         if prog is not None:
@@ -523,6 +531,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                     "active": idx == cur,
                     "completed": idx < cur,
                     "mark": mark,
+                    "step_indices": [idx],
                 })
                 i += 1
                 continue
@@ -537,6 +546,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                     "active": idx == cur,
                     "completed": idx < cur,
                     "mark": mark,
+                    "step_indices": [idx],
                 }
                 prog = _wait_progress(step, now)
                 if prog is not None:
@@ -553,6 +563,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                     "active": idx == cur,
                     "completed": idx < cur,
                     "mark": mark,
+                    "step_indices": [idx],
                 })
                 i += 1
                 continue
@@ -587,7 +598,7 @@ def init_payload(engine) -> dict[str, Any]:
         "apm": apm_text(engine),
         "apm_max": apm_max_text(engine),
         "timeline": timeline_steps(engine),
-        "failures": failures_by_reason(engine),
+        "fail_by_step": failures_by_step(engine),
         "editor": get_editor_payload(engine),
     }
 

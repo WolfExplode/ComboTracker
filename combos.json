@@ -1186,58 +1186,152 @@
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
       "success": 0,
-      "fail": 4,
+      "fail": 13,
       "best_ms": null,
       "total_success_ms": 0,
       "fail_by_step": {
-        "4": 2,
-        "5": 1,
-        "2": 1
+        "1": 2,
+        "4": 4,
+        "3": 1,
+        "2": 2,
+        "9": 1,
+        "7": 1,
+        "40": 1,
+        "12": 1
       },
       "fail_by_expected": {
-        "2": 2,
-        "e": 2
+        "wait(\u2265150ms)": 3,
+        "2": 6,
+        "e": 2,
+        "3": 1,
+        "lmb": 1
       },
       "fail_by_reason": {
-        "expected 2": 2,
-        "expected e": 2
+        "only waited for 0.06s, combo ended by q": 1,
+        "expected 2": 6,
+        "only waited for 0.03s, combo ended by q": 1,
+        "expected e": 2,
+        "only waited for 0.09s, combo ended by space": 1,
+        "expected 3": 1,
+        "expected lmb": 1
       },
       "fail_events": [
         {
-          "ts": 1770678087,
+          "ts": 1770703336,
           "attempt": 1,
+          "step_index": 1,
+          "expected": "wait(\u2265150ms)",
+          "actual": "q",
+          "reason": "only waited for 0.06s, combo ended by q",
+          "elapsed_ms": 62
+        },
+        {
+          "ts": 1770703345,
+          "attempt": 2,
           "step_index": 4,
           "expected": "2",
-          "actual": "3",
+          "actual": "q",
           "reason": "expected 2",
-          "elapsed_ms": 1216
+          "elapsed_ms": 4306
         },
         {
-          "ts": 1770678091,
-          "attempt": 2,
-          "step_index": 5,
-          "expected": "e",
-          "actual": "3",
-          "reason": "expected e",
-          "elapsed_ms": 1062
-        },
-        {
-          "ts": 1770678094,
+          "ts": 1770703347,
           "attempt": 3,
+          "step_index": 4,
+          "expected": "2",
+          "actual": "q",
+          "reason": "expected 2",
+          "elapsed_ms": 1416
+        },
+        {
+          "ts": 1770703355,
+          "attempt": 4,
+          "step_index": 3,
+          "expected": "wait(\u2265150ms)",
+          "actual": "q",
+          "reason": "only waited for 0.03s, combo ended by q",
+          "elapsed_ms": 1546
+        },
+        {
+          "ts": 1770703380,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "e",
+          "actual": "space",
+          "reason": "expected e",
+          "elapsed_ms": 23400
+        },
+        {
+          "ts": 1770703387,
+          "attempt": 6,
+          "step_index": 1,
+          "expected": "wait(\u2265150ms)",
+          "actual": "space",
+          "reason": "only waited for 0.09s, combo ended by space",
+          "elapsed_ms": 91
+        },
+        {
+          "ts": 1770703584,
+          "attempt": 1,
           "step_index": 4,
           "expected": "2",
           "actual": "1",
           "reason": "expected 2",
-          "elapsed_ms": 860
+          "elapsed_ms": 1002
         },
         {
-          "ts": 1770678127,
+          "ts": 1770703591,
+          "attempt": 2,
+          "step_index": 9,
+          "expected": "2",
+          "actual": "r",
+          "reason": "expected 2",
+          "elapsed_ms": 6132
+        },
+        {
+          "ts": 1770703593,
+          "attempt": 3,
+          "step_index": 7,
+          "expected": "3",
+          "actual": "q",
+          "reason": "expected 3",
+          "elapsed_ms": 1002
+        },
+        {
+          "ts": 1770703620,
           "attempt": 4,
+          "step_index": 40,
+          "expected": "2",
+          "actual": "e",
+          "reason": "expected 2",
+          "elapsed_ms": 27051
+        },
+        {
+          "ts": 1770703640,
+          "attempt": 5,
+          "step_index": 12,
+          "expected": "lmb",
+          "actual": "q",
+          "reason": "expected lmb",
+          "elapsed_ms": 16751
+        },
+        {
+          "ts": 1770703707,
+          "attempt": 6,
+          "step_index": 4,
+          "expected": "2",
+          "actual": "space",
+          "reason": "expected 2",
+          "elapsed_ms": 64174
+        },
+        {
+          "ts": 1770703708,
+          "attempt": 7,
           "step_index": 2,
           "expected": "e",
-          "actual": "r",
+          "actual": "space",
           "reason": "expected e",
-          "elapsed_ms": 644
+          "elapsed_ms": 382
         }
       ]
     }

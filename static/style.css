@@ -627,6 +627,16 @@ button.danger:hover {
     pointer-events: none;
 }
 
+.step-fail-count {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--accent-red);
+    pointer-events: none;
+}
+
 .step-primary {
     font-size: 30px;
     font-weight: 700;
@@ -677,7 +687,9 @@ button.danger:hover {
 
 .step.mark-early,
 .step.mark-missed,
-.step.mark-wrong {
+.step.mark-wrong,
+.step-group.mark-wrong,
+.step-sequence.mark-wrong {
     border-color: var(--accent-red);
     border-width: 3px;
     background: rgba(255, 74, 74, 0.14);
@@ -708,6 +720,7 @@ button.danger:hover {
 
 /* Step groups */
 .step-group {
+    position: relative;
     border: 2px dashed rgba(200, 200, 200, 0.65);
     border-radius: 6px;
     padding: 2px;
@@ -783,6 +796,7 @@ button.danger:hover {
 
 /* Sequential subgroups */
 .step-sequence {
+    position: relative;
     border: 2px solid rgba(138, 43, 226, 0.65);
     border-radius: 6px;
     padding: 2px;

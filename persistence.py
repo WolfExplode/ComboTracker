@@ -8,6 +8,20 @@ from uuid import uuid4
 logger = logging.getLogger(__name__)
 
 
+def fresh_combo_stats() -> dict[str, Any]:
+    """Return a new combo-stats dict (single source of truth for shape)."""
+    return {
+        "success": 0,
+        "fail": 0,
+        "best_ms": None,
+        "total_success_ms": 0,
+        "fail_by_step": {},
+        "fail_by_expected": {},
+        "fail_by_reason": {},
+        "fail_events": [],
+    }
+
+
 def _as_int(x: Any, default: int) -> int:
     try:
         return int(float(x))

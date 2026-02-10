@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from persistence import fresh_combo_stats
+
 
 def apply_enders_from_text(engine, raw: str) -> tuple[bool, str | None]:
     raw = (raw or "").strip()
@@ -106,6 +108,10 @@ def save_or_update_combo(
             engine.combo_key_images[name] = engine.combo_key_images.pop(old_name)
         engine.ww.rename_combo(old_name, name)
     else:
+        # Same name or new combo: if steps changed, clear all history for this combo
+        old_list = engine.combos.get(name)
+        if old_list is not None and old_list != input_list:
+            engine.combo_stats[name] = fresh_combo_stats()
         engine.combos[name] = input_list
 
     if expected_ms is not None:
@@ -190,20 +196,11 @@ def new_combo(engine) -> None:
 def clear_history_and_stats(engine) -> None:
     engine.reset_tracking()
     if engine.active_combo_name:
-        engine.combo_stats[engine.active_combo_name] = {
-            "success": 0,
-            "fail": 0,
-            "best_ms": None,
-            "total_success_ms": 0,
-            "fail_by_step": {},
-            "fail_by_expected": {},
-            "fail_by_reason": {},
-            "fail_events": [],
-        }
+        engine.combo_stats[engine.active_combo_name] = fresh_combo_stats()
         engine.save_combos()
     engine._send({"type": "clear_results"})
     engine._send({"type": "stat_update", "stats": engine.stats_text()})
-    engine._send({"type": "fail_update", "failures": engine.failures_by_reason()})
+    engine._send({"type": "fail_update", "fail_by_step": engine.failures_by_step()})
     engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
     st = engine.get_status()
     engine._send({"type": "status", "text": st.text, "color": st.color})
