@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import step_introspection
 from states import (
     GroupState,
     HoldState,
@@ -280,7 +281,6 @@ def combo_stats_summary(engine) -> dict[str, Any]:
     name = getattr(engine, "active_combo_name", None)
     stats = getattr(engine, "combo_stats", {})
     runtime_steps = getattr(engine, "runtime_steps", None) or []
-    expected_label = getattr(engine, "_expected_label_for_step", None)
 
     if not name:
         return {"success": 0, "fail": 0, "best_ms": None, "avg_ms": None, "hardest": []}
@@ -311,8 +311,8 @@ def combo_stats_summary(engine) -> dict[str, Any]:
         pairs.sort(reverse=True)
         for cnt, idx in pairs[:2]:
             label = "—"
-            if expected_label and 0 <= idx < len(runtime_steps):
-                label = expected_label(runtime_steps[idx])
+            if 0 <= idx < len(runtime_steps):
+                label = step_introspection.expected_label_for_step(runtime_steps[idx])
             hardest.append((idx, label, cnt))
 
     return {

@@ -52,18 +52,13 @@ def min_time_text(engine) -> str:
     return f"Fastest possible: {engine._format_ms(min_ms)}"
 
 
-def practical_apm(engine) -> float | None:
-    """Practical APM uses user-entered expected execution time (ms) for the active combo."""
-    return combo_analytics.practical_apm(engine)
-
-
 def theoretical_max_apm(engine) -> float | None:
     """Theoretical max APM uses the fastest-possible combo time (sum of waits + holds)."""
     return combo_analytics.theoretical_max_apm(engine)
 
 
 def apm_text(engine) -> str:
-    apm = practical_apm(engine)
+    apm = combo_analytics.practical_apm(engine)
     if apm is None:
         return "Practical APM: —"
     return f"Practical APM: {apm:.1f}"
@@ -76,13 +71,8 @@ def apm_max_text(engine) -> str:
     return f"Theoretical max APM: {apm:.1f}"
 
 
-def difficulty_score_10(engine) -> float | None:
-    """Returns a 0..10 score (float) or None if there's no active combo."""
-    return combo_analytics.difficulty_score_10(engine)
-
-
 def difficulty_text(engine) -> str:
-    d = difficulty_score_10(engine)
+    d = combo_analytics.difficulty_score_10(engine)
     if d is None:
         return "Difficulty: —"
     return f"Difficulty: {d:.1f} / 10"
@@ -592,7 +582,7 @@ def init_payload(engine) -> dict[str, Any]:
         "stats": stats_text(engine),
         "min_time": min_time_text(engine),
         "difficulty": difficulty_text(engine),
-        "difficulty_value": difficulty_score_10(engine),
+        "difficulty_value": combo_analytics.difficulty_score_10(engine),
         "user_difficulty": user_difficulty_text(engine),
         "user_difficulty_value": user_difficulty_value(engine),
         "apm": apm_text(engine),

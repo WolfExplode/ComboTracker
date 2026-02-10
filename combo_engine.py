@@ -13,13 +13,17 @@ from Game_Wuthering_Waves import (
     select_team_stateless,
     update_target_game_stateless,
 )
+import combo_analytics
 import combo_engine_ui as ui
 from combo_engine_ui import Status
-from persistence import fresh_combo_stats, load_engine_state, save_engine_state
+from persistence import load_engine_state, save_engine_state
 
-import combo_commands
+import _combo_commands as combo_commands
 import input_normalization
 from parser import expanded_ast_from_tokens
+import format_utils
+import stats_recording
+import step_introspection
 from combo_engine_ui_adapter import UIAdapter
 from states import (
     AcceptResult,
@@ -209,202 +213,29 @@ class ComboTrackerEngine:
     def split_inputs(self, keys_str: str):
         return input_normalization.split_inputs(keys_str or "")
 
-    def _parse_duration(self, raw: str):
-        token = (raw or "").lower().strip()
-        if not token:
-            return None
-
-        if token.endswith("ms"):
-            token = token[:-2].strip()
-            multiplier = 1
-        elif token.endswith("s"):
-            token = token[:-1].strip()
-            multiplier = 1000
-        else:
-            multiplier = 1000 if "." in token else 1
-
-        try:
-            value = float(token)
-        except ValueError:
-            return None
-
-        millis = value * multiplier
-        if millis <= 0:
-            return None
-        return int(millis)
-
     def calc_min_combo_time_ms(self, steps: list[Any] | None) -> int:
         """Fastest possible combo time in ms. Delegates to combo_analytics."""
         import combo_analytics
         total = sum(combo_analytics._step_time_ms(s) for s in (steps or []))
         return max(0, int(total))
 
-    def _format_ms(self, ms: int):
-        ms = int(ms)
-        if ms % 1000 == 0:
-            return f"{ms//1000:d}s ({ms}ms)"
-        return f"{ms/1000.0:.3g}s ({ms}ms)"
+    def _format_ms(self, ms: int) -> str:
+        return format_utils.format_ms(ms)
 
-    def _format_ms_brief(self, ms: float | int | None):
-        if ms is None:
-            return "—"
-        try:
-            ms_i = int(round(float(ms)))
-        except Exception:
-            return "—"
-        if ms_i < 1000:
-            return f"{ms_i}ms"
-        return f"{ms_i/1000.0:.3g}s"
+    def _format_ms_brief(self, ms: float | int | None) -> str:
+        return format_utils.format_ms_brief(ms)
 
-    def _format_hold_requirement(self, hold_ms: int):
-        if hold_ms is None:
-            return ""
-        if hold_ms % 1000 == 0:
-            return f"{hold_ms // 1000:d}s"
-        return f"{hold_ms / 1000.0:.3g}s"
+    def _format_hold_requirement(self, hold_ms: int) -> str:
+        return format_utils.format_hold_requirement(hold_ms)
 
     def _expected_label_for_step(self, step: Any) -> str:
-        """Return display label for a StepState (used by UI and fail reporting)."""
-        if step is None:
-            return "—"
-        if isinstance(step, PressState):
-            return (step.expected or "").strip().lower() or "—"
-        if isinstance(step, HoldState):
-            h = step.required_ms
-            inp = (step.expected or "").strip().lower()
-            return f"hold({inp},≥{h}ms)" if inp else f"hold(≥{h}ms)"
-        if isinstance(step, WaitState):
-            w = step.required_ms
-            if step.mode == "hard":
-                return f"wait-hard(≥{w}ms)"
-            if step.mode == "mandatory":
-                k = (step.wait_for or "").strip().lower()
-                return f"anim-wait({k},≥{w}ms)" if k else f"anim-wait(≥{w}ms)"
-            return f"wait(≥{w}ms)"
-        if isinstance(step, SequenceState):
-            labels = []
-            for s in step.steps:
-                if isinstance(s, WaitState):
-                    w = s.required_ms
-                    if s.mode == "hard":
-                        labels.append(f"wait-hard({w}ms)")
-                    elif s.mode == "mandatory":
-                        k = (s.wait_for or "").strip().lower()
-                        labels.append(f"{k}+wait({w}ms)" if k else f"wait({w}ms)")
-                    else:
-                        labels.append(f"wait({w}ms)")
-                elif isinstance(s, HoldState):
-                    labels.append(f"hold({s.expected},{s.required_ms}ms)")
-                else:
-                    labels.append((getattr(s, "expected", "") or "").strip().lower() or "?")
-            return f"seq({' → '.join(labels)})" if labels else "seq(—)"
-        if isinstance(step, GroupState):
-            opts = []
-            for item in step.items:
-                if item.kind == "press" and isinstance(item.state, PressState):
-                    opts.append((item.state.expected or "").strip().lower())
-                elif item.kind == "hold" and isinstance(item.state, HoldState):
-                    opts.append((item.state.expected or "").strip().lower())
-                elif item.kind == "press_wait" and isinstance(item.state, SequenceState) and len(item.state.steps) >= 2 and isinstance(item.state.steps[0], PressState):
-                    opts.append((item.state.steps[0].expected or "").strip().lower())
-                elif item.kind == "anim_wait" and isinstance(item.state, WaitState) and item.state.wait_for:
-                    opts.append((item.state.wait_for or "").strip().lower())
-                elif item.kind == "sequence" and isinstance(item.state, SequenceState) and item.state.steps:
-                    first = item.state.steps[0]
-                    if isinstance(first, PressState):
-                        opts.append((first.expected or "").strip().lower())
-                    elif isinstance(first, WaitState) and first.wait_for:
-                        opts.append((first.wait_for or "").strip().lower())
-            opts = [o for o in opts if o]
-            return f"any-order({'|'.join(opts)})" if opts else "any-order(—)"
-        return "—"
+        return step_introspection.expected_label_for_step(step)
 
     def _start_keys_for_step(self, step: Any) -> set[str]:
-        """
-        Return the set of input keys that can *start* the given step.
-
-        Used for forgiving holds: only treat a key as an "attempt to move on" if it matches the
-        next expected action, not random keys like movement.
-        """
-        out: set[str] = set()
-        try:
-            if step is None:
-                return out
-            if isinstance(step, PressState):
-                k = str(step.expected or "").strip().lower()
-                if k:
-                    out.add(k)
-                return out
-            if isinstance(step, HoldState):
-                k = str(step.expected or "").strip().lower()
-                if k:
-                    out.add(k)
-                return out
-            if isinstance(step, WaitState):
-                return out
-            if isinstance(step, SequenceState):
-                if getattr(step, "steps", None):
-                    return self._start_keys_for_step(step.steps[0])
-                return out
-            if isinstance(step, GroupState):
-                for item in getattr(step, "items", []) or []:
-                    try:
-                        if item.kind == "press" and isinstance(item.state, PressState):
-                            k = str(item.state.expected or "").strip().lower()
-                            if k:
-                                out.add(k)
-                        elif item.kind == "hold" and isinstance(item.state, HoldState):
-                            k = str(item.state.expected or "").strip().lower()
-                            if k:
-                                out.add(k)
-                        elif item.kind == "anim_wait" and isinstance(item.state, WaitState):
-                            k = str(item.state.wait_for or "").strip().lower()
-                            if k:
-                                out.add(k)
-                        elif item.kind in ("press_wait", "sequence") and isinstance(item.state, SequenceState):
-                            out |= self._start_keys_for_step(item.state)
-                    except Exception:
-                        continue
-                return out
-        except Exception:
-            return out
-        return out
+        return step_introspection.start_keys_for_step(step)
 
     def _step_accepts_input(self, step: Any, input_name: str) -> bool:
-        """True if this step could accept input_name (for find next/prev)."""
-        input_name = (input_name or "").strip().lower()
-        if not input_name:
-            return False
-        if isinstance(step, WaitState):
-            return False
-        if isinstance(step, PressState):
-            return (step.expected or "").strip().lower() == input_name
-        if isinstance(step, HoldState):
-            return (step.expected or "").strip().lower() == input_name
-        if isinstance(step, GroupState):
-            for item in step.items:
-                if item.kind == "press" and isinstance(item.state, PressState) and (item.state.expected or "").strip().lower() == input_name:
-                    return True
-                if item.kind == "hold" and isinstance(item.state, HoldState) and (item.state.expected or "").strip().lower() == input_name:
-                    return True
-                if item.kind == "press_wait" and isinstance(item.state, SequenceState) and len(item.state.steps) >= 2 and isinstance(item.state.steps[0], PressState) and (item.state.steps[0].expected or "").strip().lower() == input_name:
-                    return True
-                if item.kind == "anim_wait" and isinstance(item.state, WaitState) and (item.state.wait_for or "").strip().lower() == input_name:
-                    return True
-                if item.kind == "sequence" and isinstance(item.state, SequenceState) and item.state.steps:
-                    first = item.state.steps[0]
-                    if isinstance(first, PressState) and (first.expected or "").strip().lower() == input_name:
-                        return True
-                    if isinstance(first, WaitState) and (first.wait_for or "").strip().lower() == input_name:
-                        return True
-            return False
-        if isinstance(step, SequenceState) and step.steps:
-            first = step.steps[0]
-            if isinstance(first, PressState) and (first.expected or "").strip().lower() == input_name:
-                return True
-            if isinstance(first, HoldState) and (first.expected or "").strip().lower() == input_name:
-                return True
-        return False
+        return step_introspection.step_accepts_input(step, input_name)
 
     def _find_next_step_index_for_input(self, input_name: str, *, start_index: int) -> int | None:
         """Look ahead for the next non-wait step that matches input_name."""
@@ -512,29 +343,14 @@ class ComboTrackerEngine:
     # Stats helpers
     # -------------------------
 
-    def _ensure_combo_stats(self, name: str):
-        if not name:
-            return
-        fresh = fresh_combo_stats()
-        if name not in self.combo_stats or not isinstance(self.combo_stats.get(name), dict):
-            self.combo_stats[name] = dict(fresh)
-        else:
-            for k, v in fresh.items():
-                self.combo_stats[name].setdefault(k, v)
+    def _ensure_combo_stats(self, name: str) -> None:
+        stats_recording.ensure_combo_stats(self, name)
 
     def _combo_avg_ms(self, name: str):
-        self._ensure_combo_stats(name)
-        s = int(self.combo_stats[name].get("success", 0) or 0)
-        total = int(self.combo_stats[name].get("total_success_ms", 0) or 0)
-        if s <= 0 or total <= 0:
-            return None
-        return total / float(s)
+        return stats_recording.combo_avg_ms(self, name)
 
-    def _format_percent(self, success: int, fail: int):
-        total = success + fail
-        if total <= 0:
-            return "—"
-        return f"{(success / total) * 100:.1f}%"
+    def _format_percent(self, success: int, fail: int) -> str:
+        return stats_recording.format_percent(success, fail)
 
     def stats_text(self):
         return ui.stats_text(self)
@@ -549,15 +365,7 @@ class ComboTrackerEngine:
         return ui.min_time_text(self)
 
     def _parse_expected_time_ms(self, raw: str | None) -> int | None:
-        raw = (raw or "").strip().lower()
-        if not raw:
-            return None
-        ms = self._parse_duration(raw)
-        if ms is None:
-            return None
-        if ms <= 0:
-            return None
-        return int(ms)
+        return format_utils.parse_expected_time_ms(raw)
 
     def _count_combo_actions(self, steps: list[Any] | None) -> tuple[int, int, int]:
         """Returns (press_count, hold_count, total_actions). Delegates to combo_analytics."""
@@ -572,7 +380,7 @@ class ComboTrackerEngine:
         return press, hold, press + hold
 
     def practical_apm(self) -> float | None:
-        return ui.practical_apm(self)
+        return combo_analytics.practical_apm(self)
 
     def theoretical_max_apm(self) -> float | None:
         return ui.theoretical_max_apm(self)
@@ -584,7 +392,7 @@ class ComboTrackerEngine:
         return ui.apm_max_text(self)
 
     def difficulty_score_10(self) -> float | None:
-        return ui.difficulty_score_10(self)
+        return combo_analytics.difficulty_score_10(self)
 
     def difficulty_text(self) -> str:
         return ui.difficulty_text(self)
@@ -1068,35 +876,8 @@ class ComboTrackerEngine:
         )
         self._reset_after_fail()
 
-    def _ww_set_active_character_if_swap(self, input_name: str) -> None:
-        """When the correct key is 1/2/3 and game is WW, track active character for ender logic."""
-        if self.ww.get_target_game(self.active_combo_name or "") != "wuthering_waves":
-            return
-        key = (input_name or "").strip().lower()
-        if key in getattr(self.ww, "WW_CHARACTER_SLOTS", ("1", "2", "3")):
-            self.ww.ww_active_character = key
-
     def _only_ender_can_drop(self, input_name: str) -> bool:
-        """
-        True iff this key is allowed to end the combo.
-        Single gate: only combo enders can end combos, and only when that key is off cooldown.
-        WW: pressing the current character slot (1/2/3) never ends the combo until you switch off.
-        """
-        if not (input_name or "").strip():
-            return False
-        if not self._is_combo_ender(input_name):
-            return False
-        if self._ender_on_cooldown(input_name):
-            return False
-        if not self.last_input_time and self.current_index == 0:
-            return False
-        # Wuthering Waves: pressing the active character slot (1, 2, or 3) does not end the combo
-        if self.ww.get_target_game(self.active_combo_name or "") == "wuthering_waves":
-            key = (input_name or "").strip().lower()
-            if key in getattr(self.ww, "WW_CHARACTER_SLOTS", ("1", "2", "3")):
-                if self.ww.ww_active_character and key == self.ww.ww_active_character:
-                    return False
-        return True
+        return self.ww.can_ender_drop_combo(self, input_name)
 
     def _check_ender_fail(self, input_name: str, now: float) -> None:
         """If key is a combo ender (and not on cooldown), drop the combo."""
@@ -1235,13 +1016,8 @@ class ComboTrackerEngine:
             self.last_input_time = now
             self.last_success_input = target_input
             self._start_ender_cooldown(target_input, now)
-            self._ww_set_active_character_if_swap(target_input)
-            # Ensure the HoldState is no longer considered active.
-            try:
-                step.in_progress = False
-                step.completed = True
-            except Exception:
-                pass
+            self.ww.on_accepted_key(self, target_input)
+            step.complete()
 
             # If this hold was gated by a wait right before it, mark that wait green (timing satisfied).
             if self.current_index > 0:
@@ -1283,78 +1059,18 @@ class ComboTrackerEngine:
         actual: str,
         reason: str,
         elapsed_ms: float | None,
-    ):
-        name = self.active_combo_name
-        if not name:
-            return
-        self._ensure_combo_stats(name)
+    ) -> None:
+        stats_recording.record_fail_detail(
+            self,
+            step_index=step_index,
+            expected=expected,
+            actual=actual,
+            reason=reason,
+            elapsed_ms=elapsed_ms,
+        )
 
-        by_step = self.combo_stats[name].get("fail_by_step", {})
-        if not isinstance(by_step, dict):
-            by_step = {}
-        key_step = str(max(0, int(step_index)))
-        by_step[key_step] = int(by_step.get(key_step, 0) or 0) + 1
-        self.combo_stats[name]["fail_by_step"] = by_step
-
-        by_exp = self.combo_stats[name].get("fail_by_expected", {})
-        if not isinstance(by_exp, dict):
-            by_exp = {}
-        exp_key = (expected or "—").strip().lower()
-        by_exp[exp_key] = int(by_exp.get(exp_key, 0) or 0) + 1
-        self.combo_stats[name]["fail_by_expected"] = by_exp
-
-        by_reason = self.combo_stats[name].get("fail_by_reason", {})
-        if not isinstance(by_reason, dict):
-            by_reason = {}
-        r = (reason or "unknown").strip().lower() or "unknown"
-        by_reason[r] = int(by_reason.get(r, 0) or 0) + 1
-        self.combo_stats[name]["fail_by_reason"] = by_reason
-
-        ev = {
-            "ts": int(time.time()),
-            "attempt": int(self.attempt_counter or 0),
-            "step_index": int(step_index),
-            "expected": str(expected or ""),
-            "actual": str(actual or ""),
-            "reason": str(reason or ""),
-            "elapsed_ms": int(round(float(elapsed_ms))) if elapsed_ms is not None else None,
-        }
-        events = self.combo_stats[name].get("fail_events", [])
-        if not isinstance(events, list):
-            events = []
-        events.append(ev)
-        if len(events) > 100:
-            events = events[-100:]
-        self.combo_stats[name]["fail_events"] = events
-
-    def record_combo_success(self, completion_ms: float | int | None = None):
-        if not self.active_combo_name:
-            return
-        # Snapshot for UI: keep the timeline fully green until the next attempt begins.
-        self._ui_last_success_combo = self.active_combo_name
-        self._ui_last_success_steps_len = len(self.runtime_steps or [])
-        self._ensure_combo_stats(self.active_combo_name)
-        self.combo_stats[self.active_combo_name]["success"] += 1
-
-        if completion_ms is None and self.start_time:
-            completion_ms = (time.perf_counter() - self.start_time) * 1000.0
-        try:
-            ms = int(round(float(completion_ms))) if completion_ms is not None else None
-        except Exception:
-            ms = None
-        if ms is not None and ms > 0:
-            total = int(self.combo_stats[self.active_combo_name].get("total_success_ms", 0) or 0)
-            self.combo_stats[self.active_combo_name]["total_success_ms"] = total + ms
-            best = self.combo_stats[self.active_combo_name].get("best_ms", None)
-            try:
-                best_i = int(best) if best is not None else None
-            except Exception:
-                best_i = None
-            if best_i is None or ms < best_i:
-                self.combo_stats[self.active_combo_name]["best_ms"] = ms
-
-        self.save_combos()
-        self._emit_stats_and_fail()
+    def record_combo_success(self, completion_ms: float | int | None = None) -> None:
+        stats_recording.record_combo_success(self, completion_ms)
 
     def record_combo_fail(
         self,
@@ -1364,39 +1080,15 @@ class ComboTrackerEngine:
         expected_label: str | None = None,
         reason: str | None = None,
         elapsed_ms: float | None = None,
-    ):
-        if not self.active_combo_name:
-            return
-        if self.attempt_counter <= 0:
-            return
-
-        # Failure should clear any previous "success snapshot" so we don't show a fully green timeline at idle.
-        self._ui_last_success_combo = None
-        self._ui_last_success_steps_len = 0
-
-        self._ensure_combo_stats(self.active_combo_name)
-        self.combo_stats[self.active_combo_name]["fail"] += 1
-
-        idx = self.current_index if expected_step_index is None else expected_step_index
-        try:
-            idx_i = int(idx)
-        except Exception:
-            idx_i = 0
-        exp = expected_label
-        if not exp:
-            step = self._active_step()
-            exp = self._expected_label_for_step(step) if step else "—"
-
-        self._record_fail_detail(
-            step_index=idx_i,
-            expected=str(exp or "—"),
-            actual=str(actual or ""),
-            reason=str(reason or ""),
+    ) -> None:
+        stats_recording.record_combo_fail(
+            self,
+            actual=actual,
+            expected_step_index=expected_step_index,
+            expected_label=expected_label,
+            reason=reason,
             elapsed_ms=elapsed_ms,
         )
-
-        self.save_combos()
-        self._emit_stats_and_fail()
 
     # -------------------------
     # Input processing (called from pynput)
@@ -1512,7 +1204,7 @@ class ComboTrackerEngine:
             self.last_input_time = now
             self.last_success_input = input_name
             self._start_ender_cooldown(input_name, now)
-            self._ww_set_active_character_if_swap(input_name)
+            self.ww.on_accepted_key(self, input_name)
             # If this press started a nested wait (e.g. press_wait inside a group/sequence),
             # kick off the client-side wait animation immediately.
             self._sync_wait_animation_ui(now)

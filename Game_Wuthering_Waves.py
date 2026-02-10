@@ -40,6 +40,38 @@ class WutheringWavesGame:
     # Character slot keys (for WW and future games with swap slots)
     WW_CHARACTER_SLOTS = ("1", "2", "3")
 
+    # -------------------------
+    # Ender / combo-end policy (engine delegates here to avoid game-specific branches)
+    # -------------------------
+
+    def can_ender_drop_combo(self, engine: Any, input_name: str) -> bool:
+        """
+        True iff this key is allowed to end the combo.
+        Only combo enders can end combos, and only when off cooldown.
+        WW: pressing the current character slot (1/2/3) does not end the combo until you switch off.
+        """
+        if not (input_name or "").strip():
+            return False
+        if not engine._is_combo_ender(input_name):
+            return False
+        if engine._ender_on_cooldown(input_name):
+            return False
+        if not getattr(engine, "last_input_time", None) and getattr(engine, "current_index", 0) == 0:
+            return False
+        if self.get_target_game(getattr(engine, "active_combo_name", None) or "") == "wuthering_waves":
+            key = (input_name or "").strip().lower()
+            if key in self.WW_CHARACTER_SLOTS and self.ww_active_character and key == self.ww_active_character:
+                return False
+        return True
+
+    def on_accepted_key(self, engine: Any, input_name: str) -> None:
+        """When the correct key is 1/2/3 and game is WW, track active character for ender logic."""
+        if self.get_target_game(getattr(engine, "active_combo_name", None) or "") != "wuthering_waves":
+            return
+        key = (input_name or "").strip().lower()
+        if key in self.WW_CHARACTER_SLOTS:
+            self.ww_active_character = key
+
     def get_target_game(self, combo_name: str) -> str:
         name = (combo_name or "").strip()
         g = str(self.combo_target_game.get(name, "generic") or "generic").strip().lower()

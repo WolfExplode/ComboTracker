@@ -148,11 +148,10 @@ class HoldState:
             return IgnoreResult()
 
         held_ms = (now - self.started_at) * 1000
-        self.in_progress = False
-
         if held_ms >= self.required_ms:
-            self.completed = True
+            self.complete()
             return AcceptResult(advance=True)
+        self.in_progress = False
         # Forgiving hold: releasing too early does NOT fail immediately.
         # Failure happens only if the user attempts to move on (presses another key).
         return IgnoreResult()
@@ -165,6 +164,11 @@ class HoldState:
         if not self.in_progress:
             return False
         return (now - self.started_at) * 1000 >= self.required_ms
+
+    def complete(self) -> None:
+        """Mark this hold as successfully completed. Call when engine has determined hold duration was satisfied."""
+        self.in_progress = False
+        self.completed = True
 
     def to_dict(self) -> dict:
         return {

@@ -1,6 +1,6 @@
 """
 UI command handlers: apply/save/delete combo, new combo, clear history.
-All functions accept engine (duck-typed) and assume caller holds engine._lock.
+Internal module: call only from ComboTrackerEngine while holding the engine lock.
 """
 
 from __future__ import annotations

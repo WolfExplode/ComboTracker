@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -7,6 +9,7 @@ import time
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from socketserver import TCPServer
+from typing import Any, Callable
 
 import websockets
 from pynput import keyboard, mouse
@@ -22,11 +25,11 @@ HOST_WS = "localhost"
 PORT_WS = 8765
 
 
-def serve_static():
+def serve_static() -> None:
     static_dir = (Path(__file__).resolve().parent / "static").resolve()
 
     class Handler(SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, directory=str(static_dir), **kwargs)
 
     with TCPServer((HOST_HTTP, PORT_HTTP), Handler) as httpd:
@@ -37,7 +40,7 @@ def serve_static():
 connected_clients: set[websockets.WebSocketServerProtocol] = set()
 
 
-async def broadcast_dict(payload: dict):
+async def broadcast_dict(payload: dict[str, Any]) -> None:
     if not connected_clients:
         return
     msg = json.dumps(payload)
@@ -52,8 +55,8 @@ async def broadcast_dict(payload: dict):
                 pass
 
 
-def make_threadsafe_emitter(loop: asyncio.AbstractEventLoop):
-    def emit(payload: dict):
+def make_threadsafe_emitter(loop: asyncio.AbstractEventLoop) -> Callable[[dict[str, Any]], None]:
+    def emit(payload: dict[str, Any]) -> None:
         try:
             asyncio.run_coroutine_threadsafe(broadcast_dict(payload), loop)
         except Exception:
@@ -63,14 +66,18 @@ def make_threadsafe_emitter(loop: asyncio.AbstractEventLoop):
     return emit
 
 
-def _safe_json_load(s: str):
+def _safe_json_load(s: str) -> dict[str, Any] | None:
     try:
-        return json.loads(s)
+        out: object = json.loads(s)
+        return out if isinstance(out, dict) else None
     except Exception:
         return None
 
 
-async def ws_handler(websocket, _path=None):
+async def ws_handler(
+    websocket: websockets.WebSocketServerProtocol,
+    _path: str | None = None,
+) -> None:
     connected_clients.add(websocket)
     print(f"Client connected. Total: {len(connected_clients)}")
 
@@ -142,7 +149,7 @@ async def ws_handler(websocket, _path=None):
         print(f"Client disconnected. Total: {len(connected_clients)}")
 
 
-def run_ws_server():
+def run_ws_server() -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
@@ -157,15 +164,15 @@ def run_ws_server():
     loop.run_until_complete(_main())
 
 
-def start_input_listeners():
+def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
     # Input callbacks run off-thread; they call engine directly.
-    def on_key_press(key):
+    def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         engine.process_press(engine.normalize_key(key))
 
-    def on_key_release(key):
+    def on_key_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         engine.process_release(engine.normalize_key(key))
 
-    def on_mouse_click(_x, _y, button, pressed):
+    def on_mouse_click(_x: float, _y: float, button: mouse.Button, pressed: bool) -> None:
         btn = engine.normalize_mouse(button)
         if pressed:
             engine.process_press(btn)
@@ -182,7 +189,7 @@ def start_input_listeners():
 engine = ComboTrackerEngine()
 
 
-def setup_logging():
+def setup_logging() -> None:
     """
     Minimal app-level logging.
     Use `COMBOTRACKER_LOG_LEVEL` env var (e.g. DEBUG/INFO/WARNING).
@@ -195,7 +202,7 @@ def setup_logging():
     )
 
 
-def main():
+def main() -> None:
     setup_logging()
     # Static UI
     http_thread = threading.Thread(target=serve_static, daemon=True)
@@ -210,7 +217,7 @@ def main():
 
     # Tick loop: advance time-based steps (waits / group waits) without requiring another input event.
     # This makes wait tiles complete/turn green automatically when their timer elapses.
-    def tick_loop():
+    def tick_loop() -> None:
         last_log = 0.0
         while True:
             try:
