@@ -53,7 +53,7 @@ Two equivalent syntaxes:
 - `hold(e, 0.35)` (seconds)
 - `e{350ms}`
 
-The hold step is complete when you’ve held the key for at least the required duration.
+The hold step is complete when you’ve held the key for at least the required duration. You do **not** need to release the hold key before pressing the next step: pressing the next key while still holding is accepted (e.g. `hold(lmb, 0.1s), 1` — hold LMB for 0.1s then press 1 without releasing LMB). If a wait step immediately precedes a hold and you are already holding that key when the wait ends, the hold is started automatically (buffered hold).
 
 ### Wait steps vs Animation Locks
 
@@ -119,6 +119,7 @@ Example:
 
 - **Before the attempt starts**: stray keys are ignored.
 - **During the attempt**: pressing an ender key drops the combo only if that key is **off cooldown**.
+- **Key repeat (held key) does not drop**: only a **new key-down** can end the combo. If you keep a key held (e.g. hold `r` through a wait), repeat key events from the OS are ignored for ender logic—so the combo will not drop until you release and press that key again (a genuine new press).
 
 Data is stored in `combos.json`.
 

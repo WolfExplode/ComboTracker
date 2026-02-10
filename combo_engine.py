@@ -966,6 +966,8 @@ class ComboTrackerEngine:
         self.last_input_time = now
         self.current_index += 1
         self._reset_wait_state()
+        self._update_shortcuts()
+        self.ui_adapter.set_active_step_signature(self)
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
         # If a mandatory wait (possibly nested) just ended and the user was already holding
         # the next hold key, start the hold immediately (game-like input buffer).
@@ -1104,6 +1106,8 @@ class ComboTrackerEngine:
         if not input_name:
             return
 
+        # Only a genuine key-down (new press) can end the combo; key repeat (already held) must not.
+        press_is_repeat = input_name in self.currently_pressed
         self.currently_pressed.add(input_name)
         if not self.runtime_steps:
             return
@@ -1140,11 +1144,12 @@ class ComboTrackerEngine:
                         self._apply_buffered_hold_if_possible(now)
                 else:
                     # Only enders can end combos; early press with non-ender is ignored.
-                    if self._only_ender_can_drop(input_name):
+                    # Key repeat (already held) does not end the combo.
+                    if not press_is_repeat and self._only_ender_can_drop(input_name):
                         self._check_ender_fail(input_name, now)
                 return
-            # Ender during wait: use same gate as everywhere else.
-            if self.wait.mode in ("soft", "hard") and self._only_ender_can_drop(input_name):
+            # Ender during wait: use same gate as everywhere else. Key repeat does not end combo.
+            if not press_is_repeat and self.wait.mode in ("soft", "hard") and self._only_ender_can_drop(input_name):
                 if self.no_fail_mode:
                     self._mark_step(int(self.current_index), "wrong")
                     self._reset_wait_state()
@@ -1171,15 +1176,15 @@ class ComboTrackerEngine:
             if self.hold.check_complete(now):
                 self._complete_hold(now, auto=True)
                 return self._process_press_unlocked(input_name)
-            # Only enders can end combos (same gate as everywhere).
-            if self._only_ender_can_drop(input_name):
+            # Only enders can end combos (same gate as everywhere). Key repeat does not end combo.
+            if not press_is_repeat and self._only_ender_can_drop(input_name):
                 self._check_ender_fail(input_name, now)
                 return
 
-            # Forgiving hold: only drop if they pressed the next step's key AND it's an ender.
+            # Forgiving hold: only drop if they pressed the next step's key AND it's an ender (new press only).
             next_step = self.runtime_steps[int(self.current_index) + 1] if (int(self.current_index) + 1) < len(self.runtime_steps) else None
             next_keys = self._start_keys_for_step(next_step)
-            if next_keys and (input_name in next_keys) and self._only_ender_can_drop(input_name):
+            if not press_is_repeat and next_keys and (input_name in next_keys) and self._only_ender_can_drop(input_name):
                 if self.no_fail_mode:
                     self._mark_current_and_skip(now)
                     self._sync_wait_animation_ui(now)
@@ -1234,8 +1239,8 @@ class ComboTrackerEngine:
                 self._mark_current_and_skip(now, mark=mark)
                 self._sync_wait_animation_ui(now)
                 return
-            # Only enders can end combos; wrong/early key that isn't an ender is ignored.
-            if self._only_ender_can_drop(input_name):
+            # Only enders can end combos; wrong/early key that isn't an ender is ignored. Key repeat does not end combo.
+            if not press_is_repeat and self._only_ender_can_drop(input_name):
                 self._check_ender_fail(input_name, now)
             return
         if isinstance(result, CompleteResult):
@@ -1250,11 +1255,11 @@ class ComboTrackerEngine:
         # During group mandatory wait (animation lock), ignore all keys including enders.
         if isinstance(step, GroupState) and step.wait_active:
             return
-        # Input didn't match current step (IgnoreResult). Only enders can end combos.
+        # Input didn't match current step (IgnoreResult). Only enders can end combos. Key repeat does not end combo.
         if isinstance(result, IgnoreResult):
             if not self.last_input_time and self.current_index == 0:
                 return
-            if self._only_ender_can_drop(input_name):
+            if not press_is_repeat and self._only_ender_can_drop(input_name):
                 expected = self._expected_label_for_step(step) or "?"
                 self._mark_step(int(self.current_index), "missed")
                 if self.no_fail_mode:

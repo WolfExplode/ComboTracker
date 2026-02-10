@@ -139,10 +139,10 @@
     ],
     "Aemeath": [
       "f",
-      "e",
-      "lmb",
-      "wait:1.3s",
-      "q"
+      "r",
+      "wait:2.1s",
+      "hold(r, 0.2s)",
+      "wait(lmb, 4.1s)"
     ],
     "Agusta, Iuno, Shorekeeper Double intro": [
       "f",
@@ -192,13 +192,15 @@
       "lmb",
       "wait:0.70s",
       "lmb",
-      "wait:0.30s",
-      "hold(lmb, 0.20s)",
+      "wait:0.50s",
+      "e",
+      "wait:0.20s",
+      "hold(lmb, 0.10s)",
       "wait(1, 1s)",
       "hold(lmb, 0.30s)",
       "lmb",
       "wait:0.3s",
-      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, r, wait:2.1s]",
+      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, r, wait:1.8s]",
       "hold(r, 0.2s)",
       "wait(lmb, 4.1s)"
     ]
@@ -254,1035 +256,137 @@
       "fail_events": []
     },
     "Aemeath": {
-      "success": 5,
-      "fail": 103,
-      "best_ms": 356,
-      "total_success_ms": 9954,
+      "success": 3,
+      "fail": 11,
+      "best_ms": 2801,
+      "total_success_ms": 10306,
       "fail_by_step": {
-        "4": 5,
-        "3": 31,
-        "1": 26,
-        "2": 39,
-        "6": 1,
-        "5": 1
+        "2": 7,
+        "1": 4
       },
       "fail_by_expected": {
-        "lmb": 21,
-        "wait(\u2265350ms)": 14,
-        "3": 7,
-        "hold(lmb,\u2265600ms)": 41,
-        "e": 19,
-        "wait(\u22651300ms)": 1
+        "wait(\u22652100ms)": 7,
+        "r": 4
       },
       "fail_by_reason": {
-        "expected lmb": 21,
-        "combo ender": 20,
-        "expected 3": 7,
-        "expected hold(lmb,\u2265600ms)": 36,
-        "expected e": 19
+        "only waited for 2.01s, combo ended by r": 2,
+        "only waited for 2.03s, combo ended by r": 2,
+        "only waited for 0.59s, combo ended by space": 1,
+        "only waited for 0.04s, combo ended by space": 1,
+        "expected r": 4,
+        "only waited for 0.20s, combo ended by space": 1
       },
       "fail_events": [
         {
-          "ts": 1770669986,
-          "attempt": 4,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "3",
-          "reason": "Combo Ender",
-          "elapsed_ms": 1092
-        },
-        {
-          "ts": 1770670018,
-          "attempt": 5,
-          "step_index": 1,
-          "expected": "3",
-          "actual": "space",
-          "reason": "expected 3",
-          "elapsed_ms": 82
-        },
-        {
-          "ts": 1770670041,
-          "attempt": 6,
-          "step_index": 1,
-          "expected": "3",
+          "ts": 1770764687,
+          "attempt": 1,
+          "step_index": 2,
+          "expected": "wait(\u22652100ms)",
           "actual": "r",
-          "reason": "expected 3",
-          "elapsed_ms": 154
+          "reason": "only waited for 2.01s, combo ended by r",
+          "elapsed_ms": 2983
         },
         {
-          "ts": 1770670073,
+          "ts": 1770764691,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "wait(\u22652100ms)",
+          "actual": "r",
+          "reason": "only waited for 2.03s, combo ended by r",
+          "elapsed_ms": 2522
+        },
+        {
+          "ts": 1770764697,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "wait(\u22652100ms)",
+          "actual": "r",
+          "reason": "only waited for 2.03s, combo ended by r",
+          "elapsed_ms": 3226
+        },
+        {
+          "ts": 1770764700,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "wait(\u22652100ms)",
+          "actual": "r",
+          "reason": "only waited for 2.01s, combo ended by r",
+          "elapsed_ms": 2439
+        },
+        {
+          "ts": 1770764718,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "wait(\u22652100ms)",
+          "actual": "space",
+          "reason": "only waited for 0.59s, combo ended by space",
+          "elapsed_ms": 766
+        },
+        {
+          "ts": 1770764728,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "wait(\u22652100ms)",
+          "actual": "space",
+          "reason": "only waited for 0.04s, combo ended by space",
+          "elapsed_ms": 216
+        },
+        {
+          "ts": 1770764731,
           "attempt": 7,
           "step_index": 1,
-          "expected": "3",
-          "actual": "space",
-          "reason": "expected 3",
-          "elapsed_ms": 66
+          "expected": "r",
+          "actual": "e",
+          "reason": "expected r",
+          "elapsed_ms": 358
         },
         {
-          "ts": 1770670100,
+          "ts": 1770764754,
           "attempt": 8,
           "step_index": 1,
-          "expected": "3",
+          "expected": "r",
           "actual": "space",
-          "reason": "expected 3",
-          "elapsed_ms": 66
+          "reason": "expected r",
+          "elapsed_ms": 84
         },
         {
-          "ts": 1770670222,
+          "ts": 1770764758,
           "attempt": 9,
           "step_index": 1,
-          "expected": "3",
-          "actual": "r",
-          "reason": "expected 3",
-          "elapsed_ms": 394
+          "expected": "r",
+          "actual": "space",
+          "reason": "expected r",
+          "elapsed_ms": 438
         },
         {
-          "ts": 1770670843,
-          "attempt": 1,
-          "step_index": 4,
-          "expected": "lmb",
-          "actual": "3",
-          "reason": "expected lmb",
-          "elapsed_ms": 940
-        },
-        {
-          "ts": 1770670845,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "3",
-          "actual": "e",
-          "reason": "expected 3",
-          "elapsed_ms": 1098
-        },
-        {
-          "ts": 1770670847,
-          "attempt": 3,
-          "step_index": 1,
-          "expected": "3",
-          "actual": "e",
-          "reason": "expected 3",
-          "elapsed_ms": 298
-        },
-        {
-          "ts": 1770670848,
-          "attempt": 4,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "3",
-          "reason": "Combo Ender",
-          "elapsed_ms": 716
-        },
-        {
-          "ts": 1770670914,
-          "attempt": 1,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 1032
-        },
-        {
-          "ts": 1770670916,
-          "attempt": 2,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 576
-        },
-        {
-          "ts": 1770670917,
-          "attempt": 3,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 508
-        },
-        {
-          "ts": 1770670918,
-          "attempt": 4,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 320
-        },
-        {
-          "ts": 1770670919,
-          "attempt": 5,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 336
-        },
-        {
-          "ts": 1770670922,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 2280
-        },
-        {
-          "ts": 1770670924,
-          "attempt": 7,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 1386
-        },
-        {
-          "ts": 1770670926,
-          "attempt": 8,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 1178
-        },
-        {
-          "ts": 1770670927,
-          "attempt": 9,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 628
-        },
-        {
-          "ts": 1770670975,
-          "attempt": 1,
-          "step_index": 6,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 3124
-        },
-        {
-          "ts": 1770670977,
-          "attempt": 2,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 1562
-        },
-        {
-          "ts": 1770670978,
-          "attempt": 3,
-          "step_index": 3,
-          "expected": "wait(\u2265350ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 882
-        },
-        {
-          "ts": 1770670995,
-          "attempt": 1,
-          "step_index": 5,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 7506
-        },
-        {
-          "ts": 1770671005,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 1972
-        },
-        {
-          "ts": 1770671006,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 446
-        },
-        {
-          "ts": 1770671008,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 312
-        },
-        {
-          "ts": 1770671009,
-          "attempt": 5,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 278
-        },
-        {
-          "ts": 1770671010,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 1010
-        },
-        {
-          "ts": 1770671018,
-          "attempt": 9,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 2862
-        },
-        {
-          "ts": 1770671026,
+          "ts": 1770764792,
           "attempt": 10,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 2486
+          "step_index": 1,
+          "expected": "r",
+          "actual": "space",
+          "reason": "expected r",
+          "elapsed_ms": 526
         },
         {
-          "ts": 1770671031,
+          "ts": 1770764848,
           "attempt": 11,
           "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 3658
-        },
-        {
-          "ts": 1770671032,
-          "attempt": 12,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 530
-        },
-        {
-          "ts": 1770671033,
-          "attempt": 13,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 624
-        },
-        {
-          "ts": 1770671034,
-          "attempt": 14,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 784
-        },
-        {
-          "ts": 1770671035,
-          "attempt": 15,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 790
-        },
-        {
-          "ts": 1770671047,
-          "attempt": 16,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "r",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 424
-        },
-        {
-          "ts": 1770671215,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 874
-        },
-        {
-          "ts": 1770671217,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 464
-        },
-        {
-          "ts": 1770671218,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 514
-        },
-        {
-          "ts": 1770671219,
-          "attempt": 5,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 536
-        },
-        {
-          "ts": 1770671220,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 618
-        },
-        {
-          "ts": 1770671222,
-          "attempt": 7,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 824
-        },
-        {
-          "ts": 1770671224,
-          "attempt": 8,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 1100
-        },
-        {
-          "ts": 1770671225,
-          "attempt": 9,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "3",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 466
-        },
-        {
-          "ts": 1770671226,
-          "attempt": 10,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "3",
-          "reason": "expected hold(lmb,\u2265600ms)",
+          "expected": "wait(\u22652100ms)",
+          "actual": "space",
+          "reason": "only waited for 0.20s, combo ended by space",
           "elapsed_ms": 374
-        },
-        {
-          "ts": 1770671227,
-          "attempt": 11,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "q",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 1064
-        },
-        {
-          "ts": 1770671229,
-          "attempt": 12,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "q",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 576
-        },
-        {
-          "ts": 1770671229,
-          "attempt": 13,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "q",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 528
-        },
-        {
-          "ts": 1770671230,
-          "attempt": 14,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "q",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 536
-        },
-        {
-          "ts": 1770671232,
-          "attempt": 15,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "3",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 990
-        },
-        {
-          "ts": 1770671233,
-          "attempt": 16,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 698
-        },
-        {
-          "ts": 1770671234,
-          "attempt": 17,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 630
-        },
-        {
-          "ts": 1770671672,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 1102
-        },
-        {
-          "ts": 1770671673,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 454
-        },
-        {
-          "ts": 1770671675,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 798
-        },
-        {
-          "ts": 1770671676,
-          "attempt": 4,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 484
-        },
-        {
-          "ts": 1770671687,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 508
-        },
-        {
-          "ts": 1770671705,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 742
-        },
-        {
-          "ts": 1770671706,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 484
-        },
-        {
-          "ts": 1770671889,
-          "attempt": 1,
-          "step_index": 4,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 1314
-        },
-        {
-          "ts": 1770671891,
-          "attempt": 2,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 706
-        },
-        {
-          "ts": 1770671892,
-          "attempt": 3,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 476
-        },
-        {
-          "ts": 1770671893,
-          "attempt": 4,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 548
-        },
-        {
-          "ts": 1770671900,
-          "attempt": 1,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 1444
-        },
-        {
-          "ts": 1770671901,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 508
-        },
-        {
-          "ts": 1770671902,
-          "attempt": 3,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 706
-        },
-        {
-          "ts": 1770671903,
-          "attempt": 4,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 374
-        },
-        {
-          "ts": 1770671905,
-          "attempt": 5,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 394
-        },
-        {
-          "ts": 1770671906,
-          "attempt": 6,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 324
-        },
-        {
-          "ts": 1770671907,
-          "attempt": 7,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 778
-        },
-        {
-          "ts": 1770671908,
-          "attempt": 8,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 762
-        },
-        {
-          "ts": 1770671921,
-          "attempt": 9,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 952
-        },
-        {
-          "ts": 1770671923,
-          "attempt": 10,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 174
-        },
-        {
-          "ts": 1770671926,
-          "attempt": 11,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770671930,
-          "attempt": 12,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 576
-        },
-        {
-          "ts": 1770671952,
-          "attempt": 13,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 1058
-        },
-        {
-          "ts": 1770671985,
-          "attempt": 14,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 34
-        },
-        {
-          "ts": 1770672074,
-          "attempt": 15,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 101
-        },
-        {
-          "ts": 1770672164,
-          "attempt": 16,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 54
-        },
-        {
-          "ts": 1770672336,
-          "attempt": 17,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 62
-        },
-        {
-          "ts": 1770672393,
-          "attempt": 18,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 46
-        },
-        {
-          "ts": 1770672589,
-          "attempt": 19,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 60
-        },
-        {
-          "ts": 1770672596,
-          "attempt": 20,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 460
-        },
-        {
-          "ts": 1770672650,
-          "attempt": 21,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 1144
-        },
-        {
-          "ts": 1770674478,
-          "attempt": 22,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 14488
-        },
-        {
-          "ts": 1770674482,
-          "attempt": 23,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "space",
-          "reason": "expected e",
-          "elapsed_ms": 1314
-        },
-        {
-          "ts": 1770674841,
-          "attempt": 1,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 5540
-        },
-        {
-          "ts": 1770674849,
-          "attempt": 1,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 2278
-        },
-        {
-          "ts": 1770674856,
-          "attempt": 2,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 2314
-        },
-        {
-          "ts": 1770674859,
-          "attempt": 3,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 2324
-        },
-        {
-          "ts": 1770674862,
-          "attempt": 4,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 2528
-        },
-        {
-          "ts": 1770674867,
-          "attempt": 5,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "e",
-          "reason": "expected lmb",
-          "elapsed_ms": 2274
-        },
-        {
-          "ts": 1770674870,
-          "attempt": 6,
-          "step_index": 1,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 376
-        },
-        {
-          "ts": 1770674875,
-          "attempt": 7,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "q",
-          "reason": "expected lmb",
-          "elapsed_ms": 3204
-        },
-        {
-          "ts": 1770674878,
-          "attempt": 8,
-          "step_index": 4,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 2290
-        },
-        {
-          "ts": 1770674881,
-          "attempt": 9,
-          "step_index": 4,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 2284
-        },
-        {
-          "ts": 1770674889,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265600ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265600ms)",
-          "elapsed_ms": 2202
-        },
-        {
-          "ts": 1770674895,
-          "attempt": 2,
-          "step_index": 3,
-          "expected": "lmb",
-          "actual": "space",
-          "reason": "expected lmb",
-          "elapsed_ms": 5320
-        },
-        {
-          "ts": 1770674910,
-          "attempt": 1,
-          "step_index": 3,
-          "expected": "wait(\u22651300ms)",
-          "actual": "e",
-          "reason": "Combo Ender",
-          "elapsed_ms": 2214
-        },
-        {
-          "ts": 1770674912,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "lmb",
-          "actual": "q",
-          "reason": "expected lmb",
-          "elapsed_ms": 404
         }
       ]
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
       "success": 0,
-      "fail": 8,
+      "fail": 0,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {
-        "4": 1,
-        "1": 2,
-        "7": 1,
-        "11": 1,
-        "2": 3
-      },
-      "fail_by_expected": {
-        "2": 1,
-        "wait(\u2265150ms)": 2,
-        "3": 2,
-        "e": 3
-      },
-      "fail_by_reason": {
-        "expected 2": 1,
-        "only waited for 0.09s, combo ended by e": 1,
-        "expected 3": 2,
-        "only waited for 0.10s, combo ended by q": 1,
-        "expected e": 3
-      },
-      "fail_events": [
-        {
-          "ts": 1770761297,
-          "attempt": 1,
-          "step_index": 4,
-          "expected": "2",
-          "actual": "q",
-          "reason": "expected 2",
-          "elapsed_ms": 792
-        },
-        {
-          "ts": 1770761303,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "e",
-          "reason": "only waited for 0.09s, combo ended by e",
-          "elapsed_ms": 90
-        },
-        {
-          "ts": 1770761307,
-          "attempt": 3,
-          "step_index": 7,
-          "expected": "3",
-          "actual": "e",
-          "reason": "expected 3",
-          "elapsed_ms": 3468
-        },
-        {
-          "ts": 1770761315,
-          "attempt": 4,
-          "step_index": 11,
-          "expected": "3",
-          "actual": "r",
-          "reason": "expected 3",
-          "elapsed_ms": 6916
-        },
-        {
-          "ts": 1770761315,
-          "attempt": 5,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "q",
-          "reason": "only waited for 0.10s, combo ended by q",
-          "elapsed_ms": 100
-        },
-        {
-          "ts": 1770761316,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "q",
-          "reason": "expected e",
-          "elapsed_ms": 177
-        },
-        {
-          "ts": 1770761362,
-          "attempt": 7,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 840
-        },
-        {
-          "ts": 1770761363,
-          "attempt": 8,
-          "step_index": 2,
-          "expected": "e",
-          "actual": "r",
-          "reason": "expected e",
-          "elapsed_ms": 872
-        }
-      ]
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     }
   },
   "combo_expected_ms": {
