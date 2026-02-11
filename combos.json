@@ -212,7 +212,7 @@
     "e": 2000,
     "r": 2000
   },
-  "transcribe_valid_keys": "f, e, q, r, lmb, rmb, 1, 2, 3,",
+  "transcribe_valid_keys": "f, e, q, r, lmb, rmb, 1, 2, 3, space,",
   "combo_stats": {
     "Zani 1": {
       "success": 0,
@@ -266,13 +266,29 @@
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
       "success": 0,
-      "fail": 0,
+      "fail": 1,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {},
-      "fail_by_expected": {},
-      "fail_by_reason": {},
-      "fail_events": []
+      "fail_by_step": {
+        "2": 1
+      },
+      "fail_by_expected": {
+        "2": 1
+      },
+      "fail_by_reason": {
+        "expected 2": 1
+      },
+      "fail_events": [
+        {
+          "ts": 1770838597,
+          "attempt": 1,
+          "step_index": 2,
+          "expected": "2",
+          "actual": "e",
+          "reason": "expected 2",
+          "elapsed_ms": 10022
+        }
+      ]
     }
   },
   "combo_expected_ms": {

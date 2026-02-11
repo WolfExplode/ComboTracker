@@ -55,9 +55,7 @@ This means press `r`, `q`, and `e` in any order — and if/when you press `r`, a
 
 ### Hold steps
 
-Two equivalent syntaxes:
-- `hold(e, 0.35)` (seconds)
-- `e{350ms}`
+Syntax: `hold(e, 0.35)` (seconds).
 
 The hold step is complete when you’ve held the key for at least the required duration. You do **not** need to release the hold key before pressing the next step: pressing the next key while still holding is accepted (e.g. `hold(lmb, 0.1s), 1` — hold LMB for 0.1s then press 1 without releasing LMB). If a wait step immediately precedes a hold and you are already holding that key when the wait ends, the hold is started automatically (buffered hold).
 
@@ -79,11 +77,9 @@ So: **a wait following a key denotes that the key has an associated interruptibl
 Use this when you want to learn *not* to press the next button too fast.
 - The tracker **monitors** your inputs during the wait.
 - If you press the *next* correct key too early, it is flagged as a **Timing Error** (marked "Early").
-- **Hard request**: `wait_hard:0.2` will **fail/drop** the combo if you press early.
-- **Soft request**: `wait:0.2` (default) will just warn you.
 
 Syntax (key + wait = one step):
-- `r, wait:0.5` (Press `r`, then wait 0.5s; do not interrupt the wait)
+- `r, wait:0.5` or `f, wait:0.23s` (Press the key, then wait; do not interrupt the wait)
 
 #### 2. Animation Locks (`wait(key, duration)`) — Spam Safe
 

@@ -253,23 +253,14 @@ def parse_step(token: str) -> StepNode | None:
                 if ok:
                     return GroupNode(tuple(items))
 
-    # Wait gates: wait:0.1, wait_hard:0.2
-    wait_mode: Literal["soft", "hard"] | None = None
-    wait_prefix: str | None = None
-    if tl.startswith("wait_hard:"):
-        wait_mode = "hard"
-        wait_prefix = "wait_hard:"
-    elif tl.startswith("wait_soft:") or tl.startswith("wait:"):
-        wait_mode = "soft"
-        wait_prefix = "wait_soft:" if tl.startswith("wait_soft:") else "wait:"
-
-    if wait_prefix is not None:
-        dur = tl[len(wait_prefix):].strip()
+    # Wait gate: wait:0.1 (only form; use after a key e.g. f, wait:0.23s)
+    if tl.startswith("wait:"):
+        dur = tl[len("wait:"):].strip()
         wait_ms = _parse_duration(dur)
         if wait_ms is not None:
-            return WaitNode(wait_ms, wait_mode, None)
+            return WaitNode(wait_ms, "soft", None)
 
-    # Hold: hold(e, 0.35) or e{350ms}
+    # Hold: hold(e, 0.35)
     if tl.startswith("hold(") and tl.endswith(")"):
         inner = tl[len("hold("):-1]
         ps = [x.strip() for x in inner.split(",", 1)]
@@ -277,15 +268,6 @@ def parse_step(token: str) -> StepNode | None:
             hold_ms = _parse_duration(ps[1])
             if hold_ms is not None:
                 return HoldNode(ps[0].strip().lower(), hold_ms)
-
-    if "{" in tl and tl.endswith("}"):
-        base, rest = tl.split("{", 1)
-        ms_str = rest[:-1].replace("ms", "").strip()
-        base = base.strip().lower()
-        if base:
-            hold_ms = _parse_duration(ms_str)
-            if hold_ms is not None:
-                return HoldNode(base, hold_ms)
 
     # Optional press: -key
     if tl.startswith("-") and len(tl) > 1:

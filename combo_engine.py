@@ -723,6 +723,16 @@ class ComboTrackerEngine:
         self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
         self._send({"type": "timeline_update", "steps": steps_snapshot})
 
+    def cancel_attempt(self) -> None:
+        """Cancel current attempt and reset to beginning (e.g. on Esc). No fail recorded."""
+        with self._lock:
+            if not self.runtime_steps:
+                return
+            self._reset_to_start()
+            st = self.get_status()
+            self._send({"type": "status", "text": st.text, "color": st.color})
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
     def _reset_after_fail(self) -> None:
         """Full reset after a combo failure: clear index, time, step state, and notify UI."""
         # Snapshot timeline while the failed step is still marked (step_marks), so the UI

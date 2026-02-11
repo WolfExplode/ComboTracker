@@ -216,6 +216,9 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                 transcribe_keys_held.add(input_name)
                 transcriber.key_down(input_name, time.perf_counter())
             return
+        if input_name == TRANSCRIBE_ESC_KEY:
+            engine.cancel_attempt()
+            return
         engine.process_press(input_name)
 
     def on_key_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
@@ -226,6 +229,8 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                     transcribe_keys_held.discard(input_name)
                     transcriber.key_up(input_name, time.perf_counter())
             return
+        if input_name == TRANSCRIBE_ESC_KEY:
+            return  # Esc cancel already handled on press
         engine.process_release(input_name)
 
     def on_mouse_click(_x: float, _y: float, button: mouse.Button, pressed: bool) -> None:

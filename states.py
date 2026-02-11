@@ -455,6 +455,7 @@ class GroupState:
                         self.active_item = None
                         if self._is_complete():
                             return AcceptResult(advance=True, record_hit=result.record_hit)
+                        return AcceptResult(advance=False, record_hit=result.record_hit)
                     return AcceptResult(advance=result.advance, record_hit=result.record_hit)
 
                 return result

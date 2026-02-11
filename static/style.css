@@ -121,6 +121,78 @@ textarea {
     margin-top: -8px;
 }
 
+.label-with-input-help {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    width: 100%;
+}
+
+.input-help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    color: var(--bg-primary);
+    font-size: 10px;
+    font-weight: bold;
+    cursor: help;
+    flex-shrink: 0;
+}
+
+.input-help-icon:hover,
+.input-help-icon:focus {
+    background: var(--accent-blue);
+    color: var(--bg-primary);
+    outline: none;
+}
+
+.input-help-tooltip {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 4px;
+    width: 320px;
+    max-width: min(320px, 90vw);
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-grey);
+    border-radius: var(--border-radius);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    text-align: left;
+    visibility: hidden;
+    opacity: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+}
+
+.input-help-tooltip strong {
+    color: var(--text-primary);
+}
+
+.input-help-tooltip code {
+    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+    font-size: 10px;
+    background: var(--bg-hover);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.label-with-input-help:hover .input-help-tooltip,
+.input-help-icon:focus + .input-help-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
 .help-inline {
     color: var(--text-secondary);
     font-size: 11px;

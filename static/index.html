@@ -46,22 +46,21 @@
                         </div>
                     </div>
 
-                    <label>Inputs:</label>
+                    <label class="label-with-input-help">Inputs:
+                        <span class="input-help-icon" tabindex="0" aria-describedby="input-help-tooltip">ⓘ</span>
+                        <span id="input-help-tooltip" class="input-help-tooltip" role="tooltip">
+                            <strong>Mouse:</strong> LMB, RMB, MMB<br>
+                            <strong>Hold:</strong> <code>hold(space,0.2)</code><br>
+                            <strong>Animation lock:</strong> <code>wait(r, 1.5)</code> for the key and its non-interruptible animation<br>
+                            <strong>Key + wait:</strong> <code>f, wait:0.23s</code> for the key and its interruptible animation<br>
+                            <strong>Any-order:</strong> <code>[q, e, lmb, 1]</code> can press in any order<br>
+                            <strong>Sequence:</strong> <code>{hold(e, 0.30), e}</code> must do in that order<br>
+                            <strong>Examples:</strong><br>
+                            <code>[lmb, rmb, {hold(e, 0.30), e}]</code> can press in any order but must complete sequence once started<br>
+                        </span>
+                    </label>
                     <textarea id="comboInputs" rows="3"
                         placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
-
-                    <div class="help-text">
-                        LMB, RMB, MMB for mouse. Hold: hold(space,0.2) or space{200ms}. Wait (soft): wait:0.5 (or
-                        wait_soft:0.5). Hard wait: wait_hard:0.5 (early press drops combo).
-                        Any-order group: [q, e] means press BOTH q and e in any order.
-                        Sequential subgroup: {hold(e, 0.30), e} means do hold(e) THEN e, in that exact order.
-                        Combine them: [lmb, rmb, {hold(e, 0.30), e}] means lmb/rmb/{sequence} can be done in any order,
-                        but once the {sequence} starts, you must complete it in order.
-                        Animation lock: wait(r, 1.5) means press r, then mandatory wait ≥ 1.5s (inputs ignored).
-                        Combined: [wait(r, 1.5), q, e] means press r/q/e in any order; r triggers the animation lock
-                        inside
-                        the group.
-                    </div>
 
                     <label>Expected time:</label>
                     <input type="text" id="comboExpectedTime" placeholder="e.g., 1.05s or 1050ms">
@@ -69,9 +68,14 @@
                     <label>Your difficulty:</label>
                     <input type="text" id="comboUserDifficulty" placeholder="0–10 (optional)">
 
-                    <label>Combo Enders:</label>
+                    <label class="label-with-input-help">Combo Enders:
+                        <span class="input-help-icon" tabindex="0" aria-describedby="enders-help-tooltip">ⓘ</span>
+                        <span id="enders-help-tooltip" class="input-help-tooltip" role="tooltip">
+                            End the combo when pressed, but only if that ability is off cooldown.<br>
+                            <strong>Notation:</strong> <code>key:cooldown</code> e.g. <code>q:1.05s</code>
+                        </span>
+                    </label>
                     <input type="text" id="comboEnders" placeholder="1:3s, 2:3s, 3:3s, e:2s, q:2s, r:2s, space:2s">
-                    <div class="help-text" style="grid-column: 1 / -1;">Combo enders are inputs that will end the combo when pressed, but only if that ability is off cooldown. Notation: <code>key:cooldown</code> e.g. <code>q:1.05s</code>. Using an ender as the correct next key starts its cooldown.</div>
 
                     <label class="no-fail-label">Practice mode?</label>
                     <div class="two-col-row no-fail-row">
