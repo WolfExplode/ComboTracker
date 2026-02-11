@@ -721,6 +721,10 @@ button.danger:hover {
     letter-spacing: 0.5px;
 }
 
+.step-primary.space-icon {
+    font-size: 3em;
+}
+
 .step-primary-small {
     font-size: 13px;
     font-weight: 700;

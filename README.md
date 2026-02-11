@@ -59,6 +59,9 @@ You can show the **Combo Steps** timeline in OBS as a separate overlay (e.g. for
 
 For a walkthrough of common OBS Browser Source gotchas (separate instance, interact window, scrolling, sizing), see: [OBS Browser Source demo](https://youtu.be/lgGtxO_He4Y?t=145) (video, ~2:25).
 
+you can set custom CSS to zoom in
+`body {zoom : 150%;}`
+
 ---
 
 ## Documentation

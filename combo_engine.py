@@ -1282,6 +1282,17 @@ class ComboTrackerEngine:
                         self._advance_step(now)
                         self._sync_wait_animation_ui(now)
                         return self._process_press_unlocked(input_name)
+            # Optional-key grace: optional key is valid in its own slot and through the entire next step.
+            # If we're 1 or 2 steps past a skipped optional and user presses that optional's key, accept it (don't drop).
+            for prev_idx in (self.current_index - 1, self.current_index - 2):
+                if prev_idx < 0:
+                    continue
+                prev_step = self.runtime_steps[prev_idx]
+                opt_key = step_introspection.optional_step_key(prev_step)
+                if opt_key is None or not getattr(prev_step, "was_skipped", False) or input_name != opt_key:
+                    continue
+                prev_step.was_skipped = False
+                return
             if not press_is_repeat and self._only_ender_can_drop(input_name):
                 expected = self._expected_label_for_step(step) or "?"
                 self._mark_step(int(self.current_index), "missed")

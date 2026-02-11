@@ -961,9 +961,24 @@ function updateTimeline(steps) {
         container.appendChild(tile);
     });
 
-    if (appState.autoScrollEnabled) {
+    if (viewport?.classList.contains('auto-scroll-on')) {
+        requestAnimationFrame(() => {
+            normalizeStepHeightsInAutoScroll(container);
+            applyAutoScroll();
+        });
+    } else if (appState.autoScrollEnabled) {
         requestAnimationFrame(() => applyAutoScroll());
     }
+}
+
+function normalizeStepHeightsInAutoScroll(timelineEl) {
+    if (!timelineEl) return;
+    const stepTiles = timelineEl.querySelectorAll(':scope > .step, :scope .step.group-item');
+    if (stepTiles.length === 0) return;
+    stepTiles.forEach(el => { el.style.minHeight = ''; });
+    const heights = Array.from(stepTiles).map(el => el.getBoundingClientRect().height);
+    const maxH = Math.max(...heights, 0);
+    if (maxH > 0) stepTiles.forEach(el => { el.style.minHeight = `${maxH}px`; });
 }
 
 function renderStepLabel(s) {

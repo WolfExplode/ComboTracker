@@ -121,6 +121,23 @@ def start_keys_for_step(step: Any) -> set[str]:
     return out
 
 
+def optional_step_key(step: Any) -> str | None:
+    """
+    Return the key that would complete this optional step (the key valid in its "slot").
+    Returns None if step is not an optional PressState or optional SequenceState.
+    Used for optional-key grace: that key is also valid one or two steps forward.
+    """
+    if step is None:
+        return None
+    if isinstance(step, PressState) and getattr(step, "optional", False):
+        k = str(step.expected or "").strip().lower()
+        return k if k else None
+    if isinstance(step, SequenceState) and getattr(step, "optional", False):
+        keys = start_keys_for_step(step)
+        return next(iter(keys), None) if keys else None
+    return None
+
+
 def step_accepts_input(step: Any, input_name: str) -> bool:
     """True if this step could accept input_name (for find next/prev)."""
     input_name = (input_name or "").strip().lower()
