@@ -83,6 +83,13 @@ def load_engine_state(engine) -> None:
                     parsed[key] = 0
         engine.combo_enders = parsed
 
+        # Transcribe valid keys (comma-separated string)
+        tvk = data.get("transcribe_valid_keys")
+        if isinstance(tvk, str):
+            engine.transcribe_valid_keys = tvk.strip()
+        else:
+            engine.transcribe_valid_keys = getattr(engine, "transcribe_valid_keys", "") or ""
+
         # Stats
         stats = data.get("combo_stats", {})
         if isinstance(stats, dict):
@@ -374,6 +381,7 @@ def save_engine_state(engine) -> None:
             "no_fail_mode": getattr(engine, "no_fail_mode", False),
             "combos": dict(engine.combos),
             "combo_enders": dict(engine.combo_enders),
+            "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
             "combo_stats": dict(engine.combo_stats),
             "combo_expected_ms": dict(engine.combo_expected_ms),
             "combo_user_difficulty": dict(engine.combo_user_difficulty),

@@ -610,6 +610,7 @@ def init_payload(engine) -> dict[str, Any]:
         "timeline": timeline_steps(engine),
         "fail_by_step": failures_by_step(engine),
         "editor": get_editor_payload(engine),
+        "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
     }
 
 

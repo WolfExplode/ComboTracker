@@ -319,6 +319,23 @@ button.danger:hover {
     display: none;
 }
 
+.transcribe-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.transcribe-valid-keys-wrap label {
+    display: block;
+    margin-bottom: 4px;
+    text-align: left;
+}
+
+.transcribe-valid-keys-wrap .transcribe-valid-input {
+    width: 100%;
+    max-width: 400px;
+}
+
 /* Collapsible Sections */
 .section-details > summary {
     cursor: pointer;

@@ -97,6 +97,8 @@ class ComboTrackerEngine:
 
         # Combo enders: key -> cooldown_ms (0 = no cooldown; wrong press drops immediately)
         self.combo_enders: dict[str, int] = {}
+        # Auto-transcribe: comma-separated valid keys (persisted like combo_enders)
+        self.transcribe_valid_keys: str = ""
         self.last_success_input: str | None = None
         # Per-ender cooldown: key -> time.perf_counter() when that key's cooldown ends.
         # When the user correctly presses an ender key, we set cooldown for that key so
@@ -533,6 +535,17 @@ class ComboTrackerEngine:
     def new_combo(self):
         with self._lock:
             combo_commands.new_combo(self)
+
+    def send_transcription_result(self, transcript: str) -> None:
+        """Send transcribed combo string to client after new_combo(); then load steps from it and send timeline_update for display."""
+        with self._lock:
+            self._send({"type": "transcription_result", "inputs": transcript or ""})
+            tokens = [k.strip().lower() for k in self.split_inputs(transcript or "") if k.strip()]
+            ast_list = expanded_ast_from_tokens(tokens)
+            self.active_combo_tokens = tokens
+            self.runtime_steps = [build_runtime_state(node) for node in ast_list]
+            self.reset_tracking()
+            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
     def clear_history_and_stats(self):
         with self._lock:

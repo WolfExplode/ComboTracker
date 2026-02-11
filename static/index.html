@@ -34,6 +34,18 @@
                         <button id="deleteBtn" type="button" class="danger">Delete</button>
                     </div>
 
+                    <label>Auto transcribe</label>
+                    <div class="transcribe-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="transcribeModeToggle" title="Record combo: press F to start, Esc to stop. Only keys listed in Valid keys are transcribed.">
+                            Record combo (F to start, Esc to stop)
+                        </label>
+                        <div id="transcribeValidKeysWrap" class="transcribe-valid-keys-wrap hidden">
+                            <label>Valid keys:</label>
+                            <input type="text" id="transcribeValidKeys" placeholder="f, e, q, r, lmb, rmb, 1, 2, 3" class="transcribe-valid-input">
+                        </div>
+                    </div>
+
                     <label>Inputs:</label>
                     <textarea id="comboInputs" rows="3"
                         placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>

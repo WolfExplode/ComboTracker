@@ -139,11 +139,10 @@
     ],
     "Aemeath": [
       "f",
-      "q",
-      "wait:0.20s",
-      "hold(lmb, 0.1s)",
-      "1",
-      "e"
+      "-e",
+      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, {wait(r, 1.6s), 3, lmb, lmb, 1}]",
+      "hold(r, 0.2s)",
+      "wait(lmb, 4.1s)"
     ],
     "Agusta, Iuno, Shorekeeper Double intro": [
       "f",
@@ -152,7 +151,7 @@
       "wait:0.15s",
       "2",
       "e",
-      "wait:0.15s",
+      "wait:0.20s",
       "3",
       "[q, e, wait(r, 2.9s)]",
       "2",
@@ -170,7 +169,7 @@
       "wait:0.15s",
       "hold(lmb, 0.1s)",
       "1",
-      "hold(lmb, 0.30s)",
+      "hold(lmb, 0.25s)",
       "lmb",
       "wait:0.3s",
       "2",
@@ -181,27 +180,27 @@
       "wait:0.3s",
       "lmb",
       "wait:0.1s",
-      "wait(1, 1s)",
-      "hold(lmb, 0.30s)",
+      "wait(1, 0.9s)",
+      "hold(lmb, 0.25s)",
       "lmb",
       "wait:0.3s",
       "2",
-      "e",
-      "wait(r, 4s)",
+      "-e",
+      "wait(r, 3.9s)",
       "lmb",
       "wait:0.50s",
       "lmb",
       "wait:0.70s",
       "lmb",
       "wait:0.50s",
-      "e",
+      "-e",
       "wait:0.20s",
       "hold(lmb, 0.10s)",
-      "wait(1, 1s)",
-      "hold(lmb, 0.30s)",
+      "wait(1, 0.9s)",
+      "hold(lmb, 0.25s)",
       "lmb",
       "wait:0.3s",
-      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, r, wait:2.1s]",
+      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, {wait(r, 1.6s), 3, lmb, lmb}]",
       "hold(r, 0.2s)",
       "wait(lmb, 4.1s)"
     ]
@@ -211,9 +210,7 @@
     "2": 1000,
     "3": 1000,
     "e": 2000,
-    "q": 2000,
-    "r": 2000,
-    "space": 2000
+    "r": 2000
   },
   "combo_stats": {
     "Zani 1": {
@@ -257,48 +254,150 @@
       "fail_events": []
     },
     "Aemeath": {
-      "success": 4,
+      "success": 0,
+      "fail": 12,
+      "best_ms": null,
+      "total_success_ms": 0,
+      "fail_by_step": {
+        "3": 1,
+        "2": 11
+      },
+      "fail_by_expected": {
+        "hold(r,\u2265200ms)": 1,
+        "any-order(e|e|e|r)": 11
+      },
+      "fail_by_reason": {
+        "expected hold(r,\u2265200ms)": 1,
+        "expected any-order(e|e|e|r)": 11
+      },
+      "fail_events": [
+        {
+          "ts": 1770824388,
+          "attempt": 1,
+          "step_index": 3,
+          "expected": "hold(r,\u2265200ms)",
+          "actual": "e",
+          "reason": "expected hold(r,\u2265200ms)",
+          "elapsed_ms": 6564
+        },
+        {
+          "ts": 1770824426,
+          "attempt": 2,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 26891
+        },
+        {
+          "ts": 1770824555,
+          "attempt": 3,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 39532
+        },
+        {
+          "ts": 1770824581,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 16057
+        },
+        {
+          "ts": 1770825071,
+          "attempt": 5,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 36673
+        },
+        {
+          "ts": 1770825090,
+          "attempt": 6,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "r",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 10169
+        },
+        {
+          "ts": 1770825629,
+          "attempt": 7,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 173282
+        },
+        {
+          "ts": 1770825684,
+          "attempt": 8,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 11870
+        },
+        {
+          "ts": 1770825715,
+          "attempt": 9,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 21933
+        },
+        {
+          "ts": 1770825736,
+          "attempt": 10,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "r",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 9126
+        },
+        {
+          "ts": 1770825923,
+          "attempt": 11,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 71110
+        },
+        {
+          "ts": 1770825961,
+          "attempt": 12,
+          "step_index": 2,
+          "expected": "any-order(e|e|e|r)",
+          "actual": "r",
+          "reason": "expected any-order(e|e|e|r)",
+          "elapsed_ms": 4004
+        }
+      ]
+    },
+    "Agusta, Iuno, Shorekeeper Double intro": {
+      "success": 0,
       "fail": 0,
-      "best_ms": 2562,
-      "total_success_ms": 13582,
+      "best_ms": null,
+      "total_success_ms": 0,
       "fail_by_step": {},
       "fail_by_expected": {},
       "fail_by_reason": {},
       "fail_events": []
-    },
-    "Agusta, Iuno, Shorekeeper Double intro": {
-      "success": 0,
-      "fail": 1,
-      "best_ms": null,
-      "total_success_ms": 0,
-      "fail_by_step": {
-        "1": 1
-      },
-      "fail_by_expected": {
-        "wait(\u2265150ms)": 1
-      },
-      "fail_by_reason": {
-        "only waited for 0.08s, combo ended by e": 1
-      },
-      "fail_events": [
-        {
-          "ts": 1770764541,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "wait(\u2265150ms)",
-          "actual": "e",
-          "reason": "only waited for 0.08s, combo ended by e",
-          "elapsed_ms": 80
-        }
-      ]
     }
   },
   "combo_expected_ms": {
-    "Zani 1": 1300,
+    "Zani 1": 5000,
     "Zani 3": 19000,
     "Zani 2": 9000,
     "Zani Pheobe Rover Rotation": 30000,
-    "Agusta, Iuno, Shorekeeper Double intro": 23000
+    "Agusta, Iuno, Shorekeeper Double intro": 24000
   },
   "combo_user_difficulty": {
     "Zani 1": 8.0,

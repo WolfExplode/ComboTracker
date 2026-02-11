@@ -15,8 +15,14 @@ import websockets
 from pynput import keyboard, mouse
 
 from combo_engine import ComboTrackerEngine
+from transcriber import Transcriber
 
 logger = logging.getLogger(__name__)
+
+TRANSCRIBE_START_KEY = "f"
+TRANSCRIBE_ESC_KEY = "esc"
+
+transcribe_mode_enabled = False
 
 
 HOST_HTTP = "localhost"
@@ -139,6 +145,13 @@ async def ws_handler(
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "new_combo":
                 engine.new_combo()
+            elif mtype == "set_transcribe_mode":
+                global transcribe_mode_enabled
+                transcribe_mode_enabled = bool(msg.get("enabled", False))
+                valid_keys_str = str(msg.get("valid_keys") or "").strip()
+                transcriber.set_valid_keys(valid_keys_str)
+                engine.transcribe_valid_keys = valid_keys_str
+                engine.save_combos()
             elif mtype == "set_no_fail":
                 engine.set_no_fail_mode(bool(msg.get("enabled", False)))
                 engine.save_combos()
@@ -164,16 +177,75 @@ def run_ws_server() -> None:
     loop.run_until_complete(_main())
 
 
+# Mouse: merge rapid same-button clicks (down/up/down/up within this window → one logical click)
+MOUSE_CLICK_MERGE_S = 0.2
+
+
 def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
-    # Input callbacks run off-thread; they call engine directly.
+    # Windows: hold sends repeated key_down and one key_up on release. Coalesce so transcriber
+    # sees exactly one key_down and one key_up per physical key (ignore repeat key_downs).
+    transcribe_keys_held: set[str] = set()
+    # Mouse: merge rapid same-button clicks into one logical click
+    transcribe_mouse_last_up: dict[str, float] = {}
+    transcribe_mouse_merging: set[str] = set()
+
     def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
-        engine.process_press(engine.normalize_key(key))
+        input_name = engine.normalize_key(key)
+        if transcribe_mode_enabled:
+            if not transcriber.is_recording():
+                if input_name == TRANSCRIBE_ESC_KEY:
+                    return
+                if input_name == TRANSCRIBE_START_KEY:
+                    transcribe_keys_held.clear()
+                    transcribe_mouse_last_up.clear()
+                    transcribe_mouse_merging.clear()
+                    now = time.perf_counter()
+                    transcriber.start()
+                    transcriber.key_down(input_name, now)
+                    transcriber.key_up(input_name, now)
+                return
+            if input_name == TRANSCRIBE_ESC_KEY:
+                transcriber.stop()
+                transcribe_keys_held.clear()
+                transcribe_mouse_last_up.clear()
+                transcribe_mouse_merging.clear()
+                return
+            if transcriber.is_valid_key(input_name):
+                if input_name in transcribe_keys_held:
+                    return  # repeat key_down (Windows hold); ignore
+                transcribe_keys_held.add(input_name)
+                transcriber.key_down(input_name, time.perf_counter())
+            return
+        engine.process_press(input_name)
 
     def on_key_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
-        engine.process_release(engine.normalize_key(key))
+        input_name = engine.normalize_key(key)
+        if transcribe_mode_enabled:
+            if transcriber.is_recording() and input_name != TRANSCRIBE_ESC_KEY and transcriber.is_valid_key(input_name):
+                if input_name in transcribe_keys_held:
+                    transcribe_keys_held.discard(input_name)
+                    transcriber.key_up(input_name, time.perf_counter())
+            return
+        engine.process_release(input_name)
 
     def on_mouse_click(_x: float, _y: float, button: mouse.Button, pressed: bool) -> None:
         btn = engine.normalize_mouse(button)
+        if transcribe_mode_enabled:
+            if transcriber.is_recording() and transcriber.is_valid_key(btn):
+                now = time.perf_counter()
+                if pressed:
+                    # Merge rapid same-button clicks: if this down is within MOUSE_CLICK_MERGE_S of last up, skip it (and the next up)
+                    if btn in transcribe_mouse_last_up and (now - transcribe_mouse_last_up[btn]) < MOUSE_CLICK_MERGE_S:
+                        transcribe_mouse_merging.add(btn)
+                        return
+                    transcriber.key_down(btn, now)
+                else:
+                    if btn in transcribe_mouse_merging:
+                        transcribe_mouse_merging.discard(btn)
+                        return
+                    transcribe_mouse_last_up[btn] = now
+                    transcriber.key_up(btn, now)
+            return
         if pressed:
             engine.process_press(btn)
         else:
@@ -187,6 +259,16 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
 
 
 engine = ComboTrackerEngine()
+
+
+def _on_transcription_done(transcript: str) -> None:
+    engine.new_combo()
+    engine.send_transcription_result(transcript)
+
+
+transcriber = Transcriber(on_stop=_on_transcription_done)
+# Sync transcriber with persisted valid keys (loaded in engine via load_combos)
+transcriber.set_valid_keys(getattr(engine, "transcribe_valid_keys", "") or "")
 
 
 def setup_logging() -> None:

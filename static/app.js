@@ -66,7 +66,43 @@ function initializeUI(data) {
 
     if (data.fail_by_step) appState.lastFailByStep = data.fail_by_step;
 
+    const isNewCombo = data.editor && (data.editor.name || '').toString().trim() === '';
+    const preserved = isNewCombo ? {
+        targetGame: appState.targetGame,
+        wwTeamId: appState.wwTeamId,
+        wwTeamName: (getEl('wwTeamName')?.value || '').toString(),
+        stepDisplayMode: appState.stepDisplayMode,
+        noFailMode: !!getEl('noFailMode')?.checked,
+        keyImages: { ...appState.keyImages },
+        wwDashImage: appState.wwDashImage,
+        wwSwapImages: { ...appState.wwSwapImages },
+        wwLmbImages: { ...appState.wwLmbImages },
+        wwAbilityImages: JSON.parse(JSON.stringify(appState.wwAbilityImages)),
+    } : null;
+
     if (data.editor) setEditorFields(data.editor);
+    if (preserved) {
+        appState.targetGame = preserved.targetGame;
+        appState.wwTeamId = preserved.wwTeamId;
+        appState.stepDisplayMode = preserved.stepDisplayMode;
+        const gameSelect = getEl('targetGameSelect');
+        if (gameSelect) gameSelect.value = appState.targetGame;
+        const teamSelect = getEl('wwTeamSelect');
+        if (teamSelect) teamSelect.value = appState.wwTeamId;
+        const teamNameEl = getEl('wwTeamName');
+        if (teamNameEl) teamNameEl.value = preserved.wwTeamName;
+        const stepToggle = getEl('stepDisplayToggle');
+        if (stepToggle) stepToggle.checked = (appState.stepDisplayMode === 'images');
+        const noFailEl = getEl('noFailMode');
+        if (noFailEl) noFailEl.checked = preserved.noFailMode;
+        appState.keyImages = preserved.keyImages;
+        appState.wwDashImage = preserved.wwDashImage;
+        appState.wwSwapImages = preserved.wwSwapImages;
+        appState.wwLmbImages = preserved.wwLmbImages;
+        appState.wwAbilityImages = preserved.wwAbilityImages;
+        syncGameUIVisibility();
+        refreshTimelineIfLoaded();
+    }
     if (data.status) updateStatus(data.status.text, data.status.color);
     if (data.stats !== undefined) updateStats(data.stats);
     if (data.min_time !== undefined) updateMinTime(data.min_time);
@@ -79,7 +115,10 @@ function initializeUI(data) {
     if (data.timeline) updateTimeline(data.timeline);
 
     const noFailEl = getEl('noFailMode');
-    if (noFailEl) noFailEl.checked = !!data.no_fail_mode;
+    if (noFailEl && !preserved) noFailEl.checked = !!data.no_fail_mode;
+
+    const transcribeValidKeysEl = getEl('transcribeValidKeys');
+    if (transcribeValidKeysEl && data.transcribe_valid_keys !== undefined) transcribeValidKeysEl.value = data.transcribe_valid_keys || '';
 }
 
 function normalizeTargetGame(v) {
@@ -1344,6 +1383,32 @@ if (openTimelineWindowBtn) {
     });
 }
 
+function sendTranscribeMode() {
+    const toggle = getEl('transcribeModeToggle');
+    const validInput = getEl('transcribeValidKeys');
+    sendMessage('set_transcribe_mode', {
+        enabled: !!(toggle && toggle.checked),
+        valid_keys: (validInput && validInput.value.trim()) || ''
+    });
+}
+
+const transcribeModeToggle = getEl('transcribeModeToggle');
+const transcribeValidKeysWrap = getEl('transcribeValidKeysWrap');
+const transcribeValidKeysInput = getEl('transcribeValidKeys');
+if (transcribeModeToggle) {
+    transcribeModeToggle.addEventListener('change', () => {
+        if (transcribeValidKeysWrap) transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);
+        sendTranscribeMode();
+    });
+}
+if (transcribeValidKeysInput) {
+    transcribeValidKeysInput.addEventListener('blur', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
+    transcribeValidKeysInput.addEventListener('input', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
+}
+if (transcribeValidKeysWrap && transcribeModeToggle) {
+    transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);
+}
+
 window.addEventListener('resize', () => {
     if (appState.autoScrollEnabled) applyAutoScroll();
 });
@@ -1487,6 +1552,10 @@ const MESSAGE_HANDLERS = {
     fail_update: (msg) => {
         appState.lastFailByStep = msg.fail_by_step || {};
         refreshTimelineIfLoaded();
+    },
+    transcription_result: (msg) => {
+        const inputsEl = getEl('comboInputs');
+        if (inputsEl) inputsEl.value = msg.inputs || '';
     },
 };
 

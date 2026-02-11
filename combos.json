@@ -140,8 +140,9 @@
     "Aemeath": [
       "f",
       "-e",
-      "wait:0.20s",
-      "hold(lmb, 0.20s)"
+      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, {wait(r, 1.6s), 3, lmb, lmb, 1}]",
+      "hold(r, 0.2s)",
+      "wait(lmb, 4.1s)"
     ],
     "Agusta, Iuno, Shorekeeper Double intro": [
       "f",
@@ -150,7 +151,7 @@
       "wait:0.15s",
       "2",
       "e",
-      "wait:0.15s",
+      "wait:0.20s",
       "3",
       "[q, e, wait(r, 2.9s)]",
       "2",
@@ -184,7 +185,7 @@
       "lmb",
       "wait:0.3s",
       "2",
-      "e",
+      "-e",
       "wait(r, 3.9s)",
       "lmb",
       "wait:0.50s",
@@ -199,7 +200,7 @@
       "hold(lmb, 0.25s)",
       "lmb",
       "wait:0.3s",
-      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, wait(r, 1.6s)]",
+      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, {wait(r, 1.6s), 3, lmb, lmb}]",
       "hold(r, 0.2s)",
       "wait(lmb, 4.1s)"
     ]
@@ -211,6 +212,7 @@
     "e": 2000,
     "r": 2000
   },
+  "transcribe_valid_keys": "f, e, q, r, lmb, rmb, 1, 2, 3,",
   "combo_stats": {
     "Zani 1": {
       "success": 0,
@@ -253,188 +255,24 @@
       "fail_events": []
     },
     "Aemeath": {
-      "success": 1,
-      "fail": 3,
-      "best_ms": 4457,
-      "total_success_ms": 4457,
-      "fail_by_step": {
-        "2": 3
-      },
-      "fail_by_expected": {
-        "hold(lmb,\u2265200ms)": 3
-      },
-      "fail_by_reason": {
-        "expected hold(lmb,\u2265200ms)": 3
-      },
-      "fail_events": [
-        {
-          "ts": 1770793105,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265200ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265200ms)",
-          "elapsed_ms": 2458
-        },
-        {
-          "ts": 1770793110,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265200ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265200ms)",
-          "elapsed_ms": 3892
-        },
-        {
-          "ts": 1770793112,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "hold(lmb,\u2265200ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265200ms)",
-          "elapsed_ms": 1820
-        }
-      ]
+      "success": 0,
+      "fail": 0,
+      "best_ms": null,
+      "total_success_ms": 0,
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
       "success": 0,
-      "fail": 12,
+      "fail": 0,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {
-        "23": 1,
-        "35": 1,
-        "5": 1,
-        "2": 5,
-        "1": 3,
-        "0": 1
-      },
-      "fail_by_expected": {
-        "1": 1,
-        "hold(lmb,\u2265100ms)": 1,
-        "any-order(q|e|r)": 1,
-        "2": 5,
-        "seq(e \u2192 wait(150ms))": 3,
-        "seq(f \u2192 wait(150ms))": 1
-      },
-      "fail_by_reason": {
-        "expected 1": 1,
-        "expected hold(lmb,\u2265100ms)": 1,
-        "expected any-order(q|e|r)": 1,
-        "expected 2": 5,
-        "expected seq(e \u2192 wait(150ms))": 3,
-        "expected seq(f \u2192 wait(150ms))": 1
-      },
-      "fail_events": [
-        {
-          "ts": 1770790385,
-          "attempt": 1,
-          "step_index": 23,
-          "expected": "1",
-          "actual": "q",
-          "reason": "expected 1",
-          "elapsed_ms": 14507
-        },
-        {
-          "ts": 1770790449,
-          "attempt": 1,
-          "step_index": 35,
-          "expected": "hold(lmb,\u2265100ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u2265100ms)",
-          "elapsed_ms": 27219
-        },
-        {
-          "ts": 1770791147,
-          "attempt": 1,
-          "step_index": 5,
-          "expected": "any-order(q|e|r)",
-          "actual": "e",
-          "reason": "expected any-order(q|e|r)",
-          "elapsed_ms": 10699
-        },
-        {
-          "ts": 1770791343,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "2",
-          "actual": "r",
-          "reason": "expected 2",
-          "elapsed_ms": 164311
-        },
-        {
-          "ts": 1770791543,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "2",
-          "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 6944
-        },
-        {
-          "ts": 1770792537,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "seq(e \u2192 wait(150ms))",
-          "actual": "r",
-          "reason": "expected seq(e \u2192 wait(150ms))",
-          "elapsed_ms": 178
-        },
-        {
-          "ts": 1770792624,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "2",
-          "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 66204
-        },
-        {
-          "ts": 1770792685,
-          "attempt": 3,
-          "step_index": 1,
-          "expected": "seq(e \u2192 wait(150ms))",
-          "actual": "r",
-          "reason": "expected seq(e \u2192 wait(150ms))",
-          "elapsed_ms": 596
-        },
-        {
-          "ts": 1770792690,
-          "attempt": 4,
-          "step_index": 0,
-          "expected": "seq(f \u2192 wait(150ms))",
-          "actual": "e",
-          "reason": "expected seq(f \u2192 wait(150ms))",
-          "elapsed_ms": 70
-        },
-        {
-          "ts": 1770792704,
-          "attempt": 5,
-          "step_index": 1,
-          "expected": "seq(e \u2192 wait(150ms))",
-          "actual": "r",
-          "reason": "expected seq(e \u2192 wait(150ms))",
-          "elapsed_ms": 2518
-        },
-        {
-          "ts": 1770792745,
-          "attempt": 6,
-          "step_index": 2,
-          "expected": "2",
-          "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 16349
-        },
-        {
-          "ts": 1770792867,
-          "attempt": 7,
-          "step_index": 2,
-          "expected": "2",
-          "actual": "r",
-          "reason": "expected 2",
-          "elapsed_ms": 116094
-        }
-      ]
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     }
   },
   "combo_expected_ms": {
