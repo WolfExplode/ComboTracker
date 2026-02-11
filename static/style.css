@@ -22,13 +22,13 @@
     --auto-scroll-step-min-height: calc(100px * var(--auto-scroll-size-multiplier));
     --auto-scroll-step-min-width: calc(140px * var(--auto-scroll-size-multiplier));
     --auto-scroll-step-padding: calc(10px * var(--auto-scroll-size-multiplier)) calc(24px * var(--auto-scroll-size-multiplier));
-    --auto-scroll-step-primary-font: calc(26px * var(--auto-scroll-size-multiplier));
-    --auto-scroll-step-secondary-font: calc(16px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-primary-font: calc(55px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-secondary-font: calc(18px * var(--auto-scroll-size-multiplier));
     --auto-scroll-group-item-padding: calc(6px * var(--auto-scroll-size-multiplier)) calc(12px * var(--auto-scroll-size-multiplier));
     --auto-scroll-group-item-min-width: calc(72px * var(--auto-scroll-size-multiplier));
     --auto-scroll-step-border-width: calc(6px * var(--auto-scroll-size-multiplier));
     --auto-scroll-step-border-width-emphasis: calc(8px * var(--auto-scroll-size-multiplier));
-    --auto-scroll-corner-key-font-size: calc(18px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-corner-key-font-size: calc(20px * var(--auto-scroll-size-multiplier));
     --auto-scroll-key-img-size: calc(60px * var(--auto-scroll-size-multiplier));
 }
 
@@ -584,6 +584,10 @@ button.danger:hover {
     font-size: var(--auto-scroll-step-primary-font);
 }
 
+.timeline-viewport.auto-scroll-on .step-primary.space-icon {
+    font-size: 3em;
+}
+
 .timeline-viewport.auto-scroll-on .step-secondary {
     font-size: var(--auto-scroll-step-secondary-font);
 }
@@ -803,7 +807,7 @@ button.danger:hover {
 /* Step groups */
 .step-group {
     position: relative;
-    border: var(--step-border-width) dashed rgba(200, 200, 200, 0.65);
+    border: var(--step-border-width) solid rgba(200, 200, 200, 0.65);
     border-radius: 6px;
     padding: 2px;
     background: rgba(0, 0, 0, 0.12);
@@ -1034,7 +1038,7 @@ button.danger:hover {
 
 .step.hold {
     border-color: var(--accent-blue);
-    border-style: dashed;
+    border-style: solid;
     --hold-pct: 0%;
     background: linear-gradient(to right,
             rgba(74, 255, 136, 0.22) var(--hold-pct),
