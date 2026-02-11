@@ -1259,6 +1259,29 @@ class ComboTrackerEngine:
         if isinstance(result, IgnoreResult):
             if not self.last_input_time and self.current_index == 0:
                 return
+            # Optional press step: pressing the next step's key skips the optional without dropping.
+            if isinstance(step, PressState) and getattr(step, "optional", False):
+                next_idx = int(self.current_index) + 1
+                if next_idx < len(self.runtime_steps):
+                    next_step = self.runtime_steps[next_idx]
+                    next_keys = self._start_keys_for_step(next_step)
+                    if next_keys and input_name in next_keys:
+                        step.was_skipped = True
+                        step.completed = True
+                        self._advance_step(now)
+                        self._sync_wait_animation_ui(now)
+                        return self._process_press_unlocked(input_name)
+            # Optional sequence step (e.g. -e, wait:0.80s): pressing next step's key skips the whole sequence.
+            if isinstance(step, SequenceState) and getattr(step, "optional", False):
+                next_idx = int(self.current_index) + 1
+                if next_idx < len(self.runtime_steps):
+                    next_step = self.runtime_steps[next_idx]
+                    next_keys = self._start_keys_for_step(next_step)
+                    if next_keys and input_name in next_keys:
+                        step.was_skipped = True
+                        self._advance_step(now)
+                        self._sync_wait_animation_ui(now)
+                        return self._process_press_unlocked(input_name)
             if not press_is_repeat and self._only_ender_can_drop(input_name):
                 expected = self._expected_label_for_step(step) or "?"
                 self._mark_step(int(self.current_index), "missed")

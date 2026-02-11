@@ -34,6 +34,12 @@ Combos are written as comma-separated tokens, for example:
   - `rmb` = right mouse button
   - `mmb` = middle mouse button
 
+### Optional press steps
+
+Prefix a key with `-` to make it optional: `-e` means you may skip that key. If you press the **next** step’s key instead, the optional step is skipped (no hit recorded, combo continues). If you press the optional key, it behaves as a normal press. Any other key (e.g. a wrong key or ender) still drops the combo as usual.
+
+- Example: `f, wait:0.3s, -e, wait:0.80s, r, wait:1.8s` — you can do `f`, wait, then `r` (skipping `e`) or `f`, wait, `e`, wait, `r`. In the timeline, optional steps use a dashed border; skipped ones show a subtle “skipped” style, pressed ones show “was-pressed”.
+
 ### Any-order groups (order interchangeable)
 
 Use brackets to indicate that multiple inputs can be pressed in **any order**, but all must be completed before the combo continues:
@@ -59,6 +65,15 @@ The hold step is complete when you’ve held the key for at least the required d
 
 There are two ways to define waits, depending on whether you want to **enforce timing** or **ignore inputs** (spam-safe).
 
+#### Key + wait: one composite step (interruptible animation)
+
+**A wait that immediately follows a key is attached to that key.** The combo treats it as **one action**: press the key, then an interruptible animation (the wait). In the parser and engine this is a single composite step (a sequence of key then wait).
+
+- **Do not interrupt:** If you press another key before the wait completes, you **interrupt** the animation. That can drop the combo (or be marked "Early" for soft waits).
+- **Syntax:** `e, wait:0.80s` = press `e`, then wait 0.80s; the wait is the animation tied to `e`. One composite step.
+
+So: **a wait following a key denotes that the key has an associated interruptible animation. if you interrupt it, you drop the combo** (or get flagged early for soft).
+
 #### 1. Delay Gates (`wait:...`) — Enforce Timing
 
 Use this when you want to learn *not* to press the next button too fast.
@@ -67,8 +82,8 @@ Use this when you want to learn *not* to press the next button too fast.
 - **Hard request**: `wait_hard:0.2` will **fail/drop** the combo if you press early.
 - **Soft request**: `wait:0.2` (default) will just warn you.
 
-Syntax:
-- `r, wait:0.5` (Press `r`, then wait 0.5s before next input)
+Syntax (key + wait = one step):
+- `r, wait:0.5` (Press `r`, then wait 0.5s; do not interrupt the wait)
 
 #### 2. Animation Locks (`wait(key, duration)`) — Spam Safe
 

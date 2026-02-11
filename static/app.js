@@ -703,21 +703,36 @@ function updateTimeline(steps) {
         showFailCount: appState.showFailCount,
     };
 
-    const BASE_STEP_WIDTH_PX = 90;
+    const viewport = getEl('comboTimelineViewport');
+    const isAutoScroll = viewport?.classList.contains('auto-scroll-on');
+    let baseStepWidthPx = 90;
+    if (isAutoScroll) {
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:absolute;visibility:hidden;min-width:var(--auto-scroll-step-min-width)';
+        document.body.appendChild(probe);
+        const computedPx = getComputedStyle(probe).minWidth;
+        document.body.removeChild(probe);
+        const parsed = parseFloat(computedPx, 10);
+        if (Number.isFinite(parsed) && parsed > 0) baseStepWidthPx = parsed;
+    }
     const DURATION_WIDTH_DIVISOR = 350;
     const applyHoldWidth = (el, durationMs) => {
         const ms = Number(durationMs);
         const mult = (Number.isFinite(ms) && ms > 0) ? (ms / DURATION_WIDTH_DIVISOR) : 1;
-        const w = Math.max(BASE_STEP_WIDTH_PX, BASE_STEP_WIDTH_PX * mult);
-        el.style.minWidth = `${BASE_STEP_WIDTH_PX}px`;
+        const w = Math.max(baseStepWidthPx, baseStepWidthPx * mult);
+        el.style.minWidth = `${baseStepWidthPx}px`;
         el.style.width = `${w}px`;
     };
     const applyWaitWidth = (el, durationMs) => {
         const ms = Number(durationMs);
         const mult = (Number.isFinite(ms) && ms > 0) ? (ms / DURATION_WIDTH_DIVISOR) : 1;
-        const w = Math.max(BASE_STEP_WIDTH_PX, BASE_STEP_WIDTH_PX * mult);
-        el.style.minWidth = `${BASE_STEP_WIDTH_PX}px`;
+        const w = Math.max(baseStepWidthPx, baseStepWidthPx * mult);
+        el.style.minWidth = `${baseStepWidthPx}px`;
         el.style.width = `${w}px`;
+    };
+    const applyBaseWidth = (el) => {
+        el.style.minWidth = `${baseStepWidthPx}px`;
+        el.style.width = `${baseStepWidthPx}px`;
     };
     const addCornerKey = (el, key) => {
         if (ctx.stepDisplayMode !== 'images') return;
@@ -749,7 +764,11 @@ function updateTimeline(steps) {
             el.classList.add('hold');
             applyHoldWidth(el, it.duration);
             el.style.setProperty('--hold-pct', it.completed ? '100%' : '0%');
+        } else if (isAutoScroll) {
+            applyBaseWidth(el);
         }
+        if (it.optional) el.classList.add('optional');
+        if (it.optional && it.completed && !it.was_skipped) el.classList.add('was-pressed');
 
         if (it.active) el.classList.add('active');
         if (it.completed) el.classList.add('completed');
@@ -852,6 +871,8 @@ function updateTimeline(steps) {
 
             const itEl = document.createElement('div');
             itEl.className = 'step sequence-item';
+            if (it.optional) itEl.classList.add('optional');
+            if (it.optional && it.completed && !it.was_skipped) itEl.classList.add('was-pressed');
             if (it.active) itEl.classList.add('active');
             if (it.completed) itEl.classList.add('completed');
             appendStepContent(itEl, it, nextChar, ctx);
@@ -888,6 +909,8 @@ function updateTimeline(steps) {
         }
 
         if (s.type) tile.classList.add(s.type.replace('_', '-'));
+        if (s.optional) tile.classList.add('optional');
+        if (s.optional && s.completed && !s.was_skipped) tile.classList.add('was-pressed');
         let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
         if (s.type === 'wait' || s.type === 'press_wait') {
             tile.style.setProperty('--wait-pct', `${pct}%`);
@@ -896,6 +919,8 @@ function updateTimeline(steps) {
         } else if (s.type === 'hold') {
             tile.style.setProperty('--hold-pct', `${pct}%`);
             if (s.duration) applyHoldWidth(tile, s.duration);
+        } else if (isAutoScroll) {
+            applyBaseWidth(tile);
         }
 
         let keyForCorner = '';
@@ -1086,9 +1111,11 @@ function setAutoScrollEnabled(enabled) {
     if (vp) {
         if (appState.autoScrollEnabled) {
             vp.classList.add('auto-scroll-on');
+            refreshTimelineIfLoaded();
         } else {
             vp.classList.remove('auto-scroll-on');
             if (timeline) timeline.style.transform = 'none';
+            refreshTimelineIfLoaded();
         }
     }
 }
@@ -1398,6 +1425,8 @@ const MESSAGE_HANDLERS = {
     wait_end: () => stopWaitAnimation(),
     hit: (msg) => addResultRow(msg),
     combo_dropped: (msg) => {
+        stopWaitAnimation();
+        stopHoldAnimation();
         updateStatus(msg.input, msg.color || 'fail');
         addResultRow(msg);
     },

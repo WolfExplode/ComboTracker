@@ -14,6 +14,10 @@ class TestExpectedLabelForStep(unittest.TestCase):
         step = PressState(expected="q")
         self.assertEqual(step_introspection.expected_label_for_step(step), "q")
 
+    def test_press_state_optional(self):
+        step = PressState(expected="e", optional=True)
+        self.assertEqual(step_introspection.expected_label_for_step(step), "e?")
+
     def test_hold_state(self):
         step = HoldState(expected="lmb", required_ms=300)
         self.assertEqual(step_introspection.expected_label_for_step(step), "hold(lmb,≥300ms)")

@@ -3,7 +3,7 @@ import unittest
 
 from combo_engine import ComboTrackerEngine
 from parser import split_inputs, expanded_ast_from_tokens
-from states import HoldState, WaitState, build_runtime_state
+from states import HoldState, SequenceState, WaitState, build_runtime_state
 import combo_engine_ui as ui
 
 
@@ -55,15 +55,21 @@ class TimelineViewModelTests(unittest.TestCase):
         e = _build_engine_for_inputs(combo)
         e.reset_tracking()
 
-        # Start attempt: press f, then lmb to reach wait:1s
+        # Start attempt: press f, then lmb to reach wait:1s (now one SequenceState: lmb + wait)
         e.process_press("f")
         e.process_press("lmb")
 
-        # Force complete wait:1s without sleeping
+        # Force complete wait:1s without sleeping (wait is inside SequenceState)
         step = e._active_runtime_step()
-        self.assertIsInstance(step, WaitState)
-        step.started_at = time.perf_counter() - 2.0
-        step.in_progress = True
+        if isinstance(step, SequenceState):
+            self.assertGreaterEqual(step.current_index, 0)
+            wait_step = step.steps[step.current_index]
+            self.assertIsInstance(wait_step, WaitState)
+        else:
+            self.assertIsInstance(step, WaitState)
+            wait_step = step
+        wait_step.started_at = time.perf_counter() - 2.0
+        wait_step.in_progress = True
         e.start_time = e.start_time or time.perf_counter()
         e.last_input_time = e.last_input_time or time.perf_counter()
         e.tick()

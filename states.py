@@ -90,7 +90,9 @@ class StepState(Protocol):
 @dataclass
 class PressState:
     expected: str
+    optional: bool = False
     completed: bool = False
+    was_skipped: bool = False
 
     def process_press(self, key: str, now: float) -> ProcessResult:
         if key == self.expected:
@@ -108,11 +110,14 @@ class PressState:
         return {
             "type": "press",
             "input": self.expected,
+            "optional": self.optional,
             "completed": self.completed,
+            "was_skipped": self.was_skipped,
         }
 
     def reset(self) -> None:
         self.completed = False
+        self.was_skipped = False
 
     def skip_and_advance(self, now: float) -> bool:
         return True
@@ -269,9 +274,11 @@ class WaitState:
 
 @dataclass
 class SequenceState:
-    """Sequential execution: {} or press+wait pairs."""
+    """Sequential execution: {} or press+wait pairs. optional=True means the whole sequence can be skipped."""
     steps: list[StepState] = field(default_factory=list)
     is_mandatory_wait: bool = False  # True if this is wait(r,t) composite
+    optional: bool = False
+    was_skipped: bool = False
 
     # Runtime mutable state
     current_index: int = 0
@@ -361,17 +368,22 @@ class SequenceState:
         return result
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "type": "sequence",
             "started": self.started,
             "current": self.current_index,
             "total": len(self.steps),
             "items": [s.to_dict() for s in self.steps],
         }
+        if self.optional:
+            d["optional"] = True
+            d["was_skipped"] = self.was_skipped
+        return d
 
     def reset(self) -> None:
         self.current_index = 0
         self.started = False
+        self.was_skipped = False
         for s in self.steps:
             s.reset()
 
@@ -585,8 +597,8 @@ class GroupState:
 def build_runtime_state(node: StepNode) -> StepState:
     """Convert AST node to runtime state object."""
     match node:
-        case PressNode(key=key):
-            return PressState(expected=key)
+        case PressNode(key=key, optional=opt):
+            return PressState(expected=key, optional=opt)
 
         case HoldNode(key=key, duration_ms=ms):
             return HoldState(expected=key, required_ms=ms)
@@ -597,9 +609,11 @@ def build_runtime_state(node: StepNode) -> StepState:
         case SequenceNode(steps=steps):
             is_mandatory = _is_composite_mandatory(node)
             step_states = [build_runtime_state(s) for s in steps]
+            opt = getattr(node, "optional", False)
             return SequenceState(
                 steps=step_states,
                 is_mandatory_wait=is_mandatory,
+                optional=opt,
             )
 
         case GroupNode(items=items):
@@ -609,7 +623,7 @@ def build_runtime_state(node: StepNode) -> StepState:
                 if isinstance(item, PressNode):
                     trackers.append(
                         GroupItemTracker(
-                            state=PressState(expected=item.key),
+                            state=PressState(expected=item.key, optional=getattr(item, "optional", False)),
                             kind="press",
                             signature=item.key,
                         )
@@ -654,7 +668,7 @@ def build_runtime_state(node: StepNode) -> StepState:
                             GroupItemTracker(
                                 state=SequenceState(
                                     steps=[
-                                        PressState(expected=press_node.key),
+                                        PressState(expected=press_node.key, optional=getattr(press_node, "optional", False)),
                                         WaitState(
                                             required_ms=wait_node.duration_ms,
                                             mode=wait_node.mode,

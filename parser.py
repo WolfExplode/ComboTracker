@@ -17,6 +17,7 @@ from uuid import uuid4
 @dataclass(frozen=True)
 class PressNode:
     key: str
+    optional: bool = False
 
 
 @dataclass(frozen=True)
@@ -34,8 +35,9 @@ class WaitNode:
 
 @dataclass(frozen=True)
 class SequenceNode:
-    """Ordered sequence of steps. Used for: {}, press+wait, wait(r,t)."""
+    """Ordered sequence of steps. Used for: {}, press+wait, wait(r,t). optional=True means the whole sequence can be skipped."""
     steps: tuple["StepNode", ...]
+    optional: bool = False
 
 
 # Group item: press, hold, or sequence (press+wait, {}, wait(r,t))
@@ -285,8 +287,14 @@ def parse_step(token: str) -> StepNode | None:
             if hold_ms is not None:
                 return HoldNode(base, hold_ms)
 
+    # Optional press: -key
+    if tl.startswith("-") and len(tl) > 1:
+        key = tl[1:].strip().lower()
+        if key:
+            return PressNode(key=key, optional=True)
+
     # Plain press
-    return PressNode(tl)
+    return PressNode(tl.strip().lower())
 
 
 def _is_composite_mandatory(node: SequenceNode) -> bool:
@@ -310,7 +318,8 @@ def build_state(node: StepNode) -> dict[str, Any]:
     """
     match node:
         case PressNode(key=key):
-            return {"input": key, "hold_ms": None, "wait_ms": None}
+            opt = getattr(node, "optional", False)
+            return {"input": key, "hold_ms": None, "wait_ms": None, "optional": opt}
 
         case HoldNode(key=key, duration_ms=ms):
             return {"input": key, "hold_ms": ms, "wait_ms": None}
@@ -461,17 +470,33 @@ def expanded_ast_from_tokens(tokens: list[str]) -> list[StepNode]:
     """
     Parse tokens and return a flat list of AST nodes.
     Expands composite (e.g. wait(r,1.5) -> [PressNode, WaitNode]) inline.
+    Key + wait attachment: a press followed by a soft/hard wait is always merged into
+    one SequenceNode (one composite step = key with interruptible animation). Optional
+    press (-e) + wait becomes SequenceNode(..., optional=True).
     Use with states.build_runtime_state to get runtime steps.
     """
     ast_list: list[StepNode] = []
-    for t in tokens:
+    i = 0
+    while i < len(tokens):
+        t = tokens[i]
         node = parse_step(t)
         if node is None:
+            i += 1
             continue
+        # Press + following soft/hard wait -> one sequence (key + interruptible animation)
+        if isinstance(node, PressNode) and i + 1 < len(tokens):
+            nxt = parse_step(tokens[i + 1])
+            if isinstance(nxt, WaitNode) and nxt.mode in ("soft", "hard") and (nxt.duration_ms or 0) > 0:
+                press_only = PressNode(key=node.key)  # drop optional on inner press
+                opt = getattr(node, "optional", False)
+                ast_list.append(SequenceNode((press_only, nxt), optional=opt))
+                i += 2
+                continue
         if isinstance(node, SequenceNode) and _is_composite_mandatory(node):
             ast_list.extend(node.steps)
         else:
             ast_list.append(node)
+        i += 1
     return ast_list
 
 

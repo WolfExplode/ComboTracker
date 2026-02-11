@@ -331,15 +331,17 @@ def _render_sequence_items(
             )
         else:
             inp = sub.expected if isinstance(sub, PressState) else ""
-            seq_items.append(
-                {
-                    "type": "press",
-                    "input": inp,
-                    "duration": 0,
-                    "active": is_active,
-                    "completed": is_completed,
-                }
-            )
+            d = {
+                "type": "press",
+                "input": inp,
+                "duration": 0,
+                "active": is_active,
+                "completed": is_completed,
+            }
+            if getattr(sub, "optional", False):
+                d["optional"] = True
+                d["was_skipped"] = getattr(sub, "was_skipped", False)
+            seq_items.append(d)
         j += 1
 
     return seq_items
@@ -383,13 +385,17 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                         done_count += 1
                     total += 1
                     if item.kind == "press" and isinstance(item.state, PressState):
-                        items_payload.append({
+                        p = {
                             "type": "press",
                             "input": item.state.expected,
                             "duration": 0,
                             "active": False,
                             "completed": comp,
-                        })
+                        }
+                        if getattr(item.state, "optional", False):
+                            p["optional"] = True
+                            p["was_skipped"] = getattr(item.state, "was_skipped", False)
+                        items_payload.append(p)
                     elif item.kind == "hold" and isinstance(item.state, HoldState):
                         act = step.active_item is item and item.kind == "hold"
                         items_payload.append({
@@ -460,6 +466,33 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                 continue
 
             case SequenceState():
+                # Top-level press+wait (key with interruptible animation): emit single press_wait tile
+                if (
+                    len(step.steps) == 2
+                    and isinstance(step.steps[0], PressState)
+                    and isinstance(step.steps[1], WaitState)
+                    and step.steps[1].mode in ("soft", "hard")
+                ):
+                    sub, nxt = step.steps[0], step.steps[1]
+                    pw = {
+                        "type": "press_wait",
+                        "input": sub.expected,
+                        "duration": nxt.required_ms,
+                        "mode": nxt.mode,
+                        "active": idx == cur,
+                        "completed": idx < cur,
+                        "mark": mark,
+                        "step_indices": [idx],
+                    }
+                    prog = _wait_progress(nxt, now)
+                    if prog is not None:
+                        pw["progress"] = prog
+                    if getattr(step, "optional", False):
+                        pw["optional"] = True
+                        pw["was_skipped"] = getattr(step, "was_skipped", False)
+                    steps.append(pw)
+                    i += 1
+                    continue
                 seq_items = _render_sequence_items(
                     seq=step,
                     parent_is_active=bool(idx == cur),
@@ -479,6 +512,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                 continue
 
             case PressState():
+                # Press + mandatory wait (anim lock) only: soft/hard wait is always merged in parser
                 if i + 1 < len(arr):
                     nxt = arr[i + 1]
                     if isinstance(nxt, WaitState) and nxt.mode == "mandatory" and (nxt.wait_for or "").strip().lower() == (step.expected or "").strip().lower():
@@ -496,25 +530,7 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                         })
                         i += 2
                         continue
-                    if isinstance(nxt, WaitState) and nxt.mode in ("soft", "hard"):
-                        w_mark = engine.step_marks.get(i + 1) or mark
-                        pw = {
-                            "type": "press_wait",
-                            "input": step.expected,
-                            "duration": nxt.required_ms,
-                            "mode": nxt.mode,
-                            "active": (cur == idx) or (cur == i + 1),
-                            "completed": cur > i + 1,
-                            "mark": w_mark,
-                            "step_indices": [idx, i + 1],
-                        }
-                        prog = _wait_progress(nxt, now)
-                        if prog is not None:
-                            pw["progress"] = prog
-                        steps.append(pw)
-                        i += 2
-                        continue
-                steps.append({
+                press_payload = {
                     "type": "press",
                     "input": step.expected,
                     "duration": 0,
@@ -522,7 +538,11 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                     "completed": idx < cur,
                     "mark": mark,
                     "step_indices": [idx],
-                })
+                }
+                if getattr(step, "optional", False):
+                    press_payload["optional"] = True
+                    press_payload["was_skipped"] = getattr(step, "was_skipped", False)
+                steps.append(press_payload)
                 i += 1
                 continue
 

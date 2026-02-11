@@ -8,8 +8,28 @@
     --accent-green: #4aff88;
     --accent-red: #ff4a4a;
     --accent-yellow: #ffdd4a;
+    --accent-grey: #515151;
     --border-radius: 8px;
     --transition: 0.15s ease;
+
+    /* Step / timeline borders – configurable thickness */
+    --step-border-width: 3px;
+    --step-border-width-emphasis: 4px;
+
+    /* Auto-scroll timeline – scale everything with one multiplier (e.g. 1, 1.25, 0.8) */
+    --auto-scroll-size-multiplier: 0.8;
+    --auto-scroll-viewport-height: calc(160px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-min-height: calc(100px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-min-width: calc(140px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-padding: calc(10px * var(--auto-scroll-size-multiplier)) calc(24px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-primary-font: calc(26px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-secondary-font: calc(16px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-group-item-padding: calc(6px * var(--auto-scroll-size-multiplier)) calc(12px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-group-item-min-width: calc(72px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-border-width: calc(6px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-step-border-width-emphasis: calc(8px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-corner-key-font-size: calc(18px * var(--auto-scroll-size-multiplier));
+    --auto-scroll-key-img-size: calc(60px * var(--auto-scroll-size-multiplier));
 }
 
 * {
@@ -507,7 +527,7 @@ button.danger:hover {
 
 /* Auto-scroll timeline */
 .timeline-viewport.auto-scroll-on {
-    height: 120px;
+    height: var(--auto-scroll-viewport-height);
     display: block;
 }
 
@@ -534,29 +554,51 @@ button.danger:hover {
 }
 
 .timeline-viewport.auto-scroll-on .step {
-    min-height: 58px;
-    min-width: 0;
-    padding: 6px 18px;
+    min-height: var(--auto-scroll-step-min-height);
+    min-width: var(--auto-scroll-step-min-width);
+    padding: var(--auto-scroll-step-padding);
     display: inline-flex;
+    border-width: var(--auto-scroll-step-border-width);
 }
 
 .timeline-viewport.auto-scroll-on .step * {
     white-space: nowrap;
 }
 
+.timeline-viewport.auto-scroll-on .step-primary {
+    font-size: var(--auto-scroll-step-primary-font);
+}
+
 .timeline-viewport.auto-scroll-on .step-secondary {
-    font-size: 11px;
+    font-size: var(--auto-scroll-step-secondary-font);
 }
 
 .timeline-viewport.auto-scroll-on .step.group-item {
-    padding: 2px 8px;
-    min-width: 60px;
+    padding: var(--auto-scroll-group-item-padding);
+    min-width: var(--auto-scroll-group-item-min-width);
 }
 
 .timeline-viewport.auto-scroll-on .corner-key {
     position: absolute;
-    top: 2px;
-    right: 4px;
+    top: 5px;
+    right: 8px;
+    font-size: var(--auto-scroll-corner-key-font-size);
+}
+
+.timeline-viewport.auto-scroll-on .key-img-wrap {
+    width: var(--auto-scroll-key-img-size);
+    height: var(--auto-scroll-key-img-size);
+}
+
+.timeline-viewport.auto-scroll-on .key-img-wrap .key-step-image,
+.timeline-viewport.auto-scroll-on .key-step-image {
+    width: var(--auto-scroll-key-img-size) !important;
+    height: var(--auto-scroll-key-img-size) !important;
+    object-fit: contain;
+}
+
+.timeline-viewport.auto-scroll-on .step-emoji {
+    font-size: calc(var(--auto-scroll-key-img-size) * 0.85);
 }
 
 .timeline-viewport.auto-scroll-on .step-group {
@@ -564,6 +606,7 @@ button.danger:hover {
     flex-direction: row;
     align-items: center;
     background: rgba(0, 0, 0, 0.12);
+    border-width: var(--auto-scroll-step-border-width);
 }
 
 .timeline-viewport.auto-scroll-on .step-group-items {
@@ -576,9 +619,9 @@ button.danger:hover {
     display: inline-flex;
     flex-direction: row;
     align-items: center;
-    padding: 2px;
-    gap: 2px;
-    border: 2px solid rgba(138, 43, 226, 0.65);
+    padding: 4px;
+    gap: 4px;
+    border: var(--auto-scroll-step-border-width) solid rgba(138, 43, 226, 0.65);
     border-radius: 6px;
     background: rgba(138, 43, 226, 0.08);
 }
@@ -593,6 +636,26 @@ button.danger:hover {
 
 .timeline-viewport.auto-scroll-on .step.sequence-item {
     min-height: 0;
+    min-width: var(--auto-scroll-group-item-min-width);
+}
+
+.timeline-viewport.auto-scroll-on .step.completed,
+.timeline-viewport.auto-scroll-on .step.mark-ok {
+    border-width: var(--auto-scroll-step-border-width-emphasis);
+}
+
+.timeline-viewport.auto-scroll-on .step.mark-early,
+.timeline-viewport.auto-scroll-on .step.mark-missed,
+.timeline-viewport.auto-scroll-on .step.mark-wrong,
+.timeline-viewport.auto-scroll-on .step-group.mark-wrong,
+.timeline-viewport.auto-scroll-on .step-sequence.mark-wrong {
+    border-width: var(--auto-scroll-step-border-width-emphasis);
+}
+
+.timeline-viewport.auto-scroll-on .step.active.mark-early,
+.timeline-viewport.auto-scroll-on .step.active.mark-missed,
+.timeline-viewport.auto-scroll-on .step.active.mark-wrong {
+    border-width: var(--auto-scroll-step-border-width-emphasis);
 }
 
 /* Step styling */
@@ -600,7 +663,7 @@ button.danger:hover {
     min-width: 80px;
     padding: 5px 10px;
     background: var(--bg-primary);
-    border: 2px solid #444;
+    border: var(--step-border-width) solid #444;
     border-radius: 4px;
     font-family: 'Fira Code', monospace;
     font-size: 12px;
@@ -677,7 +740,7 @@ button.danger:hover {
 .step.completed {
     border-color: var(--accent-green);
     background: rgba(74, 255, 136, 0.1);
-    border-width: 3px;
+    border-width: var(--step-border-width-emphasis);
 }
 
 .step.mark-ok {
@@ -691,7 +754,7 @@ button.danger:hover {
 .step-group.mark-wrong,
 .step-sequence.mark-wrong {
     border-color: var(--accent-red);
-    border-width: 3px;
+    border-width: var(--step-border-width-emphasis);
     background: rgba(255, 74, 74, 0.14);
 }
 
@@ -706,7 +769,7 @@ button.danger:hover {
 .step.active.mark-missed,
 .step.active.mark-wrong {
     border-color: var(--accent-red);
-    border-width: 3px;
+    border-width: var(--step-border-width-emphasis);
 }
 
 @keyframes pulse {
@@ -721,7 +784,7 @@ button.danger:hover {
 /* Step groups */
 .step-group {
     position: relative;
-    border: 2px dashed rgba(200, 200, 200, 0.65);
+    border: var(--step-border-width) dashed rgba(200, 200, 200, 0.65);
     border-radius: 6px;
     padding: 2px;
     background: rgba(0, 0, 0, 0.12);
@@ -751,7 +814,7 @@ button.danger:hover {
     flex-direction: column;
     gap: 2px;
     padding: 4px 6px;
-    border: 2px solid rgba(138, 43, 226, 0.75);
+    border: var(--step-border-width) solid rgba(138, 43, 226, 0.75);
     background: rgba(138, 43, 226, 0.10);
     border-radius: 6px;
     min-width: 120px;
@@ -797,7 +860,7 @@ button.danger:hover {
 /* Sequential subgroups */
 .step-sequence {
     position: relative;
-    border: 2px solid rgba(138, 43, 226, 0.65);
+    border: var(--step-border-width) solid rgba(138, 43, 226, 0.65);
     border-radius: 6px;
     padding: 2px;
     background: rgba(138, 43, 226, 0.08);
@@ -959,6 +1022,19 @@ button.danger:hover {
             var(--bg-primary) var(--hold-pct));
 }
 
+/* Optional press step (-key): dashed border; skipped vs pressed visual */
+.step.optional {
+    border-style: dashed;
+    border-color: var(--text-secondary);
+    opacity: 0.9;
+}
+
+.step.optional.completed:not(.was-pressed) {
+    background: rgba(44, 44, 44, 0.05);
+    border-color: var(--accent-grey);
+    opacity: 0.6;
+}
+
 /* Tables */
 .results-table,
 .fail-table {
@@ -1087,7 +1163,7 @@ button.danger:hover {
 .timeline-section .step.mark-wrong,
 .timeline-section .step.mark-early {
     border-color: var(--accent-red);
-    border-width: 3px;
+    border-width: var(--step-border-width-emphasis);
 }
 
 .timeline-section .step.active {
@@ -1098,7 +1174,7 @@ button.danger:hover {
 .timeline-section .step.active.mark-missed,
 .timeline-section .step.active.mark-wrong {
     border-color: var(--accent-red);
-    border-width: 3px;
+    border-width: var(--step-border-width-emphasis);
 }
 
 .timeline-section .step .step-primary,

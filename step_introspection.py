@@ -15,7 +15,10 @@ def expected_label_for_step(step: Any) -> str:
     if step is None:
         return "—"
     if isinstance(step, PressState):
-        return (step.expected or "").strip().lower() or "—"
+        inp = (step.expected or "").strip().lower() or "—"
+        if getattr(step, "optional", False):
+            return f"{inp}?"
+        return inp
     if isinstance(step, HoldState):
         h = step.required_ms
         inp = (step.expected or "").strip().lower()
