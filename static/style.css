@@ -227,6 +227,21 @@ button.danger:hover {
     user-select: none;
 }
 
+.combo-steps-controls .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    min-width: 28px;
+    border-radius: var(--border-radius);
+}
+
+.combo-steps-controls .icon-btn svg {
+    flex-shrink: 0;
+}
+
 .toggle-switch {
     appearance: none;
     width: 42px;
@@ -1201,4 +1216,22 @@ button.danger:hover {
             rgba(0, 0, 0, 0) 18%,
             rgba(0, 0, 0, 0) 82%,
             rgba(0, 0, 0, 1) 100%);
+}
+
+/* Timeline-only window view (OBS overlay / pop-out) */
+body.timeline-window-view .container {
+    max-width: none;
+}
+
+body.timeline-window-view .container > *:not(.timeline-section) {
+    display: none !important;
+}
+
+body.timeline-window-view .timeline-section {
+    max-width: none;
+}
+
+body.timeline-window-view #copyOverlayUrlBtn,
+body.timeline-window-view #openTimelineWindowBtn {
+    display: none !important;
 }

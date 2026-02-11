@@ -45,6 +45,22 @@ Notes:
 
 ---
 
+## OBS overlay
+
+You can show the **Combo Steps** timeline in OBS as a separate overlay (e.g. for streaming or recording).
+
+1. In the main UI, open the **Combo Steps** section and click **Copy Overlay URL**.
+2. In OBS, add a **Browser Source**, paste the URL (e.g. `http://localhost:8080/?view=timeline`), and set the width/height you want. The overlay stays in sync with the app via WebSocket.
+3. **Open in new window** is also available if you prefer OBS **Window Capture** instead of Browser Source.
+
+**Browser Source vs your browser:** The OBS Browser Source is a separate embedded browser. Toggles (Auto scroll, Images, Show fail count) are per-instance: use **Interact** on the Browser Source in OBS (right‑click the source → Interact) to open a window where you can click those controls for the overlay. Timeline content and progress sync for all clients; only the toggle state is local to each instance.
+
+**Wide layout:** In timeline-only view (`?view=timeline`), the section stretches to fill the width of the Browser Source, so you can set a wide source in OBS and use the space.
+
+For a walkthrough of common OBS Browser Source gotchas (separate instance, interact window, scrolling, sizing), see: [OBS Browser Source demo](https://youtu.be/lgGtxO_He4Y?t=145) (video, ~2:25).
+
+---
+
 ## Documentation
 
 Detailed docs live in [`documentation.md`](documentation.md):

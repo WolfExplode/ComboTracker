@@ -3,6 +3,17 @@ const ws = new WebSocket('ws://localhost:8765');
 
 const getEl = (id) => document.getElementById(id);
 
+// Timeline-only view for OBS (Browser Source or Window Capture)
+if (new URLSearchParams(window.location.search).get('view') === 'timeline') {
+    document.title = 'ComboTracker – Timeline';
+    document.body.classList.add('timeline-window-view');
+}
+
+function getTimelineUrl() {
+    const path = window.location.pathname || '/';
+    return window.location.origin + path + (path.includes('?') ? '&' : '?') + 'view=timeline';
+}
+
 ws.onopen = () => {
     console.log('Connected to Combo Trainer backend');
 };
@@ -1280,7 +1291,12 @@ if (stepToggleEl) {
 
 const autoScrollToggleEl = getEl('autoScrollToggle');
 if (autoScrollToggleEl) {
-    setAutoScrollEnabled(autoScrollToggleEl.checked);
+    if (document.body.classList.contains('timeline-window-view')) {
+        autoScrollToggleEl.checked = true;
+        setAutoScrollEnabled(true);
+    } else {
+        setAutoScrollEnabled(autoScrollToggleEl.checked);
+    }
     autoScrollToggleEl.addEventListener('change', () => {
         setAutoScrollEnabled(autoScrollToggleEl.checked);
         refreshTimelineIfLoaded();
@@ -1292,6 +1308,24 @@ if (showFailCountEl) {
     showFailCountEl.addEventListener('change', () => {
         appState.showFailCount = showFailCountEl.checked;
         refreshTimelineIfLoaded();
+    });
+}
+
+const copyOverlayUrlBtn = getEl('copyOverlayUrlBtn');
+if (copyOverlayUrlBtn) {
+    copyOverlayUrlBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(getTimelineUrl()).then(() => {
+            const prevTitle = copyOverlayUrlBtn.title;
+            copyOverlayUrlBtn.title = 'Copied!';
+            setTimeout(() => { copyOverlayUrlBtn.title = prevTitle; }, 1500);
+        });
+    });
+}
+
+const openTimelineWindowBtn = getEl('openTimelineWindowBtn');
+if (openTimelineWindowBtn) {
+    openTimelineWindowBtn.addEventListener('click', () => {
+        window.open(getTimelineUrl(), 'combo-tracker-timeline', 'width=900,height=400,menubar=no,toolbar=no');
     });
 }
 
