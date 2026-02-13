@@ -114,6 +114,67 @@ textarea {
     font-size: 12px;
 }
 
+/* Combo inputs syntax highlight overlay */
+.combo-input-wrap {
+    position: relative;
+    display: block;
+    min-width: 0;
+}
+
+.combo-input-wrap .combo-input-highlight {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    padding: 8px 10px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+    pointer-events: none;
+    z-index: 0;
+    color: var(--text-primary);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    box-sizing: border-box;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.combo-input-wrap .combo-input-highlight::-webkit-scrollbar {
+    display: none;
+}
+
+.combo-input-wrap #comboInputs {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    line-height: 1.5;
+    padding: 8px 10px;
+    background: transparent !important;
+    color: transparent !important;
+    caret-color: var(--text-primary);
+}
+
+.combo-input-wrap #comboInputs::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+/* Token colors */
+.combo-input-highlight .combo-hl-wait { color: #e6c229; }
+.combo-input-highlight .combo-hl-anim-wait { color: #e6c229; }
+.combo-input-highlight .combo-hl-hold { color: #4ac4e6; }
+.combo-input-highlight .combo-hl-optional { color: var(--text-secondary); }
+.combo-input-highlight .combo-hl-bracket { color: #7acc7a; }
+.combo-input-highlight .combo-hl-sequence { color: #c97acc; }
+.combo-input-highlight .combo-hl-punct { color: var(--text-secondary); }
+
 .help-text {
     grid-column: 2;
     color: var(--text-secondary);

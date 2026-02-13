@@ -3,6 +3,8 @@
 
 A small local web UI + Python backend that listens to your keyboard/mouse and tracks whether you performed a defined “combo” correctly, including **wait** and **hold** timing steps.
 
+![Combo Input](https://github.com/user-attachments/assets/30466399-8db6-474d-8508-b90143143ab7)
+
 ### Features
 - **Practice combos**: see live status + a step timeline.
 - **Wait + hold steps**:

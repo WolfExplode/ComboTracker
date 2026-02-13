@@ -59,8 +59,11 @@
                             <code>[lmb, rmb, {hold(e, 0.30), e}]</code> can press in any order but must complete sequence once started<br>
                         </span>
                     </label>
-                    <textarea id="comboInputs" rows="3"
-                        placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
+                    <div class="combo-input-wrap">
+                        <div class="combo-input-highlight" id="comboInputHighlight" aria-hidden="true"></div>
+                        <textarea id="comboInputs" rows="6" spellcheck="false"
+                            placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
+                    </div>
 
                     <label>Expected time:</label>
                     <input type="text" id="comboExpectedTime" placeholder="e.g., 1.05s or 1050ms">

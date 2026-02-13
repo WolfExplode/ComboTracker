@@ -137,13 +137,6 @@
       "wait:0.1s",
       "r"
     ],
-    "Aemeath": [
-      "f",
-      "-e",
-      "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, {wait(r, 1.6s), 3, lmb, lmb, 1}]",
-      "hold(r, 0.2s)",
-      "wait(lmb, 4.1s)"
-    ],
     "Agusta, Iuno, Shorekeeper Double intro": [
       "f",
       "wait:0.15s",
@@ -203,6 +196,67 @@
       "[e, wait:0.80s, e, wait:1.0s, e, wait:0.2s, {wait(r, 1.6s), 3, lmb, lmb}]",
       "hold(r, 0.2s)",
       "wait(lmb, 4.1s)"
+    ],
+    "Aemeath, Lynae, Mornye": [
+      "f",
+      "wait:0.15s",
+      "lmb",
+      "wait:0.4s",
+      "lmb",
+      "wait:0.3s",
+      "lmb",
+      "wait:0.4s",
+      "lmb",
+      "wait:0.2s",
+      "2",
+      "e",
+      "3",
+      "lmb",
+      "wait:0.45s",
+      "lmb",
+      "wait:0.65s",
+      "lmb",
+      "wait:0.2s",
+      "2",
+      "wait(r, 4.15s)",
+      "3",
+      "hold(lmb, 1.4s)",
+      "wait(r, 4.8s)",
+      "hold(lmb, 1.2s)",
+      "e",
+      "wait:1.4s",
+      "wait(2, 1s)",
+      "-q",
+      "hold(lmb, 2.3s)",
+      "space",
+      "wait:0.85s",
+      "space",
+      "wait:0.7s",
+      "space",
+      "wait:0.75s",
+      "lmb",
+      "wait(1, 1s)",
+      "lmb",
+      "wait:0.4s",
+      "lmb",
+      "wait:0.3s",
+      "lmb",
+      "wait:0.4s",
+      "lmb",
+      "wait(f, 1s)",
+      "wait(r, 4s)",
+      "wait(e, 2s)",
+      "-q",
+      "lmb",
+      "wait:0.4s",
+      "lmb",
+      "wait:0.3s",
+      "lmb",
+      "wait:0.4s",
+      "lmb",
+      "wait(e, 2s)",
+      "hold(lmb, 0.3s)",
+      "wait(r, 4s)"
     ]
   },
   "combo_enders": {
@@ -254,7 +308,7 @@
       "fail_by_reason": {},
       "fail_events": []
     },
-    "Aemeath": {
+    "Agusta, Iuno, Shorekeeper Double intro": {
       "success": 0,
       "fail": 0,
       "best_ms": null,
@@ -264,29 +318,101 @@
       "fail_by_reason": {},
       "fail_events": []
     },
-    "Agusta, Iuno, Shorekeeper Double intro": {
+    "Aemeath, Lynae, Mornye": {
       "success": 0,
-      "fail": 1,
+      "fail": 9,
       "best_ms": null,
       "total_success_ms": 0,
       "fail_by_step": {
-        "2": 1
+        "1": 9
       },
       "fail_by_expected": {
-        "2": 1
+        "seq(lmb \u2192 wait(400ms))": 9
       },
       "fail_by_reason": {
-        "expected 2": 1
+        "expected seq(lmb \u2192 wait(400ms))": 9
       },
       "fail_events": [
         {
-          "ts": 1770838597,
+          "ts": 1771001804,
           "attempt": 1,
-          "step_index": 2,
-          "expected": "2",
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 188
+        },
+        {
+          "ts": 1771001805,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 182
+        },
+        {
+          "ts": 1771001808,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
           "actual": "e",
-          "reason": "expected 2",
-          "elapsed_ms": 10022
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 718
+        },
+        {
+          "ts": 1771002096,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 7328
+        },
+        {
+          "ts": 1771002111,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 526
+        },
+        {
+          "ts": 1771002185,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 606
+        },
+        {
+          "ts": 1771002215,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 1020
+        },
+        {
+          "ts": 1771002329,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 262
+        },
+        {
+          "ts": 1771002343,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 174
         }
       ]
     }
@@ -296,28 +422,30 @@
     "Zani 3": 19000,
     "Zani 2": 9000,
     "Zani Pheobe Rover Rotation": 30000,
-    "Agusta, Iuno, Shorekeeper Double intro": 24000
+    "Agusta, Iuno, Shorekeeper Double intro": 24000,
+    "Aemeath, Lynae, Mornye": 28000
   },
   "combo_user_difficulty": {
     "Zani 1": 8.0,
-    "Agusta, Iuno, Shorekeeper Double intro": 7.5
+    "Agusta, Iuno, Shorekeeper Double intro": 7.5,
+    "Aemeath, Lynae, Mornye": 7.0
   },
   "combo_step_display_mode": {
     "Zani 3": "images",
     "Zani 2": "images",
     "Zani 1": "images",
     "Zani Pheobe Rover Rotation": "images",
-    "Aemeath": "images",
-    "Agusta, Iuno, Shorekeeper Double intro": "images"
+    "Agusta, Iuno, Shorekeeper Double intro": "images",
+    "Aemeath, Lynae, Mornye": "images"
   },
   "combo_key_images": {},
   "combo_target_game": {
     "Zani 1": "wuthering_waves",
     "Zani 2": "wuthering_waves",
-    "Aemeath": "wuthering_waves",
     "Zani Pheobe Rover Rotation": "wuthering_waves",
     "Zani 3": "wuthering_waves",
-    "Agusta, Iuno, Shorekeeper Double intro": "wuthering_waves"
+    "Agusta, Iuno, Shorekeeper Double intro": "wuthering_waves",
+    "Aemeath, Lynae, Mornye": "wuthering_waves"
   },
   "ww_teams": {
     "986f16f581": {
@@ -420,7 +548,7 @@
     "Zani 1": "986f16f581",
     "Zani 3": "986f16f581",
     "Zani 2": "986f16f581",
-    "Aemeath": "c70c25857f",
-    "Agusta, Iuno, Shorekeeper Double intro": "cd717b20ac"
+    "Agusta, Iuno, Shorekeeper Double intro": "cd717b20ac",
+    "Aemeath, Lynae, Mornye": "c70c25857f"
   }
 }

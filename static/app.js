@@ -508,7 +508,11 @@ function renderKeyImagesEditor() {
 // Editor fields update (from backend)
 function setEditorFields(data) {
     getEl('comboName').value = data.name || '';
-    getEl('comboInputs').value = data.inputs || '';
+    const inputsEl = getEl('comboInputs');
+    if (inputsEl) {
+        inputsEl.value = data.inputs || '';
+        if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
+    }
     getEl('comboEnders').value = data.enders || '';
     getEl('comboExpectedTime').value = data.expected_time || '';
     getEl('comboUserDifficulty').value = data.user_difficulty || '';
@@ -1413,15 +1417,118 @@ window.addEventListener('resize', () => {
     if (appState.autoScrollEnabled) applyAutoScroll();
 });
 
+/**
+ * Tokenize combo input string for syntax highlighting. Returns HTML with spans.
+ */
+function tokenizeComboInput(text) {
+    const escape = (s) => String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const tokens = [];
+    let i = 0;
+    const len = text.length;
+    while (i < len) {
+        // wait(key, duration) - animation lock
+        if (text.slice(i).match(/^wait\s*\(/)) {
+            const start = i;
+            i += text.slice(i).match(/^wait\s*\(/)[0].length;
+            let depth = 1;
+            while (i < len && depth) {
+                if (text[i] === '(') depth++;
+                else if (text[i] === ')') depth--;
+                i++;
+            }
+            tokens.push({ type: 'anim-wait', text: text.slice(start, i) });
+            continue;
+        }
+        // hold(key, duration)
+        if (text.slice(i).match(/^hold\s*\(/)) {
+            const start = i;
+            i += text.slice(i).match(/^hold\s*\(/)[0].length;
+            let depth = 1;
+            while (i < len && depth) {
+                if (text[i] === '(') depth++;
+                else if (text[i] === ')') depth--;
+                i++;
+            }
+            tokens.push({ type: 'hold', text: text.slice(start, i) });
+            continue;
+        }
+        // wait:duration (soft wait)
+        if (text.slice(i).match(/^wait\s*:/)) {
+            const start = i;
+            i += text.slice(i).match(/^wait\s*:/)[0].length;
+            while (i < len && /[^\s,\[\]\{\}]/.test(text[i])) i++;
+            tokens.push({ type: 'wait', text: text.slice(start, i) });
+            continue;
+        }
+        // optional -key
+        if (text[i] === '-' && i + 1 < len && /[a-zA-Z0-9]/.test(text[i + 1])) {
+            const start = i;
+            i++;
+            while (i < len && /[a-zA-Z0-9]/.test(text[i])) i++;
+            tokens.push({ type: 'optional', text: text.slice(start, i) });
+            continue;
+        }
+        // brackets and braces
+        if (text[i] === '[' || text[i] === ']') {
+            tokens.push({ type: 'bracket', text: text[i] });
+            i++;
+            continue;
+        }
+        if (text[i] === '{' || text[i] === '}') {
+            tokens.push({ type: 'sequence', text: text[i] });
+            i++;
+            continue;
+        }
+        if (text[i] === ',') {
+            tokens.push({ type: 'punct', text: ',' });
+            i++;
+            continue;
+        }
+        // default: one character (preserve newlines/spaces)
+        const ch = text[i];
+        tokens.push({ type: 'default', text: ch });
+        i++;
+    }
+    return tokens.map(t => {
+        const escaped = escape(t.text);
+        if (t.type === 'default') return escaped;
+        return `<span class="combo-hl-${t.type}">${escaped}</span>`;
+    }).join('');
+}
+
+function updateComboInputHighlight() {
+    const ta = getEl('comboInputs');
+    const mirror = getEl('comboInputHighlight');
+    if (!ta || !mirror) return;
+    const raw = (ta.value || '');
+    mirror.innerHTML = raw ? tokenizeComboInput(raw) : '';
+    mirror.scrollTop = ta.scrollTop;
+    mirror.scrollLeft = ta.scrollLeft;
+}
+
 const inputsEl = getEl('comboInputs');
 if (inputsEl) {
     let t = null;
     inputsEl.addEventListener('input', () => {
+        updateComboInputHighlight();
         if (t) clearTimeout(t);
         t = setTimeout(() => {
             renderKeyImagesEditor();
         }, 150);
     });
+    inputsEl.addEventListener('scroll', () => {
+        const mirror = getEl('comboInputHighlight');
+        if (mirror) {
+            mirror.scrollTop = inputsEl.scrollTop;
+            mirror.scrollLeft = inputsEl.scrollLeft;
+        }
+    });
+    // Initial highlight if textarea already has content (e.g. restored state)
+    updateComboInputHighlight();
 }
 
 const keyImagesDetails = getEl('keyImagesDetails');
@@ -1555,7 +1662,10 @@ const MESSAGE_HANDLERS = {
     },
     transcription_result: (msg) => {
         const inputsEl = getEl('comboInputs');
-        if (inputsEl) inputsEl.value = msg.inputs || '';
+        if (inputsEl) {
+            inputsEl.value = msg.inputs || '';
+            if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
+        }
     },
 };
 
