@@ -96,14 +96,16 @@ def get_editor_payload(engine, target_game_override: str | None = None) -> dict[
     enders = ""
     if engine.combo_enders:
         parts: list[str] = []
+        soft = getattr(engine, "combo_enders_soft", set())
         for k in sorted(engine.combo_enders.keys()):
+            prefix = "~" if k in soft else ""
             ms = int(engine.combo_enders[k])
             if ms > 0:
                 sec = ms / 1000.0
-                # Format with explicit "s" for seconds (e.g. 2s, 0.2s, 3s)
-                parts.append(f"{k}:{sec:g}s")
+                # Format with explicit "s" for seconds (e.g. 2s, ~space:2s)
+                parts.append(f"{prefix}{k}:{sec:g}s")
             else:
-                parts.append(k)
+                parts.append(f"{prefix}{k}")
         enders = ", ".join(parts)
 
     expected = ""

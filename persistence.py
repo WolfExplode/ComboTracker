@@ -83,6 +83,13 @@ def load_engine_state(engine) -> None:
                     parsed[key] = 0
         engine.combo_enders = parsed
 
+        # Soft enders (~key:2s): do not drop combo when pressed during hold
+        soft = data.get("combo_enders_soft", [])
+        if isinstance(soft, list):
+            engine.combo_enders_soft = {str(x).strip().lower() for x in soft if str(x).strip()}
+        else:
+            engine.combo_enders_soft = set()
+
         # Transcribe valid keys (comma-separated string)
         tvk = data.get("transcribe_valid_keys")
         if isinstance(tvk, str):
@@ -356,6 +363,7 @@ def load_engine_state(engine) -> None:
         engine.combos = {}
         engine.combo_stats = {}
         engine.combo_enders = {}
+        engine.combo_enders_soft = set()
         engine.combo_expected_ms = {}
         engine.combo_user_difficulty = {}
         engine.combo_step_display_mode = {}
@@ -381,6 +389,7 @@ def save_engine_state(engine) -> None:
             "no_fail_mode": getattr(engine, "no_fail_mode", False),
             "combos": dict(engine.combos),
             "combo_enders": dict(engine.combo_enders),
+            "combo_enders_soft": list(getattr(engine, "combo_enders_soft", set())),
             "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
             "combo_stats": dict(engine.combo_stats),
             "combo_expected_ms": dict(engine.combo_expected_ms),

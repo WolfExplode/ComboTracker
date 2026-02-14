@@ -115,6 +115,8 @@ Combo enders are inputs that will end the combo when pressed **only if that abil
 
 **Notation:** `key:cooldown` e.g. `q:1.05s` (use explicit seconds with an `s` suffix).
 
+**Soft enders** (`~key:cooldown`): Same as above, but **do not** end the combo when pressed during a **hold** step. Use for keys you might press while holding (e.g. movement/dodge). During a wait (delay gate) or when pressing the wrong key, soft enders still end the combo if off cooldown. Example: `1:1s, e:2s, ~space:2s, ~q:2s`.
+
 The cooldown associated with the combo ender key is meant to mimic in-game ability cooldowns. When you press a button, that ability goes on cooldown and pressing it again will not cast that ability. Therefore that input will not end your combo if the ability is still on cooldown.
 
 In the UI:

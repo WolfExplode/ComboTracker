@@ -97,6 +97,8 @@ class ComboTrackerEngine:
 
         # Combo enders: key -> cooldown_ms (0 = no cooldown; wrong press drops immediately)
         self.combo_enders: dict[str, int] = {}
+        # Soft enders: keys that do not drop the combo when pressed during a hold step (~key:2s)
+        self.combo_enders_soft: set[str] = set()
         # Auto-transcribe: comma-separated valid keys (persisted like combo_enders)
         self.transcribe_valid_keys: str = ""
         self.last_success_input: str | None = None
@@ -909,9 +911,21 @@ class ComboTrackerEngine:
     def _only_ender_can_drop(self, input_name: str) -> bool:
         return self.ww.can_ender_drop_combo(self, input_name)
 
+    def _is_soft_ender(self, input_name: str) -> bool:
+        """True if this key is a soft ender (~key:2s); does not drop combo when pressed during hold."""
+        return (input_name or "").strip().lower() in getattr(self, "combo_enders_soft", set())
+
+    def _ender_can_drop_now(self, input_name: str) -> bool:
+        """True if this key can drop the combo in the current context. Soft enders do not drop during hold."""
+        if not self._only_ender_can_drop(input_name):
+            return False
+        if self.hold_in_progress and self._is_soft_ender(input_name):
+            return False
+        return True
+
     def _check_ender_fail(self, input_name: str, now: float) -> None:
         """If key is a combo ender (and not on cooldown), drop the combo."""
-        if not self._only_ender_can_drop(input_name):
+        if not self._ender_can_drop_now(input_name):
             return
         self._mark_step(int(self.current_index), "missed")
         expected = str(self._expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
@@ -1175,11 +1189,11 @@ class ComboTrackerEngine:
                 else:
                     # Only enders can end combos; early press with non-ender is ignored.
                     # Key repeat (already held) does not end the combo.
-                    if not press_is_repeat and self._only_ender_can_drop(input_name):
+                    if not press_is_repeat and self._ender_can_drop_now(input_name):
                         self._check_ender_fail(input_name, now)
                 return
             # Ender during wait: use same gate as everywhere else. Key repeat does not end combo.
-            if not press_is_repeat and self.wait.mode in ("soft", "hard") and self._only_ender_can_drop(input_name):
+            if not press_is_repeat and self.wait.mode in ("soft", "hard") and self._ender_can_drop_now(input_name):
                 if self.no_fail_mode:
                     self._mark_step(int(self.current_index), "wrong")
                     self._reset_wait_state()
@@ -1207,14 +1221,14 @@ class ComboTrackerEngine:
                 self._complete_hold(now, auto=True)
                 return self._process_press_unlocked(input_name)
             # Only enders can end combos (same gate as everywhere). Key repeat does not end combo.
-            if not press_is_repeat and self._only_ender_can_drop(input_name):
+            if not press_is_repeat and self._ender_can_drop_now(input_name):
                 self._check_ender_fail(input_name, now)
                 return
 
             # Forgiving hold: only drop if they pressed the next step's key AND it's an ender (new press only).
             next_step = self.runtime_steps[int(self.current_index) + 1] if (int(self.current_index) + 1) < len(self.runtime_steps) else None
             next_keys = self._start_keys_for_step(next_step)
-            if not press_is_repeat and next_keys and (input_name in next_keys) and self._only_ender_can_drop(input_name):
+            if not press_is_repeat and next_keys and (input_name in next_keys) and self._ender_can_drop_now(input_name):
                 if self.no_fail_mode:
                     self._mark_current_and_skip(now)
                     self._sync_wait_animation_ui(now)
@@ -1270,7 +1284,7 @@ class ComboTrackerEngine:
                 self._sync_wait_animation_ui(now)
                 return
             # Only enders can end combos; wrong/early key that isn't an ender is ignored. Key repeat does not end combo.
-            if not press_is_repeat and self._only_ender_can_drop(input_name):
+            if not press_is_repeat and self._ender_can_drop_now(input_name):
                 self._check_ender_fail(input_name, now)
             return
         if isinstance(result, CompleteResult):
@@ -1323,7 +1337,7 @@ class ComboTrackerEngine:
                     continue
                 prev_step.was_skipped = False
                 return
-            if not press_is_repeat and self._only_ender_can_drop(input_name):
+            if not press_is_repeat and self._ender_can_drop_now(input_name):
                 expected = self._expected_label_for_step(step) or "?"
                 self._mark_step(int(self.current_index), "missed")
                 if self.no_fail_mode:
@@ -1406,7 +1420,7 @@ class ComboTrackerEngine:
                 self._sync_wait_animation_ui(now)
                 return
             # Only enders can end combos; releasing hold key too early drops only if that key is an ender.
-            if self._only_ender_can_drop(input_name):
+            if self._ender_can_drop_now(input_name):
                 self._fail_combo(result.reason, now, actual="released (hold too short)")
             self._sync_wait_animation_ui(now)
             return

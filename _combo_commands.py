@@ -14,17 +14,25 @@ def apply_enders_from_text(engine, raw: str) -> tuple[bool, str | None]:
     raw = (raw or "").strip()
     if not raw:
         engine.combo_enders = {}
+        setattr(engine, "combo_enders_soft", set())
         engine.save_combos()
         return True, None
 
     parsed: dict[str, int] = {}
+    soft_keys: set[str] = set()
     for token in engine.split_inputs(raw):
         t = token.strip()
         if not t:
             continue
         if ":" in t:
             k, v = t.split(":", 1)
-            key = k.strip().lower()
+            raw_key = k.strip().lower()
+            # ~key:2s = soft ender (does not drop combo when pressed during hold)
+            if raw_key.startswith("~"):
+                raw_key = raw_key[1:].strip().lower()
+                if raw_key:
+                    soft_keys.add(raw_key)
+            key = raw_key
             val = (v or "").strip().lower()
             if not key:
                 continue
@@ -40,10 +48,15 @@ def apply_enders_from_text(engine, raw: str) -> tuple[bool, str | None]:
             parsed[key] = max(0, int(sec * 1000))
         else:
             key = t.strip().lower()
+            if key.startswith("~"):
+                key = key[1:].strip().lower()
+                if key:
+                    soft_keys.add(key)
             if key:
                 parsed[key] = 0
 
     engine.combo_enders = parsed
+    engine.combo_enders_soft = soft_keys
     engine.save_combos()
     return True, None
 
