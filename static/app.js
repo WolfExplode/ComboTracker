@@ -3,6 +3,9 @@ const ws = new WebSocket('ws://localhost:8765');
 
 const getEl = (id) => document.getElementById(id);
 
+/** Waits with duration <= this (ms) get class "short-wait" and a duller yellow border in CSS. Search for "short-wait" in style.css. */
+const SHORT_WAIT_MS = 150;
+
 // Timeline-only view for OBS (Browser Source or Window Capture)
 if (new URLSearchParams(window.location.search).get('view') === 'timeline') {
     document.title = 'ComboTracker – Timeline';
@@ -804,13 +807,13 @@ function updateTimeline(steps) {
 
         if (it.type === 'wait') {
             el.classList.add('wait');
-            if (it.duration <= 150) el.classList.add('short-wait');
+            if (it.duration <= SHORT_WAIT_MS) el.classList.add('short-wait');
             const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
             el.style.setProperty('--wait-pct', `${pct}%`);
             applyWaitWidth(el, it.duration);
         } else if (it.type === 'press_wait') {
             el.classList.add('press-wait');
-            if (it.duration <= 150) el.classList.add('short-wait');
+            if (it.duration <= SHORT_WAIT_MS) el.classList.add('short-wait');
             const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
             el.style.setProperty('--wait-pct', `${pct}%`);
             applyWaitWidth(el, it.duration);
@@ -968,7 +971,7 @@ function updateTimeline(steps) {
         let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
         if (s.type === 'wait' || s.type === 'press_wait') {
             tile.style.setProperty('--wait-pct', `${pct}%`);
-            if (s.duration <= 150) tile.classList.add('short-wait');
+            if (s.duration <= SHORT_WAIT_MS) tile.classList.add('short-wait');
             if (s.duration) applyWaitWidth(tile, s.duration);
         } else if (s.type === 'hold') {
             tile.style.setProperty('--hold-pct', `${pct}%`);

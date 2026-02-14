@@ -720,7 +720,8 @@ class ComboTrackerEngine:
         # all step state is cleared, so the UI would lose the "completed" styling.
         steps_snapshot = self.timeline_steps()
         self._reset_to_start()
-        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete!", "color": "success"})
+        total_s = total_ms / 1000.0
+        self._send({"type": "status", "text": f"Combo '{self.active_combo_name}' Complete! Completed in {total_s:.2f} seconds", "color": "success"})
         self._send({"type": "timeline_update", "steps": steps_snapshot})
 
     def cancel_attempt(self) -> None:
@@ -875,7 +876,7 @@ class ComboTrackerEngine:
             "fail": True,
         })
 
-    def _fail_combo(self, reason: str, now: float, *, expected_label: str | None = None, actual: str | None = None) -> None:
+    def _fail_combo(self, reason: str, now: float, *, expected_label: str | None = None, actual: str | None = None, waited_ms: float | None = None) -> None:
         """Record failure, reset all steps, send status and timeline."""
         # Mark the failed step so the timeline snapshot (sent in _reset_after_fail) shows red outline.
         if int(self.current_index) not in self.step_marks:
@@ -887,6 +888,12 @@ class ComboTrackerEngine:
                 self._hold_max_held_ms = max(self._hold_max_held_ms, held_ms)
             if self._hold_max_held_ms > 0:
                 msg_reason += f" but held for {int(self._hold_max_held_ms)}ms"
+        if actual is not None:
+            msg_reason += f" but got {actual}"
+            if waited_ms is not None:
+                msg_reason += f" after {int(waited_ms)}ms"
+            elif getattr(self, "wait_started_at", 0) and self.wait_started_at > 0:
+                msg_reason += f" after {int((now - self.wait_started_at) * 1000)}ms"
         full_text = "Combo Dropped (" + msg_reason + ")"
         self._send_combo_dropped(full_text, now)
         elapsed_ms = (now - self.start_time) * 1000.0 if self.start_time else None
@@ -1323,7 +1330,13 @@ class ComboTrackerEngine:
                     self._mark_current_and_skip(now, mark="missed")
                     self._sync_wait_animation_ui(now)
                     return
-                self._fail_combo(f"expected {expected}", now, actual=input_name, expected_label=expected)
+                # If current step is a sequence with an active inner wait, pass how long they waited
+                waited_ms_val: float | None = None
+                if isinstance(step, SequenceState) and 0 <= step.current_index < len(step.steps):
+                    inner = step.steps[step.current_index]
+                    if isinstance(inner, WaitState) and inner.started_at > 0:
+                        waited_ms_val = (now - inner.started_at) * 1000
+                self._fail_combo(f"expected {expected}", now, actual=input_name, expected_label=expected, waited_ms=waited_ms_val)
             return
         return
 

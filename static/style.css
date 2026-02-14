@@ -1162,8 +1162,9 @@ button.danger:hover {
 .step.wait {
     border-color: var(--accent-yellow);
     --wait-pct: 0%;
+    max-width: 800px;
     background: linear-gradient(to right,
-            rgba(255, 221, 74, 0.22) var(--wait-pct),
+            rgba(255, 221, 74, 0.5) var(--wait-pct),
             var(--bg-primary) var(--wait-pct));
 }
 
@@ -1174,13 +1175,15 @@ button.danger:hover {
 }
 
 .step.press-wait {
-    border-color: rgba(255, 236, 149, 0.22);
+    border-color: rgba(255, 236, 149, 0.5);
     --wait-pct: 0%;
+    max-width: 800px;
     background: linear-gradient(to right,
-            rgba(255, 221, 74, 0.22) var(--wait-pct),
+            rgba(255, 221, 74, 0.9) var(--wait-pct),
             var(--bg-primary) var(--wait-pct));
 }
 
+/* Short wait: duration <= 150ms — duller yellow border so brief waits are visually distinct */
 .step.press-wait.short-wait,
 .step.wait.short-wait {
     border-color: rgba(255, 221, 74, 0.35);
@@ -1191,7 +1194,7 @@ button.danger:hover {
     border-style: solid;
     --hold-pct: 0%;
     background: linear-gradient(to right,
-            rgba(74, 255, 136, 0.22) var(--hold-pct),
+            rgba(74, 255, 136, 0.9) var(--hold-pct),
             var(--bg-primary) var(--hold-pct));
 }
 
@@ -1318,9 +1321,10 @@ button.danger:hover {
     border-color: var(--accent-yellow);
 }
 
+/* Short wait (<= 150ms): brighter border in timeline/OBS view for visibility */
 .timeline-section .step.press-wait.short-wait,
 .timeline-section .step.wait.short-wait {
-    border-color: rgba(255, 221, 74, 0.35);
+    border-color: rgba(255, 221, 74, 0.4);
 }
 
 .timeline-section .step.hold {

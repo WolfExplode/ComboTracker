@@ -8,7 +8,7 @@ import threading
 import time
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
-from socketserver import TCPServer
+from socketserver import TCPServer, ThreadingMixIn
 from typing import Any, Callable
 
 import websockets
@@ -31,6 +31,10 @@ HOST_WS = "localhost"
 PORT_WS = 8765
 
 
+class ThreadedHTTPServer(ThreadingMixIn, TCPServer):
+    """Handle each HTTP request in its own thread so multiple tabs can reload without blocking."""
+
+
 def serve_static() -> None:
     static_dir = (Path(__file__).resolve().parent / "static").resolve()
 
@@ -38,7 +42,7 @@ def serve_static() -> None:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, directory=str(static_dir), **kwargs)
 
-    with TCPServer((HOST_HTTP, PORT_HTTP), Handler) as httpd:
+    with ThreadedHTTPServer((HOST_HTTP, PORT_HTTP), Handler) as httpd:
         print(f"HTTP server running at http://{HOST_HTTP}:{PORT_HTTP}")
         httpd.serve_forever()
 
