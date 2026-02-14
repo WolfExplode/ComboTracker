@@ -59,6 +59,14 @@ Syntax: `hold(e, 0.35)` (seconds).
 
 The hold step is complete when you’ve held the key for at least the required duration. You do **not** need to release the hold key before pressing the next step: pressing the next key while still holding is accepted (e.g. `hold(lmb, 0.1s), 1` — hold LMB for 0.1s then press 1 without releasing LMB). If a wait step immediately precedes a hold and you are already holding that key when the wait ends, the hold is started automatically (buffered hold).
 
+#### Hold + animation lock: `hold(key, hold_time, total_lock_time)`
+
+For abilities that require a hold followed by an animation lock (no extra input; animation plays automatically after the hold), use the three-argument form:
+
+- **Syntax:** `hold(lmb, 0.5s, 2s)` — hold for ≥ 0.5s, then a mandatory wait for the remaining time (2s − 0.5s = 1.5s). The third value is the **total** lock time from key down until you can act again.
+- In the combo steps this appears as two tiles: **hold(e, 0.5s)** then **wait(e, 1.5s)**.
+- The hold completes when the hold duration is satisfied — **even if you never release the key**. The mandatory wait then runs automatically (inputs ignored until it finishes).
+
 ### Wait steps vs Animation Locks
 
 There are two ways to define waits, depending on whether you want to **enforce timing** or **ignore inputs** (spam-safe).

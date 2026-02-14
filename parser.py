@@ -24,6 +24,7 @@ class PressNode:
 class HoldNode:
     key: str
     duration_ms: int
+    anim_lock_total_ms: int | None = None  # total lock from key down; expands to hold + wait(wait_ms, mandatory, key)
 
 
 @dataclass(frozen=True)
@@ -260,14 +261,19 @@ def parse_step(token: str) -> StepNode | None:
         if wait_ms is not None:
             return WaitNode(wait_ms, "soft", None)
 
-    # Hold: hold(e, 0.35)
+    # Hold: hold(e, 0.35) or hold(e, 0.5s, 2s) for hold + animation lock
     if tl.startswith("hold(") and tl.endswith(")"):
         inner = tl[len("hold("):-1]
-        ps = [x.strip() for x in inner.split(",", 1)]
-        if len(ps) == 2 and ps[0] and ps[1]:
-            hold_ms = _parse_duration(ps[1])
+        parts = [p.strip() for p in split_inputs(inner) if p.strip()]
+        if len(parts) >= 2 and parts[0]:
+            hold_ms = _parse_duration(parts[1])
             if hold_ms is not None:
-                return HoldNode(ps[0].strip().lower(), hold_ms)
+                anim_lock_total_ms: int | None = None
+                if len(parts) >= 3:
+                    total_ms = _parse_duration(parts[2])
+                    if total_ms is not None and total_ms > hold_ms:
+                        anim_lock_total_ms = total_ms
+                return HoldNode(parts[0].strip().lower(), hold_ms, anim_lock_total_ms)
 
     # Optional press: -key
     if tl.startswith("-") and len(tl) > 1:
@@ -303,7 +309,21 @@ def build_state(node: StepNode) -> dict[str, Any]:
             opt = getattr(node, "optional", False)
             return {"input": key, "hold_ms": None, "wait_ms": None, "optional": opt}
 
-        case HoldNode(key=key, duration_ms=ms):
+        case HoldNode(key=key, duration_ms=ms, anim_lock_total_ms=anim_lock):
+            if anim_lock is not None:
+                wait_ms = max(0, anim_lock - ms)
+                return {
+                    "composite_steps": [
+                        {"input": key, "hold_ms": ms, "wait_ms": None},
+                        {
+                            "input": None,
+                            "hold_ms": None,
+                            "wait_ms": int(wait_ms),
+                            "wait_mode": "mandatory",
+                            "wait_for": key or "",
+                        },
+                    ]
+                }
             return {"input": key, "hold_ms": ms, "wait_ms": None}
 
         case WaitNode(duration_ms=ms, mode=mode, wait_for=wf):
@@ -476,6 +496,11 @@ def expanded_ast_from_tokens(tokens: list[str]) -> list[StepNode]:
                 continue
         if isinstance(node, SequenceNode) and _is_composite_mandatory(node):
             ast_list.extend(node.steps)
+        elif isinstance(node, HoldNode) and getattr(node, "anim_lock_total_ms", None) is not None:
+            # hold(key, hold_ms, total_lock_ms) -> hold + mandatory wait
+            wait_ms = max(0, node.anim_lock_total_ms - node.duration_ms)
+            ast_list.append(HoldNode(node.key, node.duration_ms))
+            ast_list.append(WaitNode(wait_ms, "mandatory", node.key))
         else:
             ast_list.append(node)
         i += 1

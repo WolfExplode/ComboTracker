@@ -1443,6 +1443,12 @@ class ComboTrackerEngine:
             if step is None:
                 return
 
+            # Hold duration satisfied without release (e.g. user never let go): complete and advance so next step (e.g. mandatory wait) runs automatically
+            if isinstance(step, HoldState) and self.hold_in_progress and self.hold and self.hold.check_complete(now):
+                self._complete_hold(now, auto=True)
+                self._sync_wait_animation_ui(now)
+                return
+
             result = step.tick(now)
 
             if isinstance(result, CompleteResult) or (
