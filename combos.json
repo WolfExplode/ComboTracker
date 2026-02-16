@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "Aemeath, Lynae, Mornye",
+  "last_active_combo": "Zani Pheobe Rover Rotation",
   "no_fail_mode": false,
   "combos": {
     "Zani 1": [
@@ -199,7 +199,7 @@
     ],
     "Aemeath, Lynae, Mornye": [
       "f",
-      "wait:0.1s",
+      "wait:0.15s",
       "lmb",
       "wait:0.5s",
       "lmb",
@@ -207,7 +207,7 @@
       "lmb",
       "wait:0.45s",
       "lmb",
-      "wait:0.15s",
+      "wait:0.2s",
       "2",
       "wait:0.15s",
       "e",
@@ -216,9 +216,9 @@
       "lmb",
       "wait:0.3s",
       "lmb",
-      "wait:0.6s",
+      "wait:0.55s",
       "lmb",
-      "wait:0.2s",
+      "wait:0.1s",
       "2",
       "wait(r, 4.1s)",
       "3",
@@ -227,9 +227,9 @@
       "hold(lmb, 1.2s)",
       "e",
       "wait:1s",
-      "hold(lmb, 0.1s, 1s)",
+      "hold(lmb, 0.1s, 1.1s)",
       "wait(2, 0.8s)",
-      "hold(lmb, 1.6s)",
+      "hold(lmb, 1.5s)",
       "wait:0.2s",
       "space",
       "wait:0.85s",
@@ -240,15 +240,13 @@
       "-q",
       "lmb",
       "wait:0.1s",
-      "wait(1, 1.3s)",
+      "wait(1, 1.2s)",
       "lmb",
       "wait:0.3s",
       "lmb",
-      "wait:0.5s",
+      "wait:0.4s",
       "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.5s",
+      "wait:0.6s",
       "wait(f, 1.3s)",
       "wait(r, 4.2s)",
       "wait(e, 2.4s)",
@@ -318,13 +316,59 @@
     },
     "Zani Pheobe Rover Rotation": {
       "success": 0,
-      "fail": 0,
+      "fail": 4,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {},
-      "fail_by_expected": {},
-      "fail_by_reason": {},
-      "fail_events": []
+      "fail_by_step": {
+        "8": 1,
+        "1": 3
+      },
+      "fail_by_expected": {
+        "3": 1,
+        "seq(e \u2192 wait(100ms))": 3
+      },
+      "fail_by_reason": {
+        "expected 3": 1,
+        "expected seq(e \u2192 wait(100ms))": 3
+      },
+      "fail_events": [
+        {
+          "ts": 1771274548,
+          "attempt": 1,
+          "step_index": 8,
+          "expected": "3",
+          "actual": "1",
+          "reason": "expected 3",
+          "elapsed_ms": 10388
+        },
+        {
+          "ts": 1771274572,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "seq(e \u2192 wait(100ms))",
+          "actual": "r",
+          "reason": "expected seq(e \u2192 wait(100ms))",
+          "elapsed_ms": 3228
+        },
+        {
+          "ts": 1771274612,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "seq(e \u2192 wait(100ms))",
+          "actual": "2",
+          "reason": "expected seq(e \u2192 wait(100ms))",
+          "elapsed_ms": 4268
+        },
+        {
+          "ts": 1771274647,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "seq(e \u2192 wait(100ms))",
+          "actual": "2",
+          "reason": "expected seq(e \u2192 wait(100ms))",
+          "elapsed_ms": 3954
+        }
+      ]
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
       "success": 0,
@@ -337,182 +381,413 @@
       "fail_events": []
     },
     "Aemeath, Lynae, Mornye": {
-      "success": 0,
-      "fail": 3,
-      "best_ms": null,
-      "total_success_ms": 0,
+      "success": 2,
+      "fail": 38,
+      "best_ms": 42351,
+      "total_success_ms": 90851,
       "fail_by_step": {
-        "1": 2,
-        "9": 1
+        "22": 3,
+        "6": 2,
+        "7": 1,
+        "24": 1,
+        "1": 11,
+        "25": 2,
+        "10": 1,
+        "36": 1,
+        "50": 1,
+        "3": 2,
+        "5": 8,
+        "4": 1,
+        "2": 3,
+        "28": 1
       },
       "fail_by_expected": {
-        "seq(lmb \u2192 wait(500ms))": 2,
-        "seq(lmb \u2192 wait(600ms))": 1
+        "2": 3,
+        "seq(e \u2192 wait(100ms))": 2,
+        "3": 1,
+        "hold(lmb,\u22651500ms)": 1,
+        "seq(lmb \u2192 wait(500ms))": 11,
+        "wait(\u2265200ms)": 2,
+        "seq(lmb \u2192 wait(100ms))": 1,
+        "f": 1,
+        "r": 1,
+        "seq(lmb \u2192 wait(450ms))": 2,
+        "seq(2 \u2192 wait(150ms))": 8,
+        "seq(lmb \u2192 wait(200ms))": 1,
+        "seq(lmb \u2192 wait(400ms))": 3,
+        "seq(space \u2192 wait(750ms))": 1
       },
       "fail_by_reason": {
-        "expected seq(lmb \u2192 wait(500ms))": 2,
-        "expected seq(lmb \u2192 wait(600ms))": 1
+        "expected 2": 3,
+        "expected seq(e \u2192 wait(100ms))": 2,
+        "expected 3": 1,
+        "expected hold(lmb,\u22651500ms)": 1,
+        "expected seq(lmb \u2192 wait(500ms))": 11,
+        "only waited for 0.14s, combo ended by space": 1,
+        "expected seq(lmb \u2192 wait(100ms))": 1,
+        "expected f": 1,
+        "expected r": 1,
+        "expected seq(lmb \u2192 wait(450ms))": 2,
+        "expected seq(2 \u2192 wait(150ms))": 8,
+        "expected seq(lmb \u2192 wait(200ms))": 1,
+        "only waited for 0.15s, combo ended by space": 1,
+        "expected seq(lmb \u2192 wait(400ms))": 3,
+        "expected seq(space \u2192 wait(750ms))": 1
       },
       "fail_events": [
         {
-          "ts": 1771104435,
-          "attempt": 1,
+          "ts": 1771273181,
+          "attempt": 2,
+          "step_index": 22,
+          "expected": "2",
+          "actual": "1",
+          "reason": "expected 2",
+          "elapsed_ms": 20611
+        },
+        {
+          "ts": 1771273191,
+          "attempt": 3,
+          "step_index": 6,
+          "expected": "seq(e \u2192 wait(100ms))",
+          "actual": "1",
+          "reason": "expected seq(e \u2192 wait(100ms))",
+          "elapsed_ms": 3434
+        },
+        {
+          "ts": 1771273206,
+          "attempt": 5,
+          "step_index": 7,
+          "expected": "3",
+          "actual": "1",
+          "reason": "expected 3",
+          "elapsed_ms": 3658
+        },
+        {
+          "ts": 1771273232,
+          "attempt": 6,
+          "step_index": 24,
+          "expected": "hold(lmb,\u22651500ms)",
+          "actual": "space",
+          "reason": "expected hold(lmb,\u22651500ms)",
+          "elapsed_ms": 21092
+        },
+        {
+          "ts": 1771273241,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 1602
+        },
+        {
+          "ts": 1771273281,
+          "attempt": 8,
+          "step_index": 25,
+          "expected": "wait(\u2265200ms)",
+          "actual": "space",
+          "reason": "only waited for 0.14s, combo ended by space",
+          "elapsed_ms": 21209
+        },
+        {
+          "ts": 1771273291,
+          "attempt": 9,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 2352
+        },
+        {
+          "ts": 1771273301,
+          "attempt": 10,
+          "step_index": 10,
+          "expected": "seq(lmb \u2192 wait(100ms))",
+          "actual": "2",
+          "reason": "expected seq(lmb \u2192 wait(100ms))",
+          "elapsed_ms": 4014
+        },
+        {
+          "ts": 1771273341,
+          "attempt": 11,
+          "step_index": 36,
+          "expected": "f",
+          "actual": "r",
+          "reason": "expected f",
+          "elapsed_ms": 28621
+        },
+        {
+          "ts": 1771273355,
+          "attempt": 12,
           "step_index": 1,
           "expected": "seq(lmb \u2192 wait(500ms))",
           "actual": "e",
           "reason": "expected seq(lmb \u2192 wait(500ms))",
-          "elapsed_ms": 420
+          "elapsed_ms": 202
         },
         {
-          "ts": 1771104533,
-          "attempt": 2,
+          "ts": 1771273404,
+          "attempt": 13,
+          "step_index": 50,
+          "expected": "r",
+          "actual": "e",
+          "reason": "expected r",
+          "elapsed_ms": 43013
+        },
+        {
+          "ts": 1771273430,
+          "attempt": 14,
+          "step_index": 3,
+          "expected": "seq(lmb \u2192 wait(450ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(450ms))",
+          "elapsed_ms": 3296
+        },
+        {
+          "ts": 1771273456,
+          "attempt": 15,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 3234
+        },
+        {
+          "ts": 1771273489,
+          "attempt": 16,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "r",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 4016
+        },
+        {
+          "ts": 1771273517,
+          "attempt": 17,
           "step_index": 1,
           "expected": "seq(lmb \u2192 wait(500ms))",
-          "actual": "space",
+          "actual": "r",
           "reason": "expected seq(lmb \u2192 wait(500ms))",
-          "elapsed_ms": 1102
+          "elapsed_ms": 898
         },
         {
-          "ts": 1771104786,
-          "attempt": 1,
-          "step_index": 9,
-          "expected": "seq(lmb \u2192 wait(600ms))",
+          "ts": 1771273553,
+          "attempt": 18,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "1",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 198
+        },
+        {
+          "ts": 1771273633,
+          "attempt": 19,
+          "step_index": 4,
+          "expected": "seq(lmb \u2192 wait(200ms))",
+          "actual": "2",
+          "reason": "expected seq(lmb \u2192 wait(200ms))",
+          "elapsed_ms": 1892
+        },
+        {
+          "ts": 1771273679,
+          "attempt": 20,
+          "step_index": 22,
+          "expected": "2",
+          "actual": "1",
+          "reason": "expected 2",
+          "elapsed_ms": 24565
+        },
+        {
+          "ts": 1771273708,
+          "attempt": 21,
+          "step_index": 25,
+          "expected": "wait(\u2265200ms)",
           "actual": "space",
-          "reason": "expected seq(lmb \u2192 wait(600ms))",
-          "elapsed_ms": 4498
+          "reason": "only waited for 0.15s, combo ended by space",
+          "elapsed_ms": 24271
+        },
+        {
+          "ts": 1771273716,
+          "attempt": 22,
+          "step_index": 2,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 1114
+        },
+        {
+          "ts": 1771273740,
+          "attempt": 23,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "3",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 3652
+        },
+        {
+          "ts": 1771273765,
+          "attempt": 24,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "2",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 414
+        },
+        {
+          "ts": 1771273811,
+          "attempt": 25,
+          "step_index": 6,
+          "expected": "seq(e \u2192 wait(100ms))",
+          "actual": "space",
+          "reason": "expected seq(e \u2192 wait(100ms))",
+          "elapsed_ms": 6356
+        },
+        {
+          "ts": 1771273836,
+          "attempt": 26,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 3426
+        },
+        {
+          "ts": 1771273883,
+          "attempt": 27,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 6040
+        },
+        {
+          "ts": 1771273937,
+          "attempt": 28,
+          "step_index": 22,
+          "expected": "2",
+          "actual": "1",
+          "reason": "expected 2",
+          "elapsed_ms": 21178
+        },
+        {
+          "ts": 1771273972,
+          "attempt": 29,
+          "step_index": 28,
+          "expected": "seq(space \u2192 wait(750ms))",
+          "actual": "1",
+          "reason": "expected seq(space \u2192 wait(750ms))",
+          "elapsed_ms": 29577
+        },
+        {
+          "ts": 1771273976,
+          "attempt": 30,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 1156
+        },
+        {
+          "ts": 1771274027,
+          "attempt": 31,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 2468
+        },
+        {
+          "ts": 1771274056,
+          "attempt": 32,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 1336
+        },
+        {
+          "ts": 1771274126,
+          "attempt": 33,
+          "step_index": 2,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 1992
+        },
+        {
+          "ts": 1771274166,
+          "attempt": 34,
+          "step_index": 2,
+          "expected": "seq(lmb \u2192 wait(400ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(400ms))",
+          "elapsed_ms": 1648
+        },
+        {
+          "ts": 1771274219,
+          "attempt": 35,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 812
+        },
+        {
+          "ts": 1771274346,
+          "attempt": 37,
+          "step_index": 3,
+          "expected": "seq(lmb \u2192 wait(450ms))",
+          "actual": "2",
+          "reason": "expected seq(lmb \u2192 wait(450ms))",
+          "elapsed_ms": 1660
+        },
+        {
+          "ts": 1771274377,
+          "attempt": 38,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "3",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 2874
+        },
+        {
+          "ts": 1771274406,
+          "attempt": 39,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 1472
+        },
+        {
+          "ts": 1771274445,
+          "attempt": 40,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "2",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 1198
+        },
+        {
+          "ts": 1771274472,
+          "attempt": 41,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 2446
         }
       ]
     },
     "test": {
-      "success": 3,
-      "fail": 12,
-      "best_ms": 2970,
-      "total_success_ms": 10924,
-      "fail_by_step": {
-        "1": 9,
-        "2": 3
-      },
-      "fail_by_expected": {
-        "hold(lmb,\u22651600ms)": 9,
-        "wait(\u2265200ms)": 3
-      },
-      "fail_by_reason": {
-        "combo ended by space": 3,
-        "expected hold(lmb,\u22651600ms)": 6,
-        "only waited for 0.06s, combo ended by q": 1,
-        "only waited for 0.15s, combo ended by q": 1,
-        "only waited for 0.02s, combo ended by space": 1
-      },
-      "fail_events": [
-        {
-          "ts": 1771103839,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "space",
-          "reason": "combo ended by space",
-          "elapsed_ms": 1642
-        },
-        {
-          "ts": 1771103840,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "space",
-          "reason": "combo ended by space",
-          "elapsed_ms": 414
-        },
-        {
-          "ts": 1771103841,
-          "attempt": 3,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "space",
-          "reason": "combo ended by space",
-          "elapsed_ms": 429
-        },
-        {
-          "ts": 1771103905,
-          "attempt": 4,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "3",
-          "reason": "expected hold(lmb,\u22651600ms)",
-          "elapsed_ms": 722
-        },
-        {
-          "ts": 1771103984,
-          "attempt": 5,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "space",
-          "reason": "expected hold(lmb,\u22651600ms)",
-          "elapsed_ms": 697
-        },
-        {
-          "ts": 1771104012,
-          "attempt": 6,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "space",
-          "reason": "expected hold(lmb,\u22651600ms)",
-          "elapsed_ms": 46
-        },
-        {
-          "ts": 1771104083,
-          "attempt": 7,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "r",
-          "reason": "expected hold(lmb,\u22651600ms)",
-          "elapsed_ms": 244
-        },
-        {
-          "ts": 1771104272,
-          "attempt": 8,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "space",
-          "reason": "expected hold(lmb,\u22651600ms)",
-          "elapsed_ms": 86345
-        },
-        {
-          "ts": 1771104307,
-          "attempt": 9,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651600ms)",
-          "actual": "r",
-          "reason": "expected hold(lmb,\u22651600ms)",
-          "elapsed_ms": 192
-        },
-        {
-          "ts": 1771104766,
-          "attempt": 1,
-          "step_index": 2,
-          "expected": "wait(\u2265200ms)",
-          "actual": "q",
-          "reason": "only waited for 0.06s, combo ended by q",
-          "elapsed_ms": 2466
-        },
-        {
-          "ts": 1771104770,
-          "attempt": 2,
-          "step_index": 2,
-          "expected": "wait(\u2265200ms)",
-          "actual": "q",
-          "reason": "only waited for 0.15s, combo ended by q",
-          "elapsed_ms": 1978
-        },
-        {
-          "ts": 1771104775,
-          "attempt": 3,
-          "step_index": 2,
-          "expected": "wait(\u2265200ms)",
-          "actual": "space",
-          "reason": "only waited for 0.02s, combo ended by space",
-          "elapsed_ms": 1836
-        }
-      ]
+      "success": 0,
+      "fail": 0,
+      "best_ms": null,
+      "total_success_ms": 0,
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     }
   },
   "combo_expected_ms": {
@@ -521,12 +796,12 @@
     "Zani 2": 9000,
     "Zani Pheobe Rover Rotation": 30000,
     "Agusta, Iuno, Shorekeeper Double intro": 24000,
-    "Aemeath, Lynae, Mornye": 42000
+    "Aemeath, Lynae, Mornye": 42500
   },
   "combo_user_difficulty": {
     "Zani 1": 8.0,
     "Agusta, Iuno, Shorekeeper Double intro": 7.5,
-    "Aemeath, Lynae, Mornye": 7.0
+    "Aemeath, Lynae, Mornye": 7.5
   },
   "combo_step_display_mode": {
     "Zani 3": "images",
@@ -642,7 +917,7 @@
       }
     }
   },
-  "ww_active_team_id": "c70c25857f",
+  "ww_active_team_id": "986f16f581",
   "combo_ww_team": {
     "Zani Pheobe Rover Rotation": "986f16f581",
     "Zani 1": "986f16f581",

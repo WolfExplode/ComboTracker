@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from http.server import SimpleHTTPRequestHandler
@@ -36,7 +37,12 @@ class ThreadedHTTPServer(ThreadingMixIn, TCPServer):
 
 
 def serve_static() -> None:
-    static_dir = (Path(__file__).resolve().parent / "static").resolve()
+    # When packaged with PyInstaller, static files are in sys._MEIPASS
+    if getattr(sys, "frozen", False):
+        base = Path(sys._MEIPASS)
+    else:
+        base = Path(__file__).resolve().parent
+    static_dir = (base / "static").resolve()
 
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:

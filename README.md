@@ -45,6 +45,21 @@ Notes:
 - The backend also runs a WebSocket server at `ws://localhost:8765`.
 - The app listens to global keyboard/mouse via `pynput` (you may need accessibility permissions on some OSes).
 
+### Building a standalone .exe (Windows)
+
+You can package ComboTracker as a single executable so others can run it without installing Python.
+
+1. Install PyInstaller (once):
+   ```bash
+   pip install pyinstaller
+   ```
+2. From the project root, build:
+   ```bash
+   pyinstaller ComboTracker.spec
+   ```
+3. The executable is created at `dist/ComboTracker.exe`. Run it; it will start the HTTP and WebSocket servers. Open `http://localhost:8080` in your browser.
+4. `combos.json` (saved combos and settings) is stored in the same folder as the .exe. You can move the .exe anywhere; keep `combos.json` next to it if you want to keep your data, or it will create a new one on first run.
+
 ---
 
 ## OBS overlay
