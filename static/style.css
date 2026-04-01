@@ -166,6 +166,38 @@ textarea {
     opacity: 0.8;
 }
 
+/* Demo video */
+/* Demo video collapsible spans full form grid width */
+.form-grid .demo-video-details {
+    grid-column: 1 / -1;
+}
+.demo-video-row {
+    grid-column: 2;
+}
+.demo-video-input {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--accent-grey);
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+.demo-video-embed-wrap {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.demo-video-embed-wrap.hidden {
+    display: none;
+}
+.demo-video-embed-wrap iframe {
+    display: block;
+    border: 0;
+    border-radius: var(--border-radius);
+}
+
 /* Token colors */
 .combo-input-highlight .combo-hl-wait { color: #e6c229; }
 .combo-input-highlight .combo-hl-anim-wait { color: #e6c229; }

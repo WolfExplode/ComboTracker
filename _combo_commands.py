@@ -71,6 +71,7 @@ def save_or_update_combo(
     user_difficulty: str | None = None,
     step_display_mode: str | None = None,
     key_images: Any | None = None,
+    demo_video: str | None = None,
     target_game: str | None = None,
     ww_team_id: str | None = None,
 ) -> tuple[bool, str | None]:
@@ -119,6 +120,8 @@ def save_or_update_combo(
             engine.combo_step_display_mode[name] = engine.combo_step_display_mode.pop(old_name)
         if old_name in engine.combo_key_images and name not in engine.combo_key_images:
             engine.combo_key_images[name] = engine.combo_key_images.pop(old_name)
+        if old_name in getattr(engine, "combo_demo_video", {}) and name not in getattr(engine, "combo_demo_video", {}):
+            engine.combo_demo_video[name] = engine.combo_demo_video.pop(old_name)
         engine.ww.rename_combo(old_name, name)
     else:
         # Same name or new combo: if steps changed, clear all history for this combo
@@ -157,6 +160,12 @@ def save_or_update_combo(
         if isinstance(key_images, dict):
             engine.combo_key_images.pop(name, None)
 
+    demo_url = (demo_video or "").strip()
+    if demo_url:
+        engine.combo_demo_video[name] = demo_url
+    else:
+        engine.combo_demo_video.pop(name, None)
+
     g_raw = str(target_game or "").strip().lower()
     engine.ww.set_target_game(name, g_raw)
     engine.ww.apply_combo_team_assignment(name, target_game=engine.ww.get_target_game(name), ww_team_id=ww_team_id)
@@ -185,6 +194,8 @@ def delete_combo(engine, name: str) -> tuple[bool, str | None]:
         del engine.combo_step_display_mode[name]
     if name in engine.combo_key_images:
         del engine.combo_key_images[name]
+    if name in getattr(engine, "combo_demo_video", {}):
+        del engine.combo_demo_video[name]
     engine.ww.delete_combo(name)
 
     if engine.active_combo_name == name:

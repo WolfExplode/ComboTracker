@@ -508,6 +508,38 @@ function renderKeyImagesEditor() {
     });
 }
 
+// Demo video: normalize YouTube link to embed URL
+function getYouTubeEmbedUrl(url) {
+    const s = (url || '').toString().trim();
+    if (!s) return null;
+    try {
+        // youtu.be/VIDEO_ID
+        const short = s.match(/youtu\.be\/([a-zA-Z0-9_-]{10,})/);
+        if (short) return 'https://www.youtube.com/embed/' + short[1];
+        // youtube.com/watch?v=VIDEO_ID or youtube.com/embed/VIDEO_ID
+        const u = new URL(s.startsWith('http') ? s : 'https://' + s);
+        if (u.hostname.replace(/^www\./, '') === 'youtube.com') {
+            const v = u.searchParams.get('v') || (u.pathname || '').split('/').pop();
+            if (v && /^[a-zA-Z0-9_-]{10,}$/.test(v)) return 'https://www.youtube.com/embed/' + v;
+        }
+    } catch (_) {}
+    return null;
+}
+
+function updateDemoVideoEmbed(url) {
+    const wrap = getEl('demoVideoEmbedWrap');
+    const iframe = getEl('demoVideoEmbed');
+    if (!wrap || !iframe) return;
+    const embedUrl = getYouTubeEmbedUrl(url);
+    if (embedUrl) {
+        iframe.src = embedUrl;
+        wrap.classList.remove('hidden');
+    } else {
+        iframe.src = '';
+        wrap.classList.add('hidden');
+    }
+}
+
 // Editor fields update (from backend)
 function setEditorFields(data) {
     getEl('comboName').value = data.name || '';
@@ -519,6 +551,12 @@ function setEditorFields(data) {
     getEl('comboEnders').value = data.enders || '';
     getEl('comboExpectedTime').value = data.expected_time || '';
     getEl('comboUserDifficulty').value = data.user_difficulty || '';
+
+    const demoVideoEl = getEl('comboDemoVideo');
+    if (demoVideoEl) {
+        demoVideoEl.value = (data.demo_video || '').toString().trim();
+        updateDemoVideoEmbed(demoVideoEl.value);
+    }
 
     appState.stepDisplayMode = (data.step_display_mode || 'icons').toString().trim().toLowerCase();
     if (!['icons', 'images'].includes(appState.stepDisplayMode)) appState.stepDisplayMode = 'icons';
@@ -1282,6 +1320,7 @@ if (saveBtn) {
         const toggle = getEl('stepDisplayToggle');
         const mode = toggle?.checked ? 'images' : 'icons';
 
+        const demoVideo = (getEl('comboDemoVideo')?.value || '').toString().trim();
         sendMessage('save_combo', {
             name,
             inputs,
@@ -1290,10 +1329,18 @@ if (saveBtn) {
             user_difficulty: userDifficulty,
             step_display_mode: mode,
             key_images: appState.keyImages,
+            demo_video: demoVideo,
             target_game: appState.targetGame,
             ww_team_id: appState.wwTeamId || ''
         });
     });
+}
+
+// Demo video input: update embed preview on change
+const comboDemoVideoEl = getEl('comboDemoVideo');
+if (comboDemoVideoEl) {
+    comboDemoVideoEl.addEventListener('input', () => updateDemoVideoEmbed(comboDemoVideoEl.value));
+    comboDemoVideoEl.addEventListener('change', () => updateDemoVideoEmbed(comboDemoVideoEl.value));
 }
 
 // New combo button

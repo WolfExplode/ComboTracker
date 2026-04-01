@@ -213,6 +213,17 @@ def load_engine_state(engine) -> None:
                     key_images[name] = m
         engine.combo_key_images = key_images
 
+        # Per-combo demo video URL (e.g. YouTube)
+        dv = data.get("combo_demo_video", {})
+        demo_video: dict[str, str] = {}
+        if isinstance(dv, dict):
+            for k, v in dv.items():
+                name = str(k).strip()
+                url = str(v or "").strip()
+                if name and url:
+                    demo_video[name] = url
+        engine.combo_demo_video = demo_video
+
         # ---- Wuthering Waves / target game ----
         # target game per combo
         tg = data.get("combo_target_game", {})
@@ -368,6 +379,7 @@ def load_engine_state(engine) -> None:
         engine.combo_user_difficulty = {}
         engine.combo_step_display_mode = {}
         engine.combo_key_images = {}
+        engine.combo_demo_video = {}
         engine.ww.combo_target_game = {}
         engine.ww.ww_teams = {}
         engine.ww.ww_active_team_id = None
@@ -396,6 +408,7 @@ def save_engine_state(engine) -> None:
             "combo_user_difficulty": dict(engine.combo_user_difficulty),
             "combo_step_display_mode": dict(engine.combo_step_display_mode),
             "combo_key_images": dict(engine.combo_key_images),
+            "combo_demo_video": dict(getattr(engine, "combo_demo_video", {})),
             "combo_target_game": dict(engine.ww.combo_target_game),
             "ww_teams": dict(engine.ww.ww_teams),
             "ww_active_team_id": engine.ww.ww_active_team_id,

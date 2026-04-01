@@ -118,6 +118,7 @@ async def ws_handler(
                     user_difficulty=str(msg.get("user_difficulty") or ""),
                     step_display_mode=str(msg.get("step_display_mode") or ""),
                     key_images=msg.get("key_images"),
+                    demo_video=str(msg.get("demo_video") or ""),
                     target_game=str(msg.get("target_game") or ""),
                     ww_team_id=str(msg.get("ww_team_id") or ""),
                 )

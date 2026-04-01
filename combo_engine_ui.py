@@ -132,6 +132,10 @@ def get_editor_payload(engine, target_game_override: str | None = None) -> dict[
             # shallow copy for safety
             key_images = dict(m)
 
+    demo_video = ""
+    if name:
+        demo_video = (engine.combo_demo_video.get(name) or "").strip()
+
     ww_payload = engine.ww.editor_payload(name, target_game_override=target_game_override)
     return {
         "name": name,
@@ -141,6 +145,7 @@ def get_editor_payload(engine, target_game_override: str | None = None) -> dict[
         "user_difficulty": user_diff,
         "step_display_mode": mode,
         "key_images": key_images,
+        "demo_video": demo_video,
         **ww_payload,
     }
 

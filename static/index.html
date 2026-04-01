@@ -87,6 +87,18 @@
                             (Combo does not end on missed inputs)
                         </label>
                     </div>
+                    
+                    <details class="collapsible demo-video-details" id="demoVideoDetails">
+                        <summary>Demo video</summary>
+                        <div class="collapsible-body">
+                            <div class="demo-video-row">
+                                <input type="url" id="comboDemoVideo" placeholder="https://youtu.be/... or https://www.youtube.com/watch?v=..." class="demo-video-input">
+                            </div>
+                            <div id="demoVideoEmbedWrap" class="demo-video-embed-wrap hidden">
+                                <iframe id="demoVideoEmbed" width="560" height="315" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </details>
         </section>

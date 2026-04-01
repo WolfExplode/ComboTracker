@@ -128,6 +128,8 @@ class ComboTrackerEngine:
         self.combo_step_display_mode: dict[str, str] = {}
         # - combo_key_images: combo_name -> { key -> image_url }
         self.combo_key_images: dict[str, dict[str, str]] = {}
+        # - combo_demo_video: combo_name -> video URL (e.g. YouTube link for embedded demo)
+        self.combo_demo_video: dict[str, str] = {}
 
         # Game-specific state (kept out of the core combo engine logic)
         self.ww = WutheringWavesGame()
@@ -472,6 +474,7 @@ class ComboTrackerEngine:
         user_difficulty: str | None = None,
         step_display_mode: str | None = None,
         key_images: Any | None = None,
+        demo_video: str | None = None,
         target_game: str | None = None,
         ww_team_id: str | None = None,
     ) -> tuple[bool, str | None]:
@@ -485,6 +488,7 @@ class ComboTrackerEngine:
                 user_difficulty=user_difficulty,
                 step_display_mode=step_display_mode,
                 key_images=key_images,
+                demo_video=demo_video,
                 target_game=target_game,
                 ww_team_id=ww_team_id,
             )
