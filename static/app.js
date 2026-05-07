@@ -39,6 +39,7 @@ const appState = {
     lastFailByStep: {},
     showFailCount: false,
     autoScrollEnabled: false,
+    stepEditMode: false,
     targetGame: 'generic',
     wwAbilityImages: { "1": {}, "2": {}, "3": {} },
     wwSwapImages: { "1": "", "2": "", "3": "" },
@@ -76,6 +77,7 @@ function initializeUI(data) {
         wwTeamName: (getEl('wwTeamName')?.value || '').toString(),
         stepDisplayMode: appState.stepDisplayMode,
         noFailMode: !!getEl('noFailMode')?.checked,
+        stepEditMode: !!getEl('stepEditToggle')?.checked,
         keyImages: { ...appState.keyImages },
         wwDashImage: appState.wwDashImage,
         wwSwapImages: { ...appState.wwSwapImages },
@@ -98,6 +100,9 @@ function initializeUI(data) {
         if (stepToggle) stepToggle.checked = (appState.stepDisplayMode === 'images');
         const noFailEl = getEl('noFailMode');
         if (noFailEl) noFailEl.checked = preserved.noFailMode;
+        appState.stepEditMode = preserved.stepEditMode;
+        const stepEditToggle = getEl('stepEditToggle');
+        if (stepEditToggle) stepEditToggle.checked = preserved.stepEditMode;
         appState.keyImages = preserved.keyImages;
         appState.wwDashImage = preserved.wwDashImage;
         appState.wwSwapImages = preserved.wwSwapImages;
@@ -859,6 +864,99 @@ function updateTimeline(steps, opts) {
         span.textContent = k;
         el.appendChild(span);
     };
+    const parseStepIndices = (stepIndices) => {
+        if (!Array.isArray(stepIndices)) return [];
+        return stepIndices
+            .map(v => Number.parseInt(v, 10))
+            .filter(v => Number.isFinite(v) && v >= 0);
+    };
+    const attachStepDeleteControl = (el, stepIndices) => {
+        const indices = parseStepIndices(stepIndices);
+        if (!appState.stepEditMode || indices.length === 0) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'step-delete-btn';
+        btn.title = 'Delete this step';
+        btn.setAttribute('aria-label', 'Delete this step');
+        btn.textContent = '🗑';
+        btn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            sendMessage('delete_timeline_step', { step_indices: indices });
+        });
+        el.appendChild(btn);
+    };
+
+    // Drag-to-reorder: the first runtime index stored in step_indices is used as the drag handle identifier.
+    const attachStepDragControl = (el, stepIndices) => {
+        const indices = parseStepIndices(stepIndices);
+        if (!appState.stepEditMode || indices.length === 0) return;
+        const fromRuntimeIdx = indices[0];
+        el.setAttribute('draggable', 'true');
+        el.dataset.runtimeIdx = String(fromRuntimeIdx);
+
+        el.addEventListener('dragstart', (ev) => {
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', String(fromRuntimeIdx));
+            el.classList.add('step-dragging');
+        });
+
+        el.addEventListener('dragend', () => {
+            el.classList.remove('step-dragging');
+            container.querySelectorAll('.step-drag-over-before, .step-drag-over-after').forEach(t => {
+                t.classList.remove('step-drag-over-before', 'step-drag-over-after');
+            });
+        });
+
+        el.addEventListener('dragover', (ev) => {
+            ev.preventDefault();
+            ev.dataTransfer.dropEffect = 'move';
+            const draggingIdx = ev.dataTransfer.getData('text/plain');
+            if (draggingIdx === String(fromRuntimeIdx)) return;
+            const rect = el.getBoundingClientRect();
+            const midX = rect.left + rect.width / 2;
+            container.querySelectorAll('.step-drag-over-before, .step-drag-over-after').forEach(t => {
+                t.classList.remove('step-drag-over-before', 'step-drag-over-after');
+            });
+            if (ev.clientX < midX) {
+                el.classList.add('step-drag-over-before');
+            } else {
+                el.classList.add('step-drag-over-after');
+            }
+        });
+
+        el.addEventListener('dragleave', (ev) => {
+            if (!el.contains(ev.relatedTarget)) {
+                el.classList.remove('step-drag-over-before', 'step-drag-over-after');
+            }
+        });
+
+        el.addEventListener('drop', (ev) => {
+            ev.preventDefault();
+            const draggedRuntimeIdx = Number.parseInt(ev.dataTransfer.getData('text/plain'), 10);
+            el.classList.remove('step-drag-over-before', 'step-drag-over-after');
+            if (!Number.isFinite(draggedRuntimeIdx) || draggedRuntimeIdx === fromRuntimeIdx) return;
+            const rect = el.getBoundingClientRect();
+            const midX = rect.left + rect.width / 2;
+            if (ev.clientX < midX) {
+                // Drop before this tile
+                sendMessage('reorder_timeline_step', {
+                    from_step_index: draggedRuntimeIdx,
+                    before_step_index: fromRuntimeIdx,
+                });
+            } else {
+                // Drop after this tile: find the next sibling's runtime index, or null to append.
+                const allTiles = Array.from(container.querySelectorAll('[data-runtime-idx]'));
+                const selfIdx = allTiles.indexOf(el);
+                const nextTile = allTiles[selfIdx + 1] || null;
+                const beforeIdx = nextTile ? Number.parseInt(nextTile.dataset.runtimeIdx, 10) : null;
+                sendMessage('reorder_timeline_step', {
+                    from_step_index: draggedRuntimeIdx,
+                    before_step_index: Number.isFinite(beforeIdx) ? beforeIdx : null,
+                });
+            }
+        });
+    };
 
     function createGroupItemTile(it, characterId) {
         const el = document.createElement('div');
@@ -955,6 +1053,8 @@ function updateTimeline(steps, opts) {
             }
         });
         tile.appendChild(items);
+        attachStepDeleteControl(tile, s.step_indices);
+        attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
 
@@ -995,6 +1095,8 @@ function updateTimeline(steps, opts) {
             items.appendChild(itEl);
         });
         tile.appendChild(items);
+        attachStepDeleteControl(tile, s.step_indices);
+        attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
 
@@ -1045,6 +1147,8 @@ function updateTimeline(steps, opts) {
         if (keyForCorner) addCornerKey(tile, keyForCorner);
 
         appendStepContent(tile, s, nextChar, ctx);
+        attachStepDeleteControl(tile, s.step_indices);
+        attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
 
@@ -1471,6 +1575,14 @@ const showFailCountEl = getEl('showFailCount');
 if (showFailCountEl) {
     showFailCountEl.addEventListener('change', () => {
         appState.showFailCount = showFailCountEl.checked;
+        refreshTimelineIfLoaded();
+    });
+}
+
+const stepEditToggleEl = getEl('stepEditToggle');
+if (stepEditToggleEl) {
+    stepEditToggleEl.addEventListener('change', () => {
+        appState.stepEditMode = stepEditToggleEl.checked;
         refreshTimelineIfLoaded();
     });
 }

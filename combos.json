@@ -344,9 +344,9 @@
       "3",
       "wait:0.19s",
       "lmb",
-      "wait:0.32s",
-      "lmb",
       "wait:0.33s",
+      "lmb",
+      "wait:0.32s",
       "lmb",
       "wait:0.34s",
       "lmb",
@@ -361,12 +361,6 @@
       "wait:0.48s",
       "3",
       "wait:2.59s",
-      "3",
-      "wait:0.13s",
-      "3",
-      "wait:0.15s",
-      "3",
-      "wait:0.13s",
       "3",
       "wait:0.13s",
       "3",
@@ -1475,13 +1469,197 @@
     },
     "test": {
       "success": 0,
-      "fail": 0,
+      "fail": 19,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {},
-      "fail_by_expected": {},
-      "fail_by_reason": {},
-      "fail_events": []
+      "fail_by_step": {
+        "1": 12,
+        "0": 6,
+        "3": 1
+      },
+      "fail_by_expected": {
+        "seq(lmb \u2192 wait(500ms))": 12,
+        "seq(f \u2192 wait(150ms))": 6,
+        "seq(lmb \u2192 wait(450ms))": 1
+      },
+      "fail_by_reason": {
+        "expected seq(lmb \u2192 wait(500ms))": 12,
+        "expected seq(f \u2192 wait(150ms))": 6,
+        "expected seq(lmb \u2192 wait(450ms))": 1
+      },
+      "fail_events": [
+        {
+          "ts": 1778123940,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 304
+        },
+        {
+          "ts": 1778124083,
+          "attempt": 6,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 222
+        },
+        {
+          "ts": 1778124097,
+          "attempt": 7,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 80
+        },
+        {
+          "ts": 1778124101,
+          "attempt": 8,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 758
+        },
+        {
+          "ts": 1778124112,
+          "attempt": 9,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "r",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 142
+        },
+        {
+          "ts": 1778124117,
+          "attempt": 10,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 2396
+        },
+        {
+          "ts": 1778124198,
+          "attempt": 11,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 186
+        },
+        {
+          "ts": 1778124635,
+          "attempt": 1,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 82
+        },
+        {
+          "ts": 1778124698,
+          "attempt": 2,
+          "step_index": 3,
+          "expected": "seq(lmb \u2192 wait(450ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(450ms))",
+          "elapsed_ms": 5156
+        },
+        {
+          "ts": 1778124700,
+          "attempt": 3,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 46
+        },
+        {
+          "ts": 1778124725,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 512
+        },
+        {
+          "ts": 1778124727,
+          "attempt": 5,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 34
+        },
+        {
+          "ts": 1778124733,
+          "attempt": 6,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 66
+        },
+        {
+          "ts": 1778124735,
+          "attempt": 7,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 222
+        },
+        {
+          "ts": 1778124791,
+          "attempt": 8,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 446
+        },
+        {
+          "ts": 1778124904,
+          "attempt": 9,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 202
+        },
+        {
+          "ts": 1778124907,
+          "attempt": 10,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 256
+        },
+        {
+          "ts": 1778124945,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 154
+        },
+        {
+          "ts": 1778124947,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 170
+        }
+      ]
     }
   },
   "combo_expected_ms": {

@@ -194,6 +194,33 @@ async def ws_handler(
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "new_combo":
                 engine.new_combo()
+            elif mtype == "reorder_timeline_step":
+                try:
+                    from_idx = int(msg.get("from_step_index"))
+                except Exception:
+                    from_idx = -1
+                raw_before = msg.get("before_step_index")
+                before_idx = None
+                if raw_before is not None:
+                    try:
+                        before_idx = int(raw_before)
+                    except Exception:
+                        before_idx = None
+                ok, err = engine.reorder_timeline_step(from_idx, before_idx)
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
+            elif mtype == "delete_timeline_step":
+                raw_indices = msg.get("step_indices")
+                indices: list[int] = []
+                if isinstance(raw_indices, list):
+                    for x in raw_indices:
+                        try:
+                            indices.append(int(x))
+                        except Exception:
+                            continue
+                ok, err = engine.delete_timeline_steps(indices)
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "set_transcribe_mode":
                 transcribe_mode_enabled = bool(msg.get("enabled", False))
                 if transcribe_mode_enabled and macro_mode_enabled:

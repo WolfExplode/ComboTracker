@@ -507,6 +507,45 @@ def expanded_ast_from_tokens(tokens: list[str]) -> list[StepNode]:
     return ast_list
 
 
+def runtime_source_token_indices_from_tokens(tokens: list[str]) -> list[list[int]]:
+    """
+    Return source token indices for each runtime AST step produced by expanded_ast_from_tokens().
+
+    Each entry in the returned list corresponds to one runtime step index and contains
+    one or more source token indices from the original token list.
+    """
+    source_map: list[list[int]] = []
+    i = 0
+    while i < len(tokens):
+        node = parse_step(tokens[i])
+        if node is None:
+            i += 1
+            continue
+
+        # Press + following soft/hard wait collapses into one runtime SequenceNode.
+        if isinstance(node, PressNode) and i + 1 < len(tokens):
+            nxt = parse_step(tokens[i + 1])
+            if isinstance(nxt, WaitNode) and nxt.mode in ("soft", "hard") and (nxt.duration_ms or 0) > 0:
+                source_map.append([i, i + 1])
+                i += 2
+                continue
+
+        if isinstance(node, SequenceNode) and _is_composite_mandatory(node):
+            # wait(key, t) expands to two runtime steps (press + mandatory wait),
+            # both originating from the same source token.
+            source_map.append([i])
+            source_map.append([i])
+        elif isinstance(node, HoldNode) and getattr(node, "anim_lock_total_ms", None) is not None:
+            # hold(key, hold_ms, total_lock_ms) expands to hold + mandatory wait,
+            # both originating from the same source token.
+            source_map.append([i])
+            source_map.append([i])
+        else:
+            source_map.append([i])
+        i += 1
+    return source_map
+
+
 def steps_from_tokens(tokens: list[str]) -> list[dict[str, Any]]:
     """
     Parse tokens and build flat list of step dicts.

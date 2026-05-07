@@ -20,7 +20,7 @@ from persistence import load_engine_state, save_engine_state
 
 import _combo_commands as combo_commands
 import input_normalization
-from parser import expanded_ast_from_tokens
+from parser import expanded_ast_from_tokens, runtime_source_token_indices_from_tokens
 import format_utils
 import stats_recording
 import step_introspection
@@ -550,6 +550,118 @@ class ComboTrackerEngine:
     def new_combo(self):
         with self._lock:
             combo_commands.new_combo(self)
+
+    def reorder_timeline_step(self, from_runtime_idx: int, before_runtime_idx: int | None) -> tuple[bool, str | None]:
+        """Move a timeline tile (identified by its runtime index) to a new position.
+
+        If before_runtime_idx is None the tile is appended to the end.
+        Both indices refer to runtime steps produced by expanded_ast_from_tokens.
+        Multi-token groups (e.g. press+wait:0.2s) are moved as a whole.
+        """
+        with self._lock:
+            name = (self.active_combo_name or "").strip()
+            if not name or name not in self.combos:
+                return False, "No active combo selected."
+
+            tokens = list(self.combos.get(name) or [])
+            if not tokens:
+                return False, "Active combo has no inputs."
+
+            runtime_to_source = runtime_source_token_indices_from_tokens(tokens)
+            if not runtime_to_source:
+                return False, "Could not map timeline steps to input tokens."
+
+            try:
+                from_idx = int(from_runtime_idx)
+            except Exception:
+                return False, "Invalid from_step_index."
+
+            if not (0 <= from_idx < len(runtime_to_source)):
+                return False, "from_step_index out of range."
+
+            src_group = runtime_to_source[from_idx]
+
+            # Resolve the before target — first source token index of the drop target.
+            before_src: int | None = None
+            if before_runtime_idx is not None:
+                try:
+                    b_idx = int(before_runtime_idx)
+                except Exception:
+                    return False, "Invalid before_step_index."
+                if not (0 <= b_idx < len(runtime_to_source)):
+                    return False, "before_step_index out of range."
+                before_src = runtime_to_source[b_idx][0]
+
+            # Build ordered source groups: collapse all tokens into their logical tile groups.
+            seen: set[int] = set()
+            ordered_groups: list[list[int]] = []
+            for group in runtime_to_source:
+                key = tuple(group)
+                if key not in seen:
+                    seen.add(key)
+                    ordered_groups.append(group)
+
+            # Pull out the moving group and re-insert.
+            moving = list(src_group)
+            others = [g for g in ordered_groups if g != moving]
+
+            if before_src is None:
+                new_order = others + [moving]
+            else:
+                new_order = []
+                inserted = False
+                for g in others:
+                    if not inserted and before_src in g:
+                        new_order.append(moving)
+                        inserted = True
+                    new_order.append(g)
+                if not inserted:
+                    new_order.append(moving)
+
+            # Reconstruct flat token list in the new order.
+            new_tokens = [tokens[src_i] for g in new_order for src_i in g]
+
+            if new_tokens == tokens:
+                return True, None
+
+            self.combos[name] = new_tokens
+            self.save_combos()
+            self.set_active_combo(name, emit=True)
+            return True, None
+
+    def delete_timeline_steps(self, step_indices: list[int]) -> tuple[bool, str | None]:
+        with self._lock:
+            name = (self.active_combo_name or "").strip()
+            if not name or name not in self.combos:
+                return False, "No active combo selected."
+
+            tokens = list(self.combos.get(name) or [])
+            if not tokens:
+                return False, "Active combo has no inputs."
+
+            runtime_to_source = runtime_source_token_indices_from_tokens(tokens)
+            if not runtime_to_source:
+                return False, "Could not map timeline steps to input tokens."
+
+            src_to_remove: set[int] = set()
+            for raw_idx in step_indices or []:
+                try:
+                    idx = int(raw_idx)
+                except Exception:
+                    continue
+                if 0 <= idx < len(runtime_to_source):
+                    src_to_remove.update(runtime_to_source[idx])
+
+            if not src_to_remove:
+                return False, "Nothing to delete for selected step."
+            if len(src_to_remove) >= len(tokens):
+                return False, "Combo must contain at least one input."
+
+            new_tokens = [tok for i, tok in enumerate(tokens) if i not in src_to_remove]
+            self.combos[name] = new_tokens
+            self.save_combos()
+            self.set_active_combo(name, emit=True)
+            return True, None
 
     def send_transcription_result(self, transcript: str) -> None:
         """Push transcript to client: inputs field + parsed steps / timeline (used for live updates and when recording stops)."""

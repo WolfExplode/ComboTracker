@@ -939,6 +939,56 @@ button.danger:hover {
     pointer-events: none;
 }
 
+/* Drag-to-reorder */
+[draggable="true"] {
+    cursor: grab;
+}
+
+[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.step-dragging {
+    opacity: 0.35;
+    outline: 2px dashed rgba(74, 158, 255, 0.6);
+    outline-offset: 2px;
+}
+
+.step-drag-over-before {
+    outline: none;
+    box-shadow: -4px 0 0 0 var(--accent-blue), 0 0 8px rgba(74, 158, 255, 0.35);
+}
+
+.step-drag-over-after {
+    outline: none;
+    box-shadow: 4px 0 0 0 var(--accent-blue), 0 0 8px rgba(74, 158, 255, 0.35);
+}
+
+.step-delete-btn {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #ff8f8f;
+    font-size: 11px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.step-delete-btn:hover {
+    background: rgba(255, 74, 74, 0.2);
+    border-color: rgba(255, 74, 74, 0.6);
+}
+
 .step-primary {
     font-size: 30px;
     font-weight: 700;
