@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/e32ac3e1-9fc6-40bf-ac14-98cb3224156d
 
 ## Demo Video:
 <details>
-  <summary>▶ Click to view video: "How to find the best coding projects"</summary>
+  <summary>▶ Click to view in game demo video: </summary>
   <br>
   <a href="https://youtu.be/goTBFZBsBTo">
     <img src="https://img.youtube.com/vi/goTBFZBsBTo/maxresdefault.jpg" alt="Watch the video" style="width:100%;">
