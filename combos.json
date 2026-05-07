@@ -330,13 +330,13 @@
       "f",
       "wait:0.15s",
       "lmb",
-      "wait:0.5s",
+      "wait:0.4s",
       "lmb",
       "wait:0.5s",
       "lmb",
-      "wait:0.7s",
+      "wait:0.85s",
       "lmb",
-      "wait:0.15s",
+      "wait:0.1s",
       "2"
     ]
   },
@@ -427,10 +427,10 @@
       "fail_events": []
     },
     "test": {
-      "success": 0,
+      "success": 2,
       "fail": 0,
-      "best_ms": null,
-      "total_success_ms": 0,
+      "best_ms": 2050,
+      "total_success_ms": 4102,
       "fail_by_step": {},
       "fail_by_expected": {},
       "fail_by_reason": {},

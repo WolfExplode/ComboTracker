@@ -254,7 +254,7 @@ async def ws_handler(
                         spam_ms = int(spam_raw)
                     except Exception:
                         spam_ms = int(getattr(engine, "macro_spam_interval_ms", 100) or 100)
-                    engine.macro_spam_interval_ms = spam_ms if spam_ms > 0 else None
+                    engine.macro_spam_interval_ms = max(1, spam_ms)
                 else:
                     engine.macro_spam_interval_ms = None
                 macro_player.set_chain_spam_interval_ms(engine.macro_spam_interval_ms)
@@ -361,10 +361,11 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
     def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         input_name = engine.normalize_key(key)
 
-        # Esc is always a hard stop for macro regardless of any other mode.
+        # Esc always hard-stops the macro and immediately resets the visual state.
         if input_name == TRANSCRIBE_ESC_KEY and macro_player.is_running():
             macro_player.stop()
-            # Fall through: Esc also cancels the current attempt / stops transcription below.
+            engine.cancel_attempt()
+            return
 
         if transcribe_mode_enabled:
             if not transcriber.is_recording():
@@ -404,6 +405,11 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                 macro_player.stop()
                 return  # swallow the stop key
 
+        # While the macro is replaying, its synthetic keystrokes must not feed back
+        # into the detection engine — the karaoke replay_accept path handles visuals.
+        if macro_player.is_running():
+            return
+
         if input_name == TRANSCRIBE_ESC_KEY:
             engine.cancel_attempt()
             return
@@ -420,6 +426,8 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
             return
         if input_name == TRANSCRIBE_ESC_KEY:
             return  # Esc cancel already handled on press
+        if macro_player.is_running():
+            return
         engine.process_release(input_name)
 
     def on_mouse_click(_x: float, _y: float, button: mouse.Button, pressed: bool) -> None:
@@ -441,6 +449,8 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                     transcriber.key_up(btn, now)
                     _push_transcription_preview()
             return
+        if macro_player.is_running():
+            return
         if pressed:
             engine.process_press(btn)
         else:
@@ -457,10 +467,19 @@ engine = ComboTrackerEngine()
 
 
 def _on_macro_status(text: str, color: str) -> None:
+    if color == "neutral":
+        # Macro stopped early — reset visual combo state so the timeline doesn't
+        # stay mid-progress forever.
+        engine.cancel_attempt()
     engine._send({"type": "status", "text": text, "color": color})
 
 
-macro_player = MacroPlayer(on_status=_on_macro_status)
+def _on_macro_step(key: str, step_ms: float, total_ms: float) -> None:
+    """Karaoke callback: advance the visual combo state for each replayed step."""
+    engine.replay_accept(key, step_ms, total_ms)
+
+
+macro_player = MacroPlayer(on_status=_on_macro_status, on_step=_on_macro_step)
 macro_player.set_chain_spam_interval_ms(getattr(engine, "macro_spam_interval_ms", 100))
 
 

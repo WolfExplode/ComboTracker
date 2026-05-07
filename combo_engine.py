@@ -1302,6 +1302,64 @@ class ComboTrackerEngine:
         )
 
     # -------------------------
+    # Karaoke replay (called from MacroPlayer.on_step)
+    # -------------------------
+
+    def replay_accept(self, key: str, step_ms: float, total_ms: float) -> None:
+        """Advance the visual combo state for one replayed step.
+
+        Called by MacroPlayer's on_step callback; completely bypasses the
+        detection state machine so synthetic keystrokes never cause false drops.
+        The visual timeline and attempt log are driven directly by the macro's
+        own wall-clock timing.
+        """
+        with self._lock:
+            self._replay_accept_unlocked(key, step_ms, total_ms)
+
+    def _replay_accept_unlocked(self, key: str, step_ms: float, total_ms: float) -> None:
+        if not self.runtime_steps:
+            return
+
+        key = (key or "").strip().lower()
+        now = time.perf_counter()
+
+        # Start the attempt on the first replayed step.
+        if not self.last_input_time and self.current_index == 0:
+            self._insert_attempt_separator()
+            # Anchor start_time so total_ms from the macro aligns with engine timing.
+            self.start_time = now - (total_ms / 1000.0)
+            self.last_input_time = now
+            self._send({"type": "status", "text": "Macro replaying\u2026", "color": "recording"})
+
+        # Skip any standalone wait steps at the top level (rare, but handled).
+        while self.current_index < len(self.runtime_steps):
+            step = self._active_runtime_step()
+            if step is None or not isinstance(step, WaitState):
+                break
+            self.current_index += 1
+
+        step = self._active_runtime_step()
+        if step is None:
+            return
+
+        # Ignore taps that don't match the current step (extra spam taps).
+        start_keys = self._start_keys_for_step(step)
+        if start_keys and key not in start_keys:
+            return
+
+        # Record the step in the attempt log with macro-accurate timing.
+        self.record_hit(key, step_ms, total_ms)
+        self.last_input_time = now
+
+        # Advance the visual state: current_index drives the timeline rendering.
+        self.current_index += 1
+        self._update_shortcuts()
+        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+
+        if self.current_index >= len(self.runtime_steps):
+            self._on_combo_completed(total_ms)
+
+    # -------------------------
     # Input processing (called from pynput)
     # -------------------------
 

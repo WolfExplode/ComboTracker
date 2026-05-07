@@ -1443,7 +1443,7 @@ button.danger:hover {
 
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 100px 100px 110px;
+    grid-template-columns: 1fr 130px 135px 158px;
     background: var(--bg-primary);
     padding: 8px 10px;
     font-weight: bold;
@@ -1459,7 +1459,7 @@ button.danger:hover {
 .result-row,
 .fail-row {
     display: grid;
-    grid-template-columns: 1fr 100px 100px 110px;
+    grid-template-columns: 1fr 130px 135px 158px;
     padding: 6px 10px;
     border-top: 1px solid #333;
     font-family: 'Fira Code', monospace;
