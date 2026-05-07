@@ -131,6 +131,7 @@ async def ws_handler(
     websocket: websockets.WebSocketServerProtocol,
     _path: str | None = None,
 ) -> None:
+    global transcribe_mode_enabled, macro_mode_enabled
     connected_clients.add(websocket)
     print(f"Client connected. Total: {len(connected_clients)}")
 
@@ -194,8 +195,11 @@ async def ws_handler(
             elif mtype == "new_combo":
                 engine.new_combo()
             elif mtype == "set_transcribe_mode":
-                global transcribe_mode_enabled
                 transcribe_mode_enabled = bool(msg.get("enabled", False))
+                if transcribe_mode_enabled and macro_mode_enabled:
+                    macro_mode_enabled = False
+                    if macro_player.is_running():
+                        macro_player.stop()
                 valid_keys_str = str(msg.get("valid_keys") or "").strip()
                 start_raw = str(msg.get("start_key") or "").strip().lower()
                 engine.transcribe_start_key = start_raw if start_raw else "f"
@@ -208,8 +212,11 @@ async def ws_handler(
                 engine.set_no_fail_mode(bool(msg.get("enabled", False)))
                 engine.save_combos()
             elif mtype == "set_macro_mode":
-                global macro_mode_enabled
                 macro_mode_enabled = bool(msg.get("enabled", False))
+                if macro_mode_enabled and transcribe_mode_enabled:
+                    transcribe_mode_enabled = False
+                    if transcriber.is_recording():
+                        transcriber.stop()
                 start_raw = str(msg.get("start_key") or "").strip().lower()
                 stop_raw = str(msg.get("stop_key") or "").strip().lower()
                 engine.macro_start_key = start_raw if start_raw else "f8"

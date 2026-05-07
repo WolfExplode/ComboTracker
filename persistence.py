@@ -107,7 +107,7 @@ def load_engine_state(engine) -> None:
         if isinstance(tst, bool):
             engine.transcribe_strip_wait_under_enabled = tst
         elif tst is None:
-            engine.transcribe_strip_wait_under_enabled = True
+            engine.transcribe_strip_wait_under_enabled = False
         else:
             engine.transcribe_strip_wait_under_enabled = bool(tst)
 
@@ -117,7 +117,7 @@ def load_engine_state(engine) -> None:
         elif isinstance(tsms, (int, float)):
             engine.transcribe_strip_wait_under_ms = str(int(tsms))
         elif tsms is None:
-            engine.transcribe_strip_wait_under_ms = "100"
+            engine.transcribe_strip_wait_under_ms = "0"
         else:
             engine.transcribe_strip_wait_under_ms = str(tsms).strip()
 
@@ -443,9 +443,9 @@ def save_engine_state(engine) -> None:
             "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
             "transcribe_start_key": getattr(engine, "transcribe_start_key", "f") or "f",
             "transcribe_strip_wait_under_enabled": bool(
-                getattr(engine, "transcribe_strip_wait_under_enabled", True)
+                getattr(engine, "transcribe_strip_wait_under_enabled", False)
             ),
-            "transcribe_strip_wait_under_ms": getattr(engine, "transcribe_strip_wait_under_ms", "100") or "",
+            "transcribe_strip_wait_under_ms": getattr(engine, "transcribe_strip_wait_under_ms", "0") or "",
             "combo_stats": dict(engine.combo_stats),
             "combo_expected_ms": dict(engine.combo_expected_ms),
             "combo_user_difficulty": dict(engine.combo_user_difficulty),

@@ -620,11 +620,11 @@ def init_payload(engine) -> dict[str, Any]:
         "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
         "transcribe_start_key": getattr(engine, "transcribe_start_key", "f") or "f",
         "transcribe_strip_wait_under_enabled": bool(
-            getattr(engine, "transcribe_strip_wait_under_enabled", True)
+            getattr(engine, "transcribe_strip_wait_under_enabled", False)
         ),
-        "transcribe_strip_wait_under_ms": getattr(engine, "transcribe_strip_wait_under_ms", "100") or "",
-        "macro_start_key": getattr(engine, "macro_start_key", "f8") or "f8",
-        "macro_stop_key": getattr(engine, "macro_stop_key", "f9") or "f9",
+        "transcribe_strip_wait_under_ms": getattr(engine, "transcribe_strip_wait_under_ms", "0") or "",
+        "macro_start_key": getattr(engine, "macro_start_key", "f") or "f",
+        "macro_stop_key": getattr(engine, "macro_stop_key", "esc") or "esc",
     }
 
 

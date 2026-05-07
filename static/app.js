@@ -1520,6 +1520,11 @@ function transcribePersistIfOn() {
 }
 if (transcribeModeToggle) {
     transcribeModeToggle.addEventListener('change', () => {
+        if (transcribeModeToggle.checked && macroModeToggle && macroModeToggle.checked) {
+            macroModeToggle.checked = false;
+            if (macroSettingsWrap) macroSettingsWrap.classList.add('hidden');
+            sendMacroMode();
+        }
         if (transcribeValidKeysWrap) transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);
         sendTranscribeMode();
     });
@@ -1566,6 +1571,11 @@ const macroStopKeyInput = getEl('macroStopKey');
 
 if (macroModeToggle) {
     macroModeToggle.addEventListener('change', () => {
+        if (macroModeToggle.checked && transcribeModeToggle && transcribeModeToggle.checked) {
+            transcribeModeToggle.checked = false;
+            if (transcribeValidKeysWrap) transcribeValidKeysWrap.classList.add('hidden');
+            sendTranscribeMode();
+        }
         if (macroSettingsWrap) macroSettingsWrap.classList.toggle('hidden', !macroModeToggle.checked);
         sendMacroMode();
     });
