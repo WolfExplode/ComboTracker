@@ -50,6 +50,7 @@ const appState = {
     wwTeamId: '',
     batchQueue: [],
     isProcessingBatch: false,
+    avgStepMsByPosition: [],
 };
 
 // UI Initialization
@@ -697,10 +698,15 @@ function setLogAttemptsEnabled(enabled) {
     } catch (_) {
         // localStorage unavailable; runtime-only is fine.
     }
+    const resultsTable = getEl('resultsTable');
+    if (resultsTable) resultsTable.classList.toggle('hidden', !logAttemptsEnabled);
+    renderAvgSplitsOnTimeline();
 }
 
 function clearAttemptLog() {
     getEl('resultsBody').innerHTML = '';
+    appState.avgStepMsByPosition = [];
+    renderAvgSplitsOnTimeline();
 }
 
 function escapeMarkdownCell(text) {
@@ -710,8 +716,8 @@ function escapeMarkdownCell(text) {
 function buildAttemptMarkdownTable(separatorRow) {
     if (!separatorRow) return '';
     const lines = [
-        '| Input | Split (ms) | Total (ms) |',
-        '| ----- | ---------- | ---------- |',
+        '| Input | Step Time (ms) | Total (ms) | Avg Step Time (ms) |',
+        '| ----- | ---------- | ---------- | -------------- |',
     ];
 
     let cur = separatorRow.nextElementSibling;
@@ -719,11 +725,12 @@ function buildAttemptMarkdownTable(separatorRow) {
         if (cur.classList.contains('separator')) break;
         if (cur.classList.contains('result-row')) {
             const cells = cur.querySelectorAll('span');
-            if (cells.length >= 3) {
+            if (cells.length >= 4) {
                 const input = escapeMarkdownCell(cells[0].textContent?.trim() || '');
                 const split = escapeMarkdownCell(cells[1].textContent?.trim() || '—');
                 const total = escapeMarkdownCell(cells[2].textContent?.trim() || '—');
-                lines.push(`| ${input} | ${split} | ${total} |`);
+                const avgSplit = escapeMarkdownCell(cells[3].textContent?.trim() || '—');
+                lines.push(`| ${input} | ${split} | ${total} | ${avgSplit} |`);
             }
         }
         cur = cur.nextElementSibling;
@@ -757,6 +764,94 @@ async function copyAttemptToClipboard(separatorRow, copyBtn) {
     }
 }
 
+function recalcAttemptAvgSplits() {
+    const body = getEl('resultsBody');
+    if (!body) return;
+
+    // Group result rows by attempt (separated by .separator divs)
+    const attempts = [];
+    let current = null;
+    let el = body.firstElementChild;
+    while (el) {
+        if (el.classList.contains('separator')) {
+            current = [];
+            attempts.push(current);
+        } else if (el.classList.contains('result-row') && current !== null) {
+            current.push(el);
+        }
+        el = el.nextElementSibling;
+    }
+
+    const maxLen = attempts.reduce((m, a) => Math.max(m, a.length), 0);
+    const avgByPos = [];
+
+    for (let pos = 0; pos < maxLen; pos++) {
+        const splits = [];
+        for (const attempt of attempts) {
+            if (pos < attempt.length) {
+                const cells = attempt[pos].querySelectorAll('span');
+                const val = parseFloat(cells[1]?.textContent?.trim());
+                if (Number.isFinite(val)) splits.push(val);
+            }
+        }
+        const avg = splits.length > 0
+            ? splits.reduce((s, v) => s + v, 0) / splits.length
+            : null;
+        avgByPos.push(avg);
+
+        const avgText = avg !== null ? avg.toFixed(1) : '—';
+        for (const attempt of attempts) {
+            if (pos < attempt.length) {
+                const avgCell = attempt[pos].querySelector('.result-avg-split');
+                if (avgCell) avgCell.textContent = avgText;
+            }
+        }
+    }
+
+    appState.avgStepMsByPosition = avgByPos;
+    renderAvgSplitsOnTimeline();
+}
+
+function renderAvgSplitsOnTimeline() {
+    const container = getEl('comboTimeline');
+    if (!container) return;
+
+    // Clear all existing avg overlays
+    container.querySelectorAll('.step-avg-split').forEach(e => e.remove());
+
+    if (!appState.showFailCount) return;
+
+    const avgs = appState.avgStepMsByPosition || [];
+    if (avgs.length === 0) return;
+
+    // Top-level tiles in DOM order (skip chain-dash connectors)
+    const tiles = [...container.children].filter(
+        e => !e.classList.contains('timeline-chain-dash')
+    );
+
+    const parseStepIndices = (tile, fallbackIdx) => {
+        const raw = (tile.dataset.stepIndices || '').trim();
+        if (!raw) return [fallbackIdx];
+        const parsed = raw.split(',')
+            .map(v => Number.parseInt(v, 10))
+            .filter(v => Number.isFinite(v) && v >= 0);
+        return parsed.length > 0 ? parsed : [fallbackIdx];
+    };
+
+    tiles.forEach((tile, idx) => {
+        const indices = parseStepIndices(tile, idx);
+        const values = indices
+            .map(i => avgs[i])
+            .filter(v => Number.isFinite(v));
+        if (values.length === 0) return;
+        const tileAvg = values.reduce((s, v) => s + v, 0);
+        const span = document.createElement('span');
+        span.className = 'step-avg-split';
+        span.textContent = `avg step ${tileAvg.toFixed(1)}ms`;
+        tile.appendChild(span);
+    });
+}
+
 function deleteAttemptBlock(separatorRow) {
     if (!separatorRow || !separatorRow.parentElement) return;
     const toRemove = [separatorRow];
@@ -767,6 +862,7 @@ function deleteAttemptBlock(separatorRow) {
         cur = cur.nextElementSibling;
     }
     toRemove.forEach((el) => el.remove());
+    recalcAttemptAvgSplits();
 }
 
 function addAttemptSeparator(name, attempt) {
@@ -810,7 +906,8 @@ function addResultRow(data) {
     const row = document.createElement('div');
     row.className = 'result-row';
 
-    if (data.fail === true || data.split_ms === 'FAIL' || data.total_ms === 'FAIL') {
+    const stepMs = (data.step_ms != null) ? data.step_ms : data.split_ms;
+    if (data.fail === true || stepMs === 'FAIL' || data.total_ms === 'FAIL') {
         row.classList.add('fail');
     } else {
         row.classList.add('success');
@@ -818,11 +915,13 @@ function addResultRow(data) {
 
     row.innerHTML = `
         <span>${escapeHtml(data.input || '')}</span>
-        <span>${data.split_ms != null ? data.split_ms : '—'}</span>
+        <span>${stepMs != null ? stepMs : '—'}</span>
         <span>${data.total_ms != null ? data.total_ms : '—'}</span>
+        <span class="result-avg-split">—</span>
     `;
 
     body.appendChild(row);
+    recalcAttemptAvgSplits();
     scrollToBottom('resultsTable');
 }
 
@@ -1573,9 +1672,14 @@ function updateTimeline(steps, opts) {
     }
 
     function renderStep(s, idx, activeChar) {
-        if (s.type === 'group') return renderGroupStep(s, idx, activeChar);
-        if (s.type === 'sequence') return renderSequenceStep(s, idx, activeChar);
-        return renderNormalStep(s, idx, activeChar);
+        const out = (s.type === 'group')
+            ? renderGroupStep(s, idx, activeChar)
+            : (s.type === 'sequence')
+                ? renderSequenceStep(s, idx, activeChar)
+                : renderNormalStep(s, idx, activeChar);
+        const indices = Array.isArray(s.step_indices) ? s.step_indices : [idx];
+        out.tile.dataset.stepIndices = indices.join(',');
+        return out;
     }
 
     const buildCollapsedLmbPressWaitStep = (chainSteps) => {
@@ -1650,6 +1754,8 @@ function updateTimeline(steps, opts) {
             container.appendChild(dash);
         }
     }
+
+    renderAvgSplitsOnTimeline();
 
     if (viewport?.classList.contains('auto-scroll-on')) {
         requestAnimationFrame(() => {
@@ -2058,8 +2164,9 @@ if (logAttemptsToggleEl) {
 }
 
 function scrollToBottom(el) {
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    const target = (typeof el === 'string') ? getEl(el) : el;
+    if (!target) return;
+    target.scrollTop = target.scrollHeight;
 }
 
 function escapeHtml(text) {

@@ -194,8 +194,8 @@
                     <span class="toggle-label">Auto scroll</span>
                     <input type="checkbox" id="autoScrollToggle" class="toggle-switch" title="Auto scroll combo steps as you advance">
 
-                    <span class="toggle-label">Show fail count</span>
-                    <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show fail count on each step and highlight failed steps">
+                    <span class="toggle-label">Show attempt history</span>
+                    <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
 
                     <span class="toggle-label">Edit steps</span>
                     <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps">
@@ -252,8 +252,9 @@
             <div id="resultsTable" class="results-table">
                 <div class="table-header">
                     <span>Input</span>
-                    <span>Split (ms)</span>
-                    <span>Total (ms)</span>
+                    <span>Step Time (ms)</span>
+                    <span>Total Time(ms)</span>
+                    <span>Avg Step Time (ms)</span>
                 </div>
                 <div id="resultsBody"></div>
             </div>

@@ -67,6 +67,9 @@ class ComboTrackerEngine:
         self.wait: WaitState | None = None
         self.start_time = 0.0
         self.last_input_time = 0.0
+        # Boundary-based timing: finalize previous step when next boundary is reached.
+        self.pending_step_label: str | None = None
+        self.pending_step_started_at = 0.0
         self.attempt_counter = 0
 
         self.hold_in_progress = False
@@ -751,6 +754,8 @@ class ComboTrackerEngine:
         self.current_index = 0
         self.start_time = 0.0
         self.last_input_time = 0.0
+        self.pending_step_label = None
+        self.pending_step_started_at = 0.0
         self.attempt_counter = 0
         self.last_success_input = None
         self._ender_cooldown_until.clear()
@@ -782,17 +787,37 @@ class ComboTrackerEngine:
         self._ui_last_success_steps_len = 0
         self._send({"type": "attempt_start", "name": name, "attempt": self.attempt_counter})
 
-    def record_hit(self, label: str, split_ms: float | str, total_ms: float | str):
+    def record_hit(self, label: str, step_ms: float | str, total_ms: float | str):
         # Keep formatting consistent with HTML table
-        if isinstance(split_ms, (float, int)):
-            split = f"{float(split_ms):.1f}"
+        if isinstance(step_ms, (float, int)):
+            step_s = f"{float(step_ms):.1f}"
         else:
-            split = str(split_ms)
+            step_s = str(step_ms)
         if isinstance(total_ms, (float, int)):
             total = f"{float(total_ms):.1f}"
         else:
             total = str(total_ms)
-        self._send({"type": "hit", "input": label, "split_ms": split, "total_ms": total})
+        # Keep split_ms temporarily for compatibility with older clients.
+        self._send({"type": "hit", "input": label, "step_ms": step_s, "split_ms": step_s, "total_ms": total})
+
+    def _record_step_timing(self, label: str, now: float) -> None:
+        """Finalize previous step timing and queue current accepted step."""
+        if self.pending_step_label is not None and self.pending_step_started_at > 0:
+            step_ms = max(0.0, (now - self.pending_step_started_at) * 1000.0)
+            total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+            self.record_hit(self.pending_step_label, step_ms, total_ms)
+        self.pending_step_label = str(label or "")
+        self.pending_step_started_at = float(now)
+
+    def _flush_pending_step_timing(self, now: float) -> None:
+        """Flush pending step timing at attempt boundary (complete/fail)."""
+        if self.pending_step_label is None or self.pending_step_started_at <= 0:
+            return
+        step_ms = max(0.0, (now - self.pending_step_started_at) * 1000.0)
+        total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+        self.record_hit(self.pending_step_label, step_ms, total_ms)
+        self.pending_step_label = None
+        self.pending_step_started_at = 0.0
 
     def _reset_hold_state(self):
         # If we were showing a hold indicator in the UI, clear it.
@@ -840,6 +865,8 @@ class ComboTrackerEngine:
         # (A new attempt will re-initialize timing on the first accepted input.)
         self.start_time = 0.0
         self.last_input_time = 0.0
+        self.pending_step_label = None
+        self.pending_step_started_at = 0.0
         try:
             self.currently_pressed.clear()
         except Exception:
@@ -853,6 +880,8 @@ class ComboTrackerEngine:
 
     def _on_combo_completed(self, total_ms: float) -> None:
         """Record success, reset to start, and notify UI. Single place for combo completion."""
+        flush_now = (self.start_time + (float(total_ms) / 1000.0)) if self.start_time else time.perf_counter()
+        self._flush_pending_step_timing(flush_now)
         self.record_combo_success(total_ms)
         # Snapshot timeline while steps are still in completed state; after _reset_to_start()
         # all step state is cleared, so the UI would lose the "completed" styling.
@@ -880,6 +909,8 @@ class ComboTrackerEngine:
         self.current_index = 0
         self.start_time = 0.0
         self.last_input_time = 0.0
+        self.pending_step_label = None
+        self.pending_step_started_at = 0.0
         self._ender_cooldown_until.clear()
         self.ww.ww_active_character = None
         self._hold_max_held_ms = 0.0
@@ -998,17 +1029,17 @@ class ComboTrackerEngine:
 
     def _send_combo_dropped(self, full_status_text: str, now: float) -> None:
         """Send one message for both status display and attempt log (single source of truth).
-        Uses same row shape as 'hit' (input, split_ms, total_ms) so the frontend can treat
+        Uses same row shape as 'hit' (input, step_ms, total_ms) so the frontend can treat
         both as attempt-log rows; combo_dropped also updates the status line.
         Timings are computed from engine state before reset (same format as success rows)."""
+        self._flush_pending_step_timing(now)
         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
-        split_ms = (now - self.last_input_time) * 1000.0 if self.last_input_time else 0.0
-        split_s = f"{float(split_ms):.1f}" if isinstance(split_ms, (float, int)) else str(split_ms)
         total_s = f"{float(total_ms):.1f}" if isinstance(total_ms, (float, int)) else str(total_ms)
         self._send({
             "type": "combo_dropped",
             "input": full_status_text,
-            "split_ms": split_s,
+            "step_ms": "FAIL",
+            "split_ms": "FAIL",
             "total_ms": total_s,
             "color": "fail",
             "fail": True,
@@ -1141,8 +1172,7 @@ class ComboTrackerEngine:
             self._reset_after_fail()
             return False
 
-        split_ms = (now - self.last_input_time) * 1000 if self.last_input_time else 0.0
-        self.record_hit(label, split_ms, total_ms)
+        self._record_step_timing(label, now)
         self.last_input_time = now
         self.current_index += 1
         self._reset_wait_state()
@@ -1186,7 +1216,6 @@ class ComboTrackerEngine:
         ok = held_ms >= float(target_hold_ms)
 
         req_s = self._format_hold_requirement(target_hold_ms)
-        split_ms = (now - self.last_input_time) * 1000 if self.current_index != 0 else 0.0
         total_ms = (now - self.start_time) * 1000 if self.start_time else 0.0
 
         label = f"{target_input} (hold ≥ {req_s}, {held_ms:.0f}ms)"
@@ -1194,7 +1223,7 @@ class ComboTrackerEngine:
             label += " [auto]"
 
         if ok:
-            self.record_hit(label, split_ms, total_ms)
+            self._record_step_timing(label, now)
             self.last_input_time = now
             self.last_success_input = target_input
             self._start_ender_cooldown(target_input, now)
@@ -1383,9 +1412,7 @@ class ComboTrackerEngine:
         if isinstance(result, AcceptResult):
             self._ensure_attempt_started(now)
             if result.record_hit:
-                split_ms = (now - self.last_input_time) * 1000.0 if self.current_index != 0 else 0.0
-                total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
-                self.record_hit(input_name, split_ms, total_ms)
+                self._record_step_timing(input_name, now)
             self.last_input_time = now
             self.last_success_input = input_name
             self._start_ender_cooldown(input_name, now)

@@ -1103,6 +1103,18 @@ button.danger:hover {
     text-align: center;
 }
 
+.step-avg-split {
+    font-size: 9px;
+    font-weight: 500;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    color: var(--accent-blue);
+    opacity: 0.7;
+    text-align: center;
+    margin-top: 2px;
+    display: block;
+    pointer-events: none;
+}
+
 .hold-progress {
     margin-top: 8px;
     height: 10px;
@@ -1431,7 +1443,7 @@ button.danger:hover {
 
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 100px 100px;
+    grid-template-columns: 1fr 100px 100px 110px;
     background: var(--bg-primary);
     padding: 8px 10px;
     font-weight: bold;
@@ -1447,7 +1459,7 @@ button.danger:hover {
 .result-row,
 .fail-row {
     display: grid;
-    grid-template-columns: 1fr 100px 100px;
+    grid-template-columns: 1fr 100px 100px 110px;
     padding: 6px 10px;
     border-top: 1px solid #333;
     font-family: 'Fira Code', monospace;
@@ -1474,7 +1486,7 @@ button.danger:hover {
 .result-row.separator {
     color: var(--text-secondary);
     font-style: italic;
-    grid-column: span 3;
+    grid-column: span 4;
     display: flex;
     align-items: center;
     justify-content: center;
