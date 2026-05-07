@@ -66,6 +66,8 @@ You can package ComboTracker as a single executable so others can run it without
 
 You can show the **Combo Steps** timeline in OBS as a separate overlay (e.g. for streaming or recording).
 
+https://github.com/user-attachments/assets/0639590a-1de7-43b0-9ec8-b7eda59a833e
+
 1. In the main UI, open the **Combo Steps** section and click **Copy Overlay URL**.
 2. In OBS, add a **Browser Source**, paste the URL (e.g. `http://localhost:8080/?view=timeline`), and set the width/height you want. The overlay stays in sync with the app via WebSocket.
 3. **Open in new window** is also available if you prefer OBS **Window Capture** instead of Browser Source.
