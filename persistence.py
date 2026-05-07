@@ -97,6 +97,12 @@ def load_engine_state(engine) -> None:
         else:
             engine.transcribe_valid_keys = getattr(engine, "transcribe_valid_keys", "") or ""
 
+        tsk = data.get("transcribe_start_key")
+        if isinstance(tsk, str) and tsk.strip():
+            engine.transcribe_start_key = tsk.strip().lower()
+        else:
+            engine.transcribe_start_key = getattr(engine, "transcribe_start_key", "f") or "f"
+
         # Stats
         stats = data.get("combo_stats", {})
         if isinstance(stats, dict):
@@ -403,6 +409,7 @@ def save_engine_state(engine) -> None:
             "combo_enders": dict(engine.combo_enders),
             "combo_enders_soft": list(getattr(engine, "combo_enders_soft", set())),
             "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
+            "transcribe_start_key": getattr(engine, "transcribe_start_key", "f") or "f",
             "combo_stats": dict(engine.combo_stats),
             "combo_expected_ms": dict(engine.combo_expected_ms),
             "combo_user_difficulty": dict(engine.combo_user_difficulty),

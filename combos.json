@@ -263,41 +263,6 @@
       "hold(lmb, 0.3s)",
       "wait(r, 4.2s)"
     ],
-    "test": [
-      "f",
-      "wait:0.2s",
-      "e",
-      "wait:0.15s",
-      "2",
-      "e",
-      "wait:0.15s",
-      "3",
-      "[q, e, wait(r, 2.9s)]",
-      "lmb",
-      "wait:0.30s",
-      "lmb",
-      "wait:0.20s",
-      "rmb",
-      "2",
-      "[e, wait:0.05s, q]",
-      "3",
-      "lmb",
-      "wait:0.30s",
-      "lmb",
-      "wait:0.20s",
-      "rmb",
-      "1",
-      "hold(lmb, 0.25s)",
-      "lmb",
-      "wait:0.3s",
-      "2",
-      "space",
-      "wait:0.15s",
-      "3",
-      "lmb",
-      "wait:0.20s",
-      "hold(lmb, 0.25s)"
-    ],
     "Agusta, Iuno, Shorekeeper Double vs monkey": [
       "f",
       "wait:0.2s",
@@ -371,7 +336,8 @@
   "combo_enders_soft": [
     "space"
   ],
-  "transcribe_valid_keys": "f, e, q, r, lmb, rmb, 1, 2, 3, space,",
+  "transcribe_valid_keys": "f, e, q, r, lmb, rmb, 1, 2, 3, space, shift",
+  "transcribe_start_key": "f",
   "combo_stats": {
     "Zani 1": {
       "success": 0,
@@ -540,15 +506,15 @@
     },
     "Aemeath, Lynae, Mornye": {
       "success": 2,
-      "fail": 45,
+      "fail": 49,
       "best_ms": 42351,
       "total_success_ms": 90851,
       "fail_by_step": {
         "22": 3,
-        "6": 2,
+        "6": 3,
         "7": 1,
         "24": 1,
-        "1": 18,
+        "1": 19,
         "25": 2,
         "10": 1,
         "36": 1,
@@ -557,14 +523,15 @@
         "5": 8,
         "4": 1,
         "2": 3,
-        "28": 1
+        "28": 1,
+        "0": 2
       },
       "fail_by_expected": {
         "2": 3,
-        "seq(e \u2192 wait(100ms))": 2,
+        "seq(e \u2192 wait(100ms))": 3,
         "3": 1,
         "hold(lmb,\u22651500ms)": 1,
-        "seq(lmb \u2192 wait(500ms))": 18,
+        "seq(lmb \u2192 wait(500ms))": 19,
         "wait(\u2265200ms)": 2,
         "seq(lmb \u2192 wait(100ms))": 1,
         "f": 1,
@@ -573,14 +540,15 @@
         "seq(2 \u2192 wait(150ms))": 8,
         "seq(lmb \u2192 wait(200ms))": 1,
         "seq(lmb \u2192 wait(400ms))": 3,
-        "seq(space \u2192 wait(750ms))": 1
+        "seq(space \u2192 wait(750ms))": 1,
+        "seq(f \u2192 wait(150ms))": 2
       },
       "fail_by_reason": {
         "expected 2": 3,
-        "expected seq(e \u2192 wait(100ms))": 2,
+        "expected seq(e \u2192 wait(100ms))": 3,
         "expected 3": 1,
         "expected hold(lmb,\u22651500ms)": 1,
-        "expected seq(lmb \u2192 wait(500ms))": 18,
+        "expected seq(lmb \u2192 wait(500ms))": 19,
         "only waited for 0.14s, combo ended by space": 1,
         "expected seq(lmb \u2192 wait(100ms))": 1,
         "expected f": 1,
@@ -590,7 +558,8 @@
         "expected seq(lmb \u2192 wait(200ms))": 1,
         "only waited for 0.15s, combo ended by space": 1,
         "expected seq(lmb \u2192 wait(400ms))": 3,
-        "expected seq(space \u2192 wait(750ms))": 1
+        "expected seq(space \u2192 wait(750ms))": 1,
+        "expected seq(f \u2192 wait(150ms))": 2
       },
       "fail_events": [
         {
@@ -997,54 +966,70 @@
           "actual": "r",
           "reason": "expected seq(lmb \u2192 wait(500ms))",
           "elapsed_ms": 626
-        }
-      ]
-    },
-    "test": {
-      "success": 1,
-      "fail": 1,
-      "best_ms": 12977,
-      "total_success_ms": 12977,
-      "fail_by_step": {
-        "0": 1
-      },
-      "fail_by_expected": {
-        "seq(f \u2192 wait(200ms))": 1
-      },
-      "fail_by_reason": {
-        "expected seq(f \u2192 wait(200ms))": 1
-      },
-      "fail_events": [
+        },
         {
-          "ts": 1771282332,
+          "ts": 1778111892,
           "attempt": 1,
           "step_index": 0,
-          "expected": "seq(f \u2192 wait(200ms))",
-          "actual": "1",
-          "reason": "expected seq(f \u2192 wait(200ms))",
-          "elapsed_ms": 186
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 40
+        },
+        {
+          "ts": 1778111932,
+          "attempt": 2,
+          "step_index": 6,
+          "expected": "seq(e \u2192 wait(100ms))",
+          "actual": "space",
+          "reason": "expected seq(e \u2192 wait(100ms))",
+          "elapsed_ms": 9208
+        },
+        {
+          "ts": 1778112045,
+          "attempt": 3,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 92
+        },
+        {
+          "ts": 1778112066,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 212
         }
       ]
     },
     "Agusta, Iuno, Shorekeeper Double vs monkey": {
       "success": 0,
-      "fail": 9,
+      "fail": 14,
       "best_ms": null,
       "total_success_ms": 0,
       "fail_by_step": {
-        "1": 7,
-        "2": 1,
-        "8": 1
+        "1": 8,
+        "2": 2,
+        "8": 1,
+        "5": 1,
+        "0": 2
       },
       "fail_by_expected": {
-        "seq(e \u2192 wait(150ms))": 7,
-        "2": 1,
-        "seq(rmb \u2192 wait(200ms))": 1
+        "seq(e \u2192 wait(150ms))": 8,
+        "2": 2,
+        "seq(rmb \u2192 wait(200ms))": 1,
+        "any-order(q|e|r)": 1,
+        "seq(f \u2192 wait(200ms))": 2
       },
       "fail_by_reason": {
-        "expected seq(e \u2192 wait(150ms))": 7,
-        "expected 2": 1,
-        "expected seq(rmb \u2192 wait(200ms))": 1
+        "expected seq(e \u2192 wait(150ms))": 8,
+        "expected 2": 2,
+        "expected seq(rmb \u2192 wait(200ms))": 1,
+        "expected any-order(q|e|r)": 1,
+        "expected seq(f \u2192 wait(200ms))": 2
       },
       "fail_events": [
         {
@@ -1127,6 +1112,51 @@
           "actual": "space",
           "reason": "expected seq(rmb \u2192 wait(200ms))",
           "elapsed_ms": 128490
+        },
+        {
+          "ts": 1778110556,
+          "attempt": 1,
+          "step_index": 5,
+          "expected": "any-order(q|e|r)",
+          "actual": "e",
+          "reason": "expected any-order(q|e|r)",
+          "elapsed_ms": 77433
+        },
+        {
+          "ts": 1778110556,
+          "attempt": 2,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(200ms))",
+          "actual": "e",
+          "reason": "expected seq(f \u2192 wait(200ms))",
+          "elapsed_ms": 174
+        },
+        {
+          "ts": 1778110584,
+          "attempt": 3,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(200ms))",
+          "actual": "e",
+          "reason": "expected seq(f \u2192 wait(200ms))",
+          "elapsed_ms": 170
+        },
+        {
+          "ts": 1778110591,
+          "attempt": 4,
+          "step_index": 2,
+          "expected": "2",
+          "actual": "space",
+          "reason": "expected 2",
+          "elapsed_ms": 854
+        },
+        {
+          "ts": 1778110608,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "seq(e \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(e \u2192 wait(150ms))",
+          "elapsed_ms": 252
         }
       ]
     }
@@ -1153,7 +1183,6 @@
     "Zani Pheobe Rover Rotation": "images",
     "Agusta, Iuno, Shorekeeper Double intro": "images",
     "Aemeath, Lynae, Mornye": "images",
-    "test": "images",
     "Agusta, Iuno, Shorekeeper Double vs monkey": "images"
   },
   "combo_key_images": {},
@@ -1167,7 +1196,6 @@
     "Zani 3": "wuthering_waves",
     "Agusta, Iuno, Shorekeeper Double intro": "wuthering_waves",
     "Aemeath, Lynae, Mornye": "wuthering_waves",
-    "test": "wuthering_waves",
     "Agusta, Iuno, Shorekeeper Double vs monkey": "wuthering_waves"
   },
   "ww_teams": {
@@ -1175,30 +1203,30 @@
       "name": "Zani, Pheobe, Rover",
       "dash_image": "\ud83d\udca8",
       "swap_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_38_UI.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_45_UI.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_5.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_38_UI.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_45_UI.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_5.png"
       },
       "lmb_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorFist.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorMagic.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorKnife.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorFist.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorMagic.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorKnife.png"
       },
       "ability_images": {
         "1": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZanniB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_32033_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZanniC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconZanniB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_32033_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconZanniC1.png"
         },
         "2": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconFeibiB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_995_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconFeibiC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconFeibiB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_995_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconFeibiC1.png"
         },
         "3": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZhujueB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_350_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconZhujueC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconZhujueB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_350_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconZhujueC1.png"
         }
       }
     },
@@ -1206,30 +1234,30 @@
       "name": "Agusta, Iuno, Shorekeeper",
       "dash_image": "\ud83d\udca8",
       "swap_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_51_UI.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_48_UI.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_28_UI.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_51_UI.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_48_UI.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_28_UI.png"
       },
       "lmb_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorSword.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorFist.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorMagic.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorSword.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorFist.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorMagic.png"
       },
       "ability_images": {
         "1": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconAogusitaB3.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34017_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconAogusitaC2.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconAogusitaB3.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34017_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconAogusitaC2.png"
         },
         "2": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconYounuoB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34018_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconYounuoC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconYounuoB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34018_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconYounuoC1.png"
         },
         "3": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconShouanrenB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_350_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconShouanrenC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconShouanrenB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_350_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconShouanrenC1.png"
         }
       }
     },
@@ -1237,30 +1265,30 @@
       "name": "Aemeath, Lynae, Mornye",
       "dash_image": "\ud83d\udca8",
       "swap_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_53_UI.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_60_UI.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_200x200/images/IconRoleHead150/T_IconRoleHead150_61_UI.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_53_UI.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_60_UI.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_61_UI.png"
       },
       "lmb_images": {
-        "1": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorKnife.png",
-        "2": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorGun.png",
-        "3": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconNorSword.png"
+        "1": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorKnife.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorGun.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorSword.png"
       },
       "ability_images": {
         "1": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconAimisiB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34025_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconAimisiC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconAimisiB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34025_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconAimisiC1.png"
         },
         "2": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconLinNaiB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34021_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconLinNaiC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconLinNaiB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34021_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconLinNaiC1.png"
         },
         "3": {
-          "e": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconMoNingB1.png",
-          "q": "https://wuthering.gg/_ipx/q_70&s_68x68/images/MstSkill/T_MstSkil_34022_UI.png",
-          "r": "https://wuthering.gg/_ipx/q_70&s_64x64/images/IconSkill/SP_IconMoNingC1.png"
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconMoNingB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34022_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconMoNingC1.png"
         }
       }
     }
@@ -1273,7 +1301,6 @@
     "Zani 2": "986f16f581",
     "Agusta, Iuno, Shorekeeper Double intro": "cd717b20ac",
     "Aemeath, Lynae, Mornye": "c70c25857f",
-    "test": "cd717b20ac",
     "Agusta, Iuno, Shorekeeper Double vs monkey": "cd717b20ac"
   }
 }

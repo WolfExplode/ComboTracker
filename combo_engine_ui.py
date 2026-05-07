@@ -618,6 +618,7 @@ def init_payload(engine) -> dict[str, Any]:
         "fail_by_step": failures_by_step(engine),
         "editor": get_editor_payload(engine),
         "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
+        "transcribe_start_key": getattr(engine, "transcribe_start_key", "f") or "f",
     }
 
 

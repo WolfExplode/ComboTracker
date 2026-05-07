@@ -501,6 +501,10 @@ button.danger:hover {
     max-width: 400px;
 }
 
+.transcribe-valid-keys-wrap .transcribe-start-key-input {
+    max-width: 160px;
+}
+
 /* Collapsible Sections */
 .section-details > summary {
     cursor: pointer;

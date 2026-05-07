@@ -1,6 +1,6 @@
 """
 Auto-transcription: record key down/up with timestamps and produce combo syntax.
-Used when transcribe mode is on: start with f, stop with Esc; output goes to Inputs field.
+Used when transcribe mode is on: start key is configurable (default f), stop with Esc; output goes to Inputs field.
 """
 
 from __future__ import annotations

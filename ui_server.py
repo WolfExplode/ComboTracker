@@ -20,8 +20,12 @@ from transcriber import Transcriber
 
 logger = logging.getLogger(__name__)
 
-TRANSCRIBE_START_KEY = "f"
 TRANSCRIBE_ESC_KEY = "esc"
+
+
+def _normalized_transcribe_start_key() -> str:
+    raw = (getattr(engine, "transcribe_start_key", "") or "").strip().lower()
+    return raw if raw else "f"
 
 transcribe_mode_enabled = False
 
@@ -160,6 +164,8 @@ async def ws_handler(
                 global transcribe_mode_enabled
                 transcribe_mode_enabled = bool(msg.get("enabled", False))
                 valid_keys_str = str(msg.get("valid_keys") or "").strip()
+                start_raw = str(msg.get("start_key") or "").strip().lower()
+                engine.transcribe_start_key = start_raw if start_raw else "f"
                 transcriber.set_valid_keys(valid_keys_str)
                 engine.transcribe_valid_keys = valid_keys_str
                 engine.save_combos()
@@ -206,7 +212,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
             if not transcriber.is_recording():
                 if input_name == TRANSCRIBE_ESC_KEY:
                     return
-                if input_name == TRANSCRIBE_START_KEY:
+                if input_name == _normalized_transcribe_start_key():
                     transcribe_keys_held.clear()
                     transcribe_mouse_last_up.clear()
                     transcribe_mouse_merging.clear()

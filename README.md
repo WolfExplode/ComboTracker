@@ -100,3 +100,9 @@ Combos and stats are stored locally in `combos.json`.
 ```bash
 python -m pytest tests\ -v
 ```
+
+
+
+## Troubleshooting
+If keystrokes are not registering when in game, launch the code in elevated command prompt, with administrator.
+

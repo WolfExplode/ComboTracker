@@ -122,6 +122,8 @@ function initializeUI(data) {
 
     const transcribeValidKeysEl = getEl('transcribeValidKeys');
     if (transcribeValidKeysEl && data.transcribe_valid_keys !== undefined) transcribeValidKeysEl.value = data.transcribe_valid_keys || '';
+    const transcribeStartKeyEl = getEl('transcribeStartKey');
+    if (transcribeStartKeyEl && data.transcribe_start_key !== undefined) transcribeStartKeyEl.value = data.transcribe_start_key || '';
 }
 
 function normalizeTargetGame(v) {
@@ -1440,15 +1442,18 @@ if (openTimelineWindowBtn) {
 function sendTranscribeMode() {
     const toggle = getEl('transcribeModeToggle');
     const validInput = getEl('transcribeValidKeys');
+    const startInput = getEl('transcribeStartKey');
     sendMessage('set_transcribe_mode', {
         enabled: !!(toggle && toggle.checked),
-        valid_keys: (validInput && validInput.value.trim()) || ''
+        valid_keys: (validInput && validInput.value.trim()) || '',
+        start_key: (startInput && startInput.value.trim()) || ''
     });
 }
 
 const transcribeModeToggle = getEl('transcribeModeToggle');
 const transcribeValidKeysWrap = getEl('transcribeValidKeysWrap');
 const transcribeValidKeysInput = getEl('transcribeValidKeys');
+const transcribeStartKeyInput = getEl('transcribeStartKey');
 if (transcribeModeToggle) {
     transcribeModeToggle.addEventListener('change', () => {
         if (transcribeValidKeysWrap) transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);
@@ -1458,6 +1463,10 @@ if (transcribeModeToggle) {
 if (transcribeValidKeysInput) {
     transcribeValidKeysInput.addEventListener('blur', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
     transcribeValidKeysInput.addEventListener('input', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
+}
+if (transcribeStartKeyInput) {
+    transcribeStartKeyInput.addEventListener('blur', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
+    transcribeStartKeyInput.addEventListener('input', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
 }
 if (transcribeValidKeysWrap && transcribeModeToggle) {
     transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);

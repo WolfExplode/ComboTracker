@@ -37,11 +37,13 @@
                     <label>Auto transcribe</label>
                     <div class="transcribe-row">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="transcribeModeToggle" title="Record combo: press F to start, Esc to stop. Only keys listed in Valid keys are transcribed.">
-                            Record combo (F to start, Esc to stop)
+                            <input type="checkbox" id="transcribeModeToggle" title="Press your start key to begin; Esc stops. Include the start key in Valid keys so it is recorded.">
+                            Record combo (Esc to stop)
                         </label>
                         <div id="transcribeValidKeysWrap" class="transcribe-valid-keys-wrap hidden">
-                            <label>Valid keys:</label>
+                            <label>Start key (press this key to begin recording):</label>
+                            <input type="text" id="transcribeStartKey" placeholder="f" maxlength="32" class="transcribe-valid-input transcribe-start-key-input" title="Single key token (e.g. f, q, space, lmb). Must appear in Valid keys to be transcribed.">
+                            <label>Valid keys (only these keys will be transcribed):</label>
                             <input type="text" id="transcribeValidKeys" placeholder="f, e, q, r, lmb, rmb, 1, 2, 3" class="transcribe-valid-input">
                         </div>
                     </div>

@@ -101,6 +101,8 @@ class ComboTrackerEngine:
         self.combo_enders_soft: set[str] = set()
         # Auto-transcribe: comma-separated valid keys (persisted like combo_enders)
         self.transcribe_valid_keys: str = ""
+        # Key that begins a transcription when auto-transcribe is on (normalized token, e.g. f, space, lmb)
+        self.transcribe_start_key: str = "f"
         self.last_success_input: str | None = None
         # Per-ender cooldown: key -> time.perf_counter() when that key's cooldown ends.
         # When the user correctly presses an ender key, we set cooldown for that key so
