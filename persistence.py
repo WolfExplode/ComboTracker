@@ -413,7 +413,7 @@ def load_engine_state(engine) -> None:
                     iv = 100
                 else:
                     iv = int(fallback)
-            engine.macro_spam_interval_ms = max(1, iv)
+            engine.macro_spam_interval_ms = iv if iv > 0 else None
 
         last_active = data.get("last_active_combo")
         if last_active in engine.combos:

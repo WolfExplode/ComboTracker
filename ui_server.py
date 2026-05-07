@@ -254,7 +254,7 @@ async def ws_handler(
                         spam_ms = int(spam_raw)
                     except Exception:
                         spam_ms = int(getattr(engine, "macro_spam_interval_ms", 100) or 100)
-                    engine.macro_spam_interval_ms = max(1, spam_ms)
+                    engine.macro_spam_interval_ms = spam_ms if spam_ms > 0 else None
                 else:
                     engine.macro_spam_interval_ms = None
                 macro_player.set_chain_spam_interval_ms(engine.macro_spam_interval_ms)

@@ -296,7 +296,7 @@ class MacroPlayer:
         except Exception:
             iv = _DEFAULT_CHAIN_SPAM_INTERVAL_MS
         with self._lock:
-            self._chain_spam_interval_ms = max(1, iv)
+            self._chain_spam_interval_ms = iv if iv > 0 else None
 
     def is_running(self) -> bool:
         with self._lock:

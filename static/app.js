@@ -703,13 +703,102 @@ function clearAttemptLog() {
     getEl('resultsBody').innerHTML = '';
 }
 
+function escapeMarkdownCell(text) {
+    return (text || '').toString().replace(/\|/g, '\\|');
+}
+
+function buildAttemptMarkdownTable(separatorRow) {
+    if (!separatorRow) return '';
+    const lines = [
+        '| Input | Split (ms) | Total (ms) |',
+        '| ----- | ---------- | ---------- |',
+    ];
+
+    let cur = separatorRow.nextElementSibling;
+    while (cur) {
+        if (cur.classList.contains('separator')) break;
+        if (cur.classList.contains('result-row')) {
+            const cells = cur.querySelectorAll('span');
+            if (cells.length >= 3) {
+                const input = escapeMarkdownCell(cells[0].textContent?.trim() || '');
+                const split = escapeMarkdownCell(cells[1].textContent?.trim() || '—');
+                const total = escapeMarkdownCell(cells[2].textContent?.trim() || '—');
+                lines.push(`| ${input} | ${split} | ${total} |`);
+            }
+        }
+        cur = cur.nextElementSibling;
+    }
+
+    return lines.length > 2 ? lines.join('\n') : '';
+}
+
+async function copyAttemptToClipboard(separatorRow, copyBtn) {
+    const markdown = buildAttemptMarkdownTable(separatorRow);
+    if (!markdown) return;
+    try {
+        await navigator.clipboard.writeText(markdown);
+    } catch (_) {
+        const ta = document.createElement('textarea');
+        ta.value = markdown;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    }
+    if (copyBtn) {
+        const originalTitle = copyBtn.title;
+        copyBtn.title = 'Copied!';
+        setTimeout(() => {
+            copyBtn.title = originalTitle;
+        }, 1200);
+    }
+}
+
+function deleteAttemptBlock(separatorRow) {
+    if (!separatorRow || !separatorRow.parentElement) return;
+    const toRemove = [separatorRow];
+    let cur = separatorRow.nextElementSibling;
+    while (cur) {
+        if (cur.classList.contains('separator')) break;
+        toRemove.push(cur);
+        cur = cur.nextElementSibling;
+    }
+    toRemove.forEach((el) => el.remove());
+}
+
 function addAttemptSeparator(name, attempt) {
     if (!isLogAttemptsEnabled()) return;
     const body = getEl('resultsBody');
     if (!body) return;
     const row = document.createElement('div');
     row.className = 'result-row separator';
-    row.textContent = `—— ${name} | Attempt ${attempt} ——`;
+
+    const label = document.createElement('span');
+    label.className = 'attempt-separator-label';
+    label.textContent = `—— ${name} | Attempt ${attempt} ——`;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'attempt-copy-btn subtle icon-btn';
+    copyBtn.title = 'Copy this attempt as table';
+    copyBtn.setAttribute('aria-label', 'Copy this attempt as table');
+    copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+    copyBtn.addEventListener('click', () => copyAttemptToClipboard(row, copyBtn));
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'attempt-delete-btn danger subtle icon-btn';
+    deleteBtn.title = 'Delete this attempt from log';
+    deleteBtn.setAttribute('aria-label', 'Delete this attempt from log');
+    deleteBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+    deleteBtn.addEventListener('click', () => deleteAttemptBlock(row));
+
+    row.appendChild(label);
+    row.appendChild(copyBtn);
+    row.appendChild(deleteBtn);
     body.appendChild(row);
     scrollToBottom('resultsTable');
 }

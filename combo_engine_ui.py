@@ -626,7 +626,11 @@ def init_payload(engine) -> dict[str, Any]:
         "macro_start_key": getattr(engine, "macro_start_key", "f") or "f",
         "macro_stop_key": getattr(engine, "macro_stop_key", "esc") or "esc",
         "macro_spam_interval_ms": (
-            None if getattr(engine, "macro_spam_interval_ms", None) in (None, "")
+            None
+            if (
+                getattr(engine, "macro_spam_interval_ms", None) in (None, "")
+                or int(getattr(engine, "macro_spam_interval_ms", 100)) <= 0
+            )
             else int(getattr(engine, "macro_spam_interval_ms", 100))
         ),
     }

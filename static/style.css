@@ -1474,8 +1474,56 @@ button.danger:hover {
 .result-row.separator {
     color: var(--text-secondary);
     font-style: italic;
-    text-align: center;
     grid-column: span 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding-right: 62px;
+}
+
+.attempt-separator-label {
+    text-align: center;
+}
+
+.attempt-copy-btn {
+    position: absolute;
+    right: 34px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    padding: 0;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-style: normal;
+}
+
+.attempt-copy-btn svg {
+    pointer-events: none;
+}
+
+.attempt-delete-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    padding: 0;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-style: normal;
+}
+
+.attempt-delete-btn svg {
+    pointer-events: none;
 }
 
 /* Scrollbar Styling */
