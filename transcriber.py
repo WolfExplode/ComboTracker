@@ -75,7 +75,7 @@ class Transcriber:
         self._last_run_start = 0.0
 
     def stop(self) -> str:
-        transcript = self._build_transcript()
+        transcript = self.current_transcript()
         self._state = "idle"
         self._tokens = []
         self._run_key = None
@@ -99,10 +99,12 @@ class Transcriber:
         sec = round(duration_s, 2)
         self._tokens.append(f"hold({key}, {sec}s)")
 
-    def _build_transcript(self) -> str:
+    def current_transcript(self) -> str:
+        """Snapshot of combo text so far (committed tokens + in-progress key if any). Non-mutating."""
+        parts = list(self._tokens)
         if self._run_key and self._run_key_down_count >= 1:
-            self._tokens.append(self._run_key)
-        return ", ".join(self._tokens)
+            parts.append(self._run_key)
+        return ", ".join(parts)
 
     def key_down(self, key: str, t: float) -> None:
         if self._state != "recording":

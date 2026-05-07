@@ -301,9 +301,11 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                     transcribe_mouse_last_up.clear()
                     transcribe_mouse_merging.clear()
                     now = time.perf_counter()
+                    engine.new_combo()
                     transcriber.start()
                     transcriber.key_down(input_name, now)
                     transcriber.key_up(input_name, now)
+                    _push_transcription_preview()
                 return
             if input_name == TRANSCRIBE_ESC_KEY:
                 transcriber.stop()
@@ -329,6 +331,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                 if input_name in transcribe_keys_held:
                     transcribe_keys_held.discard(input_name)
                     transcriber.key_up(input_name, time.perf_counter())
+                    _push_transcription_preview()
             return
         if input_name == TRANSCRIBE_ESC_KEY:
             return  # Esc cancel already handled on press
@@ -351,6 +354,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                         return
                     transcribe_mouse_last_up[btn] = now
                     transcriber.key_up(btn, now)
+                    _push_transcription_preview()
             return
         if pressed:
             engine.process_press(btn)
@@ -368,8 +372,14 @@ engine = ComboTrackerEngine()
 
 
 def _on_transcription_done(transcript: str) -> None:
-    engine.new_combo()
     engine.send_transcription_result(transcript)
+
+
+def _push_transcription_preview() -> None:
+    """Update web UI inputs + timeline from transcriber state (call after each committed key_up)."""
+    if not transcribe_mode_enabled or not transcriber.is_recording():
+        return
+    engine.send_transcription_result(transcriber.current_transcript())
 
 
 transcriber = Transcriber(on_stop=_on_transcription_done)

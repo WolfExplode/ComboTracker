@@ -548,7 +548,7 @@ class ComboTrackerEngine:
             combo_commands.new_combo(self)
 
     def send_transcription_result(self, transcript: str) -> None:
-        """Send transcribed combo string to client after new_combo(); then load steps from it and send timeline_update for display."""
+        """Push transcript to client: inputs field + parsed steps / timeline (used for live updates and when recording stops)."""
         with self._lock:
             self._send({"type": "transcription_result", "inputs": transcript or ""})
             tokens = [k.strip().lower() for k in self.split_inputs(transcript or "") if k.strip()]
