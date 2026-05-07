@@ -683,11 +683,28 @@ function setDifficultyColor(el, value) {
 }
 
 // Attempt log
+const LOG_ATTEMPTS_STORAGE_KEY = 'logAttemptsEnabled';
+let logAttemptsEnabled = false;
+
+function isLogAttemptsEnabled() {
+    return logAttemptsEnabled;
+}
+
+function setLogAttemptsEnabled(enabled) {
+    logAttemptsEnabled = !!enabled;
+    try {
+        localStorage.setItem(LOG_ATTEMPTS_STORAGE_KEY, logAttemptsEnabled ? '1' : '0');
+    } catch (_) {
+        // localStorage unavailable; runtime-only is fine.
+    }
+}
+
 function clearAttemptLog() {
     getEl('resultsBody').innerHTML = '';
 }
 
 function addAttemptSeparator(name, attempt) {
+    if (!isLogAttemptsEnabled()) return;
     const body = getEl('resultsBody');
     if (!body) return;
     const row = document.createElement('div');
@@ -698,6 +715,7 @@ function addAttemptSeparator(name, attempt) {
 }
 
 function addResultRow(data) {
+    if (!isLogAttemptsEnabled()) return;
     const body = getEl('resultsBody');
     if (!body) return;
     const row = document.createElement('div');
@@ -1931,6 +1949,22 @@ if (clearAllBtn) {
         onConfirm: () => {
             sendMessage('clear_history_all');
         }
+    });
+}
+
+// Log attempts toggle: when off (default), suppress new entries in the attempt log.
+const logAttemptsToggleEl = getEl('logAttemptsToggle');
+if (logAttemptsToggleEl) {
+    let initial = false;
+    try {
+        initial = localStorage.getItem(LOG_ATTEMPTS_STORAGE_KEY) === '1';
+    } catch (_) {
+        initial = false;
+    }
+    logAttemptsToggleEl.checked = initial;
+    setLogAttemptsEnabled(initial);
+    logAttemptsToggleEl.addEventListener('change', () => {
+        setLogAttemptsEnabled(logAttemptsToggleEl.checked);
     });
 }
 

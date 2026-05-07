@@ -203,12 +203,19 @@ def _spam_tap_for_duration(name: str, total_duration_ms: int, interval_ms: int, 
         if stop.is_set():
             break
         _tap(name, stop)
-        if i >= tap_count - 1 or stop.is_set():
-            continue
-        next_at = started + ((i + 1) * (step_ms / 1000.0))
-        remaining = next_at - time.perf_counter()
-        if remaining > 0:
-            _sleep_interruptible(remaining, stop)
+        if stop.is_set():
+            break
+        if i >= tap_count - 1:
+            # After the last tap, wait out the remainder of the chain window.
+            end_at = started + (total_ms / 1000.0)
+            remaining = end_at - time.perf_counter()
+            if remaining > 0:
+                _sleep_interruptible(remaining, stop)
+        else:
+            next_at = started + ((i + 1) * (step_ms / 1000.0))
+            remaining = next_at - time.perf_counter()
+            if remaining > 0:
+                _sleep_interruptible(remaining, stop)
 
 
 def _execute_node_list(nodes: list, stop: threading.Event, chain_spam_interval_ms: int | None) -> None:

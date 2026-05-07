@@ -356,6 +356,14 @@ button.danger:hover {
     flex-wrap: wrap;
 }
 
+.attempt-log-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
 /* Key image mapping editor */
 .key-images-editor {
     display: grid;
