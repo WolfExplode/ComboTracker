@@ -12,6 +12,7 @@ Design:
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from typing import Callable
@@ -88,6 +89,8 @@ _MOUSE_BTN: dict[str, mouse.Button] = {
     "mmb": mouse.Button.middle,
 }
 
+_DEFAULT_CHAIN_SPAM_INTERVAL_MS = 100
+
 
 def _resolve_key(name: str) -> keyboard.Key | keyboard.KeyCode | None:
     n = (name or "").strip().lower()
@@ -163,7 +166,86 @@ def _hold(name: str, duration_ms: int, stop: threading.Event) -> None:
         logger.debug("key hold failed: %s", n, exc_info=True)
 
 
-def _execute(node, stop: threading.Event) -> None:
+def _extract_press_wait_info(node) -> tuple[str, int] | None:
+    """
+    Return (key, wait_ms) for SequenceNode([PressNode, WaitNode(mode=soft|hard)]), else None.
+    """
+    if not isinstance(node, SequenceNode):
+        return None
+    if len(node.steps) != 2:
+        return None
+    a, b = node.steps
+    if not isinstance(a, PressNode) or not isinstance(b, WaitNode):
+        return None
+    if b.mode not in ("soft", "hard"):
+        return None
+    key = (a.key or "").strip().lower()
+    wait_ms = int(getattr(b, "duration_ms", 0) or 0)
+    if not key or wait_ms <= 0:
+        return None
+    return key, wait_ms
+
+
+def _spam_tap_for_duration(name: str, total_duration_ms: int, interval_ms: int, stop: threading.Event) -> None:
+    """
+    Spam taps every 100ms (inclusive at t=0) until chain duration elapses.
+    Example: 1000ms -> floor(1000/100)+1 = 11 taps.
+    """
+    if stop.is_set():
+        return
+    total_ms = max(0, int(total_duration_ms or 0))
+    if total_ms <= 0:
+        return
+    step_ms = max(1, int(interval_ms or _DEFAULT_CHAIN_SPAM_INTERVAL_MS))
+    tap_count = math.floor(total_ms / step_ms) + 1
+    started = time.perf_counter()
+    for i in range(tap_count):
+        if stop.is_set():
+            break
+        _tap(name, stop)
+        if i >= tap_count - 1 or stop.is_set():
+            continue
+        next_at = started + ((i + 1) * (step_ms / 1000.0))
+        remaining = next_at - time.perf_counter()
+        if remaining > 0:
+            _sleep_interruptible(remaining, stop)
+
+
+def _execute_node_list(nodes: list, stop: threading.Event, chain_spam_interval_ms: int | None) -> None:
+    """
+    Execute nodes in order, collapsing adjacent same-key press+wait nodes into chain spam.
+    """
+    i = 0
+    n = len(nodes)
+    while i < n and not stop.is_set():
+        if chain_spam_interval_ms is None:
+            _execute(nodes[i], stop, chain_spam_interval_ms)
+            i += 1
+            continue
+
+        info = _extract_press_wait_info(nodes[i])
+        if info is None:
+            _execute(nodes[i], stop, chain_spam_interval_ms)
+            i += 1
+            continue
+
+        key, total_wait_ms = info
+        j = i + 1
+        while j < n:
+            nxt = _extract_press_wait_info(nodes[j])
+            if nxt is None or nxt[0] != key:
+                break
+            total_wait_ms += nxt[1]
+            j += 1
+
+        if j - i > 1:
+            _spam_tap_for_duration(key, total_wait_ms, chain_spam_interval_ms, stop)
+        else:
+            _execute(nodes[i], stop, chain_spam_interval_ms)
+        i = j
+
+
+def _execute(node, stop: threading.Event, chain_spam_interval_ms: int | None) -> None:
     """Recursively execute one AST node, checking stop at each step."""
     if stop.is_set():
         return
@@ -174,16 +256,10 @@ def _execute(node, stop: threading.Event) -> None:
     elif isinstance(node, WaitNode):
         _sleep_interruptible(node.duration_ms / 1000.0, stop)
     elif isinstance(node, SequenceNode):
-        for step in node.steps:
-            if stop.is_set():
-                break
-            _execute(step, stop)
+        _execute_node_list(list(node.steps), stop, chain_spam_interval_ms)
     elif isinstance(node, GroupNode):
         # Execute group items in their defined (left-to-right) order for macro playback.
-        for item in node.items:
-            if stop.is_set():
-                break
-            _execute(item, stop)
+        _execute_node_list(list(node.items), stop, chain_spam_interval_ms)
 
 
 class MacroPlayer:
@@ -201,6 +277,19 @@ class MacroPlayer:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._chain_spam_interval_ms: int | None = _DEFAULT_CHAIN_SPAM_INTERVAL_MS
+
+    def set_chain_spam_interval_ms(self, interval_ms: int | None) -> None:
+        if interval_ms is None:
+            with self._lock:
+                self._chain_spam_interval_ms = None
+            return
+        try:
+            iv = int(interval_ms)
+        except Exception:
+            iv = _DEFAULT_CHAIN_SPAM_INTERVAL_MS
+        with self._lock:
+            self._chain_spam_interval_ms = max(1, iv)
 
     def is_running(self) -> bool:
         with self._lock:
@@ -234,11 +323,9 @@ class MacroPlayer:
         self._notify("Macro replaying\u2026", "recording")
         stopped_early = False
         try:
-            for node in ast:
-                if self._stop.is_set():
-                    stopped_early = True
-                    break
-                _execute(node, self._stop)
+            with self._lock:
+                interval_ms = self._chain_spam_interval_ms
+            _execute_node_list(list(ast), self._stop, interval_ms)
             if self._stop.is_set():
                 stopped_early = True
         except Exception:

@@ -625,6 +625,10 @@ def init_payload(engine) -> dict[str, Any]:
         "transcribe_strip_wait_under_ms": getattr(engine, "transcribe_strip_wait_under_ms", "0") or "",
         "macro_start_key": getattr(engine, "macro_start_key", "f") or "f",
         "macro_stop_key": getattr(engine, "macro_stop_key", "esc") or "esc",
+        "macro_spam_interval_ms": (
+            None if getattr(engine, "macro_spam_interval_ms", None) in (None, "")
+            else int(getattr(engine, "macro_spam_interval_ms", 100))
+        ),
     }
 
 

@@ -151,6 +151,10 @@ function initializeUI(data) {
     if (macroStartKeyEl && data.macro_start_key !== undefined) macroStartKeyEl.value = data.macro_start_key || '';
     const macroStopKeyEl = getEl('macroStopKey');
     if (macroStopKeyEl && data.macro_stop_key !== undefined) macroStopKeyEl.value = data.macro_stop_key || '';
+    const macroSpamIntervalEl = getEl('macroSpamIntervalMs');
+    if (macroSpamIntervalEl && data.macro_spam_interval_ms !== undefined) {
+        macroSpamIntervalEl.value = String(data.macro_spam_interval_ms || '');
+    }
 }
 
 function normalizeTargetGame(v) {
@@ -1919,6 +1923,17 @@ if (clearBtn) {
     });
 }
 
+// Clear ALL history (every combo) button
+const clearAllBtn = getEl('clearAllBtn');
+if (clearAllBtn) {
+    attachTwoClickConfirm(clearAllBtn, {
+        confirmText: 'Wipe every combo?',
+        onConfirm: () => {
+            sendMessage('clear_history_all');
+        }
+    });
+}
+
 function scrollToBottom(el) {
     if (!el) return;
     el.scrollTop = el.scrollHeight;
@@ -2057,10 +2072,12 @@ function sendMacroMode() {
     const toggle = getEl('macroModeToggle');
     const startInput = getEl('macroStartKey');
     const stopInput = getEl('macroStopKey');
+    const spamIntervalInput = getEl('macroSpamIntervalMs');
     sendMessage('set_macro_mode', {
         enabled: !!(toggle && toggle.checked),
         start_key: (startInput && startInput.value.trim()) || '',
         stop_key: (stopInput && stopInput.value.trim()) || '',
+        spam_interval_ms: (spamIntervalInput && spamIntervalInput.value.trim()) || '',
     });
 }
 
@@ -2072,6 +2089,7 @@ const macroModeToggle = getEl('macroModeToggle');
 const macroSettingsWrap = getEl('macroSettingsWrap');
 const macroStartKeyInput = getEl('macroStartKey');
 const macroStopKeyInput = getEl('macroStopKey');
+const macroSpamIntervalInput = getEl('macroSpamIntervalMs');
 
 if (macroModeToggle) {
     macroModeToggle.addEventListener('change', () => {
@@ -2091,6 +2109,10 @@ if (macroStartKeyInput) {
 if (macroStopKeyInput) {
     macroStopKeyInput.addEventListener('blur', macroPersistIfOn);
     macroStopKeyInput.addEventListener('input', macroPersistIfOn);
+}
+if (macroSpamIntervalInput) {
+    macroSpamIntervalInput.addEventListener('blur', macroPersistIfOn);
+    macroSpamIntervalInput.addEventListener('input', macroPersistIfOn);
 }
 if (macroSettingsWrap && macroModeToggle) {
     macroSettingsWrap.classList.toggle('hidden', !macroModeToggle.checked);

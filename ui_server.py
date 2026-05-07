@@ -246,13 +246,25 @@ async def ws_handler(
                         transcriber.stop()
                 start_raw = str(msg.get("start_key") or "").strip().lower()
                 stop_raw = str(msg.get("stop_key") or "").strip().lower()
+                spam_raw = str(msg.get("spam_interval_ms") or "").strip()
                 engine.macro_start_key = start_raw if start_raw else "f8"
                 engine.macro_stop_key = stop_raw
+                if spam_raw:
+                    try:
+                        spam_ms = int(spam_raw)
+                    except Exception:
+                        spam_ms = int(getattr(engine, "macro_spam_interval_ms", 100) or 100)
+                    engine.macro_spam_interval_ms = max(1, spam_ms)
+                else:
+                    engine.macro_spam_interval_ms = None
+                macro_player.set_chain_spam_interval_ms(engine.macro_spam_interval_ms)
                 if not macro_mode_enabled and macro_player.is_running():
                     macro_player.stop()
                 engine.save_combos()
             elif mtype == "clear_history":
                 engine.clear_history_and_stats()
+            elif mtype == "clear_history_all":
+                engine.clear_all_history_and_stats()
             elif mtype == "load_combos_from_json":
                 path = engine.save_path
                 if not path.exists():
@@ -449,6 +461,7 @@ def _on_macro_status(text: str, color: str) -> None:
 
 
 macro_player = MacroPlayer(on_status=_on_macro_status)
+macro_player.set_chain_spam_interval_ms(getattr(engine, "macro_spam_interval_ms", 100))
 
 
 def _start_macro() -> None:

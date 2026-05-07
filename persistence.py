@@ -401,6 +401,20 @@ def load_engine_state(engine) -> None:
         else:
             engine.macro_stop_key = getattr(engine, "macro_stop_key", "f9") or "f9"
 
+        macro_spam_interval = data.get("macro_spam_interval_ms")
+        if macro_spam_interval in (None, ""):
+            engine.macro_spam_interval_ms = None
+        else:
+            try:
+                iv = int(macro_spam_interval)
+            except Exception:
+                fallback = getattr(engine, "macro_spam_interval_ms", 100)
+                if fallback in (None, ""):
+                    iv = 100
+                else:
+                    iv = int(fallback)
+            engine.macro_spam_interval_ms = max(1, iv)
+
         last_active = data.get("last_active_combo")
         if last_active in engine.combos:
             engine.set_active_combo(str(last_active), emit=False)
@@ -437,6 +451,10 @@ def save_engine_state(engine) -> None:
             "no_fail_mode": getattr(engine, "no_fail_mode", False),
             "macro_start_key": getattr(engine, "macro_start_key", "f8") or "f8",
             "macro_stop_key": getattr(engine, "macro_stop_key", "f9") or "f9",
+            "macro_spam_interval_ms": (
+                None if getattr(engine, "macro_spam_interval_ms", None) in (None, "")
+                else int(getattr(engine, "macro_spam_interval_ms", 100))
+            ),
             "combos": dict(engine.combos),
             "combo_enders": dict(engine.combo_enders),
             "combo_enders_soft": list(getattr(engine, "combo_enders_soft", set())),

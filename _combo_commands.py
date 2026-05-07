@@ -228,3 +228,17 @@ def clear_history_and_stats(engine) -> None:
     engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
     st = engine.get_status()
     engine._send({"type": "status", "text": st.text, "color": st.color})
+
+
+def clear_all_history_and_stats(engine) -> None:
+    """Wipe history and stats for every combo."""
+    engine.reset_tracking()
+    for name in list(engine.combos.keys()):
+        engine.combo_stats[name] = fresh_combo_stats()
+    engine.save_combos()
+    engine._send({"type": "clear_results"})
+    engine._send({"type": "stat_update", "stats": engine.stats_text()})
+    engine._send({"type": "fail_update", "fail_by_step": engine.failures_by_step()})
+    engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
+    st = engine.get_status()
+    engine._send({"type": "status", "text": st.text, "color": st.color})

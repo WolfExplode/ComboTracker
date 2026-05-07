@@ -349,6 +349,13 @@ button.danger:hover {
     margin-bottom: 10px;
 }
 
+.attempt-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 /* Key image mapping editor */
 .key-images-editor {
     display: grid;

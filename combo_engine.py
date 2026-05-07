@@ -123,6 +123,7 @@ class ComboTrackerEngine:
         # Macro replay settings (persisted)
         self.macro_start_key: str = "f8"
         self.macro_stop_key: str = "f9"
+        self.macro_spam_interval_ms: int | None = 100
 
         # Stats
         self.combo_stats: dict[str, dict[str, Any]] = {}
@@ -683,6 +684,10 @@ class ComboTrackerEngine:
     def clear_history_and_stats(self):
         with self._lock:
             combo_commands.clear_history_and_stats(self)
+
+    def clear_all_history_and_stats(self):
+        with self._lock:
+            combo_commands.clear_all_history_and_stats(self)
 
     def set_active_combo(self, name: str, *, emit: bool = True):
         with self._lock:

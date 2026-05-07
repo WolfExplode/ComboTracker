@@ -113,6 +113,10 @@
                             <input type="text" id="macroStopKey" placeholder="f9" maxlength="32"
                                 class="transcribe-valid-input transcribe-start-key-input"
                                 title="Key token to stop the macro mid-playback. Leave blank to use only Esc. Must not appear in your combo inputs.">
+                            <label>Spam keys delay in ms:</label>
+                            <input type="text" id="macroSpamIntervalMs" placeholder="100" maxlength="8" inputmode="numeric"
+                                class="transcribe-valid-input transcribe-start-key-input"
+                                title="presses chained keys to mimic player input buffering (will not spam if left empty)">
                         </div>
                     </div>
                     
@@ -236,7 +240,10 @@
         <section class="section">
             <div class="attempt-header">
                 <h3 style="margin: 0;">Attempt Log</h3>
-                <button id="clearBtn" type="button" class="danger subtle">Clear History</button>
+                <div class="attempt-header-actions">
+                    <button id="clearBtn" type="button" class="danger subtle">Clear History</button>
+                    <button id="clearAllBtn" type="button" class="danger subtle" title="Clear history and stats for every combo">Clear All History</button>
+                </div>
             </div>
             <div id="resultsTable" class="results-table">
                 <div class="table-header">
