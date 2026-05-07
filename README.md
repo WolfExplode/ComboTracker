@@ -49,16 +49,19 @@ Notes:
 
 You can package ComboTracker as a single executable so others can run it without installing Python.
 
-1. Install PyInstaller (once):
+1. Install build tooling (once):
    ```bash
-   pip install pyinstaller
+   python -m pip install -r requirements-build.txt
    ```
 2. From the project root, build:
    ```bash
    pyinstaller ComboTracker.spec
    ```
-3. The executable is created at `dist/ComboTracker.exe`. Run it; it will start the HTTP and WebSocket servers. Open `http://localhost:8080` in your browser.
-4. `combos.json` (saved combos and settings) is stored in the same folder as the .exe. You can move the .exe anywhere; keep `combos.json` next to it if you want to keep your data, or it will create a new one on first run.
+3. Release artifact: **`dist/ComboTracker.exe`**. Double-click or run from a terminal. Windows will prompt for **Administrator** approval once per launch; this matches elevated games so global input capture works in-game.
+4. Open **`http://localhost:8080`** in your browser. A console window stays open with the server URL (close it or press Ctrl+C to stop).
+5. **`combos.json`** (saved combos and settings) is written **next to the .exe**. Move both together if you relocate the app; otherwise a new `combos.json` is created on first run.
+
+**Publishing a release:** ship `dist/ComboTracker.exe` (optionally zip it for GitHub Releases). Build on a **normal (non-elevated)** terminal; PyInstaller may warn if you run it from an elevated shell.
 
 ---
 

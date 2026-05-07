@@ -1,18 +1,16 @@
 # PyInstaller spec for ComboTracker
 # Build: pyinstaller ComboTracker.spec
-# Output: dist/ComboTracker/ComboTracker.exe (one-folder) or dist/ComboTracker.exe (one-file, slower startup)
+# Output: dist/ComboTracker.exe (one-file bundle)
+#
+# Windows: uac_admin=True embeds a manifest so the exe requests Administrator elevation.
+# That matches elevated games so global keyboard/mouse capture (pynput) works in-game.
 
 import sys
 
 block_cipher = None
 
-# When running, static files must be in the same folder as the script in the bundle
-static_src = 'static'
-if sys.platform == 'win32':
-    # Windows: PyInstaller uses semicolon for path separator in datas
-    static_datas = (static_src, 'static')
-else:
-    static_datas = (static_src, 'static')
+static_src = "static"
+static_datas = (static_src, "static")
 
 a = Analysis(
     ['ui_server.py'],
@@ -32,6 +30,24 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+_exe_options = dict(
+    name="ComboTracker",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+if sys.platform == "win32":
+    _exe_options["uac_admin"] = True
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -39,17 +55,5 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='ComboTracker',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=True,  # Keep console so user sees server URL and can Ctrl+C
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
+    **_exe_options,
 )

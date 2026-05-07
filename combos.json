@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "Agusta, Iuno, Shorekeeper Double vs monkey",
+  "last_active_combo": "Aemeath, Lynae, Mornye",
   "no_fail_mode": false,
   "combos": {
     "Zani 1": [
@@ -506,7 +506,7 @@
     },
     "Aemeath, Lynae, Mornye": {
       "success": 2,
-      "fail": 49,
+      "fail": 57,
       "best_ms": 42351,
       "total_success_ms": 90851,
       "fail_by_step": {
@@ -514,52 +514,52 @@
         "6": 3,
         "7": 1,
         "24": 1,
-        "1": 19,
+        "1": 24,
         "25": 2,
         "10": 1,
         "36": 1,
         "50": 1,
         "3": 2,
-        "5": 8,
+        "5": 10,
         "4": 1,
         "2": 3,
         "28": 1,
-        "0": 2
+        "0": 3
       },
       "fail_by_expected": {
         "2": 3,
         "seq(e \u2192 wait(100ms))": 3,
         "3": 1,
         "hold(lmb,\u22651500ms)": 1,
-        "seq(lmb \u2192 wait(500ms))": 19,
+        "seq(lmb \u2192 wait(500ms))": 24,
         "wait(\u2265200ms)": 2,
         "seq(lmb \u2192 wait(100ms))": 1,
         "f": 1,
         "r": 1,
         "seq(lmb \u2192 wait(450ms))": 2,
-        "seq(2 \u2192 wait(150ms))": 8,
+        "seq(2 \u2192 wait(150ms))": 10,
         "seq(lmb \u2192 wait(200ms))": 1,
         "seq(lmb \u2192 wait(400ms))": 3,
         "seq(space \u2192 wait(750ms))": 1,
-        "seq(f \u2192 wait(150ms))": 2
+        "seq(f \u2192 wait(150ms))": 3
       },
       "fail_by_reason": {
         "expected 2": 3,
         "expected seq(e \u2192 wait(100ms))": 3,
         "expected 3": 1,
         "expected hold(lmb,\u22651500ms)": 1,
-        "expected seq(lmb \u2192 wait(500ms))": 19,
+        "expected seq(lmb \u2192 wait(500ms))": 24,
         "only waited for 0.14s, combo ended by space": 1,
         "expected seq(lmb \u2192 wait(100ms))": 1,
         "expected f": 1,
         "expected r": 1,
         "expected seq(lmb \u2192 wait(450ms))": 2,
-        "expected seq(2 \u2192 wait(150ms))": 8,
+        "expected seq(2 \u2192 wait(150ms))": 10,
         "expected seq(lmb \u2192 wait(200ms))": 1,
         "only waited for 0.15s, combo ended by space": 1,
         "expected seq(lmb \u2192 wait(400ms))": 3,
         "expected seq(space \u2192 wait(750ms))": 1,
-        "expected seq(f \u2192 wait(150ms))": 2
+        "expected seq(f \u2192 wait(150ms))": 3
       },
       "fail_events": [
         {
@@ -1002,6 +1002,78 @@
           "actual": "space",
           "reason": "expected seq(lmb \u2192 wait(500ms))",
           "elapsed_ms": 212
+        },
+        {
+          "ts": 1778113363,
+          "attempt": 7,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 3742
+        },
+        {
+          "ts": 1778113659,
+          "attempt": 10,
+          "step_index": 5,
+          "expected": "seq(2 \u2192 wait(150ms))",
+          "actual": "1",
+          "reason": "expected seq(2 \u2192 wait(150ms))",
+          "elapsed_ms": 2204
+        },
+        {
+          "ts": 1778113780,
+          "attempt": 11,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 348
+        },
+        {
+          "ts": 1778113819,
+          "attempt": 12,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 676
+        },
+        {
+          "ts": 1778113836,
+          "attempt": 13,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 540
+        },
+        {
+          "ts": 1778114143,
+          "attempt": 15,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 536
+        },
+        {
+          "ts": 1778114211,
+          "attempt": 16,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 50
+        },
+        {
+          "ts": 1778114220,
+          "attempt": 17,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 430
         }
       ]
     },
@@ -1293,7 +1365,7 @@
       }
     }
   },
-  "ww_active_team_id": "cd717b20ac",
+  "ww_active_team_id": "c70c25857f",
   "combo_ww_team": {
     "Zani Pheobe Rover Rotation": "986f16f581",
     "Zani 1": "986f16f581",

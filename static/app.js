@@ -1367,6 +1367,17 @@ if (deleteBtn) {
     });
 }
 
+// Reload combos.json from disk (same folder as the app / exe)
+const loadJsonBtn = getEl('loadJsonBtn');
+if (loadJsonBtn) {
+    loadJsonBtn.addEventListener('click', () => {
+        if (!window.confirm('Reload all combos and settings from combos.json? Unsaved changes in the editor will be lost.')) {
+            return;
+        }
+        sendMessage('load_combos_from_json', {});
+    });
+}
+
 // Clear history button
 const clearBtn = getEl('clearBtn');
 if (clearBtn) {

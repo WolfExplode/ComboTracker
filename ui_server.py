@@ -174,6 +174,67 @@ async def ws_handler(
                 engine.save_combos()
             elif mtype == "clear_history":
                 engine.clear_history_and_stats()
+            elif mtype == "load_combos_from_json":
+                path = engine.save_path
+                if not path.exists():
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "status",
+                                "text": f"No combos.json found at {path}. Place the file next to ComboTracker.exe and try again.",
+                                "color": "fail",
+                            }
+                        )
+                    )
+                else:
+                    try:
+                        json.loads(path.read_text(encoding="utf-8"))
+                    except json.JSONDecodeError:
+                        await websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "status",
+                                    "text": "combos.json is not valid JSON. Fix the file and try again.",
+                                    "color": "fail",
+                                }
+                            )
+                        )
+                    except OSError as e:
+                        logger.warning("Could not read combos.json: %s", e)
+                        await websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "status",
+                                    "text": "Could not read combos.json.",
+                                    "color": "fail",
+                                }
+                            )
+                        )
+                    else:
+                        try:
+                            engine.load_combos()
+                            transcriber.set_valid_keys(getattr(engine, "transcribe_valid_keys", "") or "")
+                            await broadcast_dict(engine.init_payload())
+                            await websocket.send(
+                                json.dumps(
+                                    {
+                                        "type": "status",
+                                        "text": f"Loaded combos from {path.name}.",
+                                        "color": "success",
+                                    }
+                                )
+                            )
+                        except Exception:
+                            logger.exception("load_combos_from_json failed")
+                            await websocket.send(
+                                json.dumps(
+                                    {
+                                        "type": "status",
+                                        "text": "Failed to apply combos.json.",
+                                        "color": "fail",
+                                    }
+                                )
+                            )
     finally:
         connected_clients.discard(websocket)
         print(f"Client disconnected. Total: {len(connected_clients)}")
@@ -293,6 +354,24 @@ transcriber = Transcriber(on_stop=_on_transcription_done)
 transcriber.set_valid_keys(getattr(engine, "transcribe_valid_keys", "") or "")
 
 
+def _warn_if_windows_non_elevated() -> None:
+    """When running from source on Windows, elevated games need an elevated listener."""
+    if sys.platform != "win32" or getattr(sys, "frozen", False):
+        return
+    try:
+        import ctypes
+
+        if not bool(ctypes.windll.shell32.IsUserAnAdmin()):
+            print(
+                "Warning: ComboTracker is not running as Administrator. "
+                "If your game runs as Administrator, keystrokes may not register in-game. "
+                "Use an elevated console or the packaged ComboTracker.exe (requests Admin on launch).",
+                file=sys.stderr,
+            )
+    except Exception:
+        pass
+
+
 def setup_logging() -> None:
     """
     Minimal app-level logging.
@@ -307,6 +386,7 @@ def setup_logging() -> None:
 
 
 def main() -> None:
+    _warn_if_windows_non_elevated()
     setup_logging()
     # Static UI
     http_thread = threading.Thread(target=serve_static, daemon=True)
