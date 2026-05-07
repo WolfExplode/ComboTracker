@@ -791,7 +791,9 @@ function refreshTimelineIfLoaded() {
     if (appState.lastTimelineSteps) updateTimeline(appState.lastTimelineSteps);
 }
 
-function updateTimeline(steps) {
+function updateTimeline(steps, opts) {
+    opts = opts || {};
+    const scrollOpts = { focusLatest: !!opts.focusLatest };
     appState.lastTimelineSteps = steps;
     const container = getEl('comboTimeline');
     if (!container) return;
@@ -1059,10 +1061,10 @@ function updateTimeline(steps) {
     if (viewport?.classList.contains('auto-scroll-on')) {
         requestAnimationFrame(() => {
             normalizeStepHeightsInAutoScroll(container);
-            applyAutoScroll();
+            applyAutoScroll(scrollOpts);
         });
     } else if (appState.autoScrollEnabled) {
-        requestAnimationFrame(() => applyAutoScroll());
+        requestAnimationFrame(() => applyAutoScroll(scrollOpts));
     }
 }
 
@@ -1241,18 +1243,42 @@ function setAutoScrollEnabled(enabled) {
     }
 }
 
-function applyAutoScroll() {
+/**
+ * Element to center when auto-scroll is on.
+ * Prefers the last top-level tile when `focusLatest` is set (server: transcription updates) or when
+ * transcribe checkbox is on (main UI). Otherwise uses `.step.active` (combo practice / playback).
+ */
+function autoScrollTimelineTargetEl(timeline, scrollOpts) {
+    scrollOpts = scrollOpts || {};
+    if (!timeline) return null;
+    const preferLatest =
+        !!scrollOpts.focusLatest
+        || !!getEl('transcribeModeToggle')?.checked;
+    if (preferLatest) {
+        const tops = [...timeline.children].filter(
+            (c) =>
+                c.classList.contains('step-group')
+                || c.classList.contains('step-sequence')
+                || (c.classList.contains('step')
+                    && !c.classList.contains('group-item')
+                    && !c.classList.contains('sequence-item')),
+        );
+        if (tops.length) return tops[tops.length - 1];
+    }
+    return timeline.querySelector('.step.active');
+}
+
+function applyAutoScroll(scrollOpts) {
     if (!appState.autoScrollEnabled) return;
     const viewport = getEl('comboTimelineViewport');
     const timeline = getEl('comboTimeline');
     if (!viewport || !timeline) return;
 
-    // Target the specific active step (item), not the group container
-    const active = timeline.querySelector('.step.active');
-    if (!active) return;
+    const target = autoScrollTimelineTargetEl(timeline, scrollOpts);
+    if (!target) return;
 
     const vpRect = viewport.getBoundingClientRect();
-    const activeRect = active.getBoundingClientRect();
+    const activeRect = target.getBoundingClientRect();
 
     const vpCenter = vpRect.left + (vpRect.width / 2);
     const activeCenter = activeRect.left + (activeRect.width / 2);
@@ -1751,7 +1777,7 @@ const MESSAGE_HANDLERS = {
     status: (msg) => updateStatus(msg.text, msg.color),
     stat_update: (msg) => updateStats(msg.stats),
     attempt_start: (msg) => addAttemptSeparator(msg.name, msg.attempt),
-    timeline_update: (msg) => updateTimeline(msg.steps),
+    timeline_update: (msg) => updateTimeline(msg.steps, { focusLatest: !!msg.focus_latest }),
     fail_update: (msg) => {
         appState.lastFailByStep = msg.fail_by_step || {};
         refreshTimelineIfLoaded();

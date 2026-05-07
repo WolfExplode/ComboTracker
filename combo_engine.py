@@ -556,7 +556,13 @@ class ComboTrackerEngine:
             self.active_combo_tokens = tokens
             self.runtime_steps = [build_runtime_state(node) for node in ast_list]
             self.reset_tracking()
-            self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            self._send(
+                {
+                    "type": "timeline_update",
+                    "steps": self.timeline_steps(),
+                    "focus_latest": True,
+                }
+            )
 
     def clear_history_and_stats(self):
         with self._lock:
