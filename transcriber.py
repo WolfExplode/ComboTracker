@@ -53,6 +53,13 @@ class Transcriber:
     def set_valid_keys(self, keys_str: str) -> None:
         self._valid_keys = _parse_valid_keys(keys_str or "")
 
+    def set_min_wait_s(self, seconds: float) -> None:
+        """Minimum gap (seconds) to emit a wait: token; below this, the gap is omitted."""
+        try:
+            self.min_wait_s = max(0.0, float(seconds))
+        except (TypeError, ValueError):
+            self.min_wait_s = 0.0
+
     def is_valid_key(self, key: str) -> bool:
         return (key or "").strip().lower() in self._valid_keys
 

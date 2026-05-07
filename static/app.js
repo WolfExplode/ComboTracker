@@ -124,6 +124,15 @@ function initializeUI(data) {
     if (transcribeValidKeysEl && data.transcribe_valid_keys !== undefined) transcribeValidKeysEl.value = data.transcribe_valid_keys || '';
     const transcribeStartKeyEl = getEl('transcribeStartKey');
     if (transcribeStartKeyEl && data.transcribe_start_key !== undefined) transcribeStartKeyEl.value = data.transcribe_start_key || '';
+
+    const stripToggle = getEl('transcribeStripWaitToggle');
+    if (stripToggle && data.transcribe_strip_wait_under_enabled !== undefined) {
+        stripToggle.checked = !!data.transcribe_strip_wait_under_enabled;
+    }
+    const stripMs = getEl('transcribeStripWaitMs');
+    if (stripMs && data.transcribe_strip_wait_under_ms !== undefined) {
+        stripMs.value = data.transcribe_strip_wait_under_ms || '';
+    }
 }
 
 function normalizeTargetGame(v) {
@@ -1454,10 +1463,14 @@ function sendTranscribeMode() {
     const toggle = getEl('transcribeModeToggle');
     const validInput = getEl('transcribeValidKeys');
     const startInput = getEl('transcribeStartKey');
+    const stripToggle = getEl('transcribeStripWaitToggle');
+    const stripMsEl = getEl('transcribeStripWaitMs');
     sendMessage('set_transcribe_mode', {
         enabled: !!(toggle && toggle.checked),
         valid_keys: (validInput && validInput.value.trim()) || '',
-        start_key: (startInput && startInput.value.trim()) || ''
+        start_key: (startInput && startInput.value.trim()) || '',
+        strip_wait_under_enabled: !!(stripToggle && stripToggle.checked),
+        strip_wait_under_ms: (stripMsEl && stripMsEl.value.trim()) || ''
     });
 }
 
@@ -1465,6 +1478,12 @@ const transcribeModeToggle = getEl('transcribeModeToggle');
 const transcribeValidKeysWrap = getEl('transcribeValidKeysWrap');
 const transcribeValidKeysInput = getEl('transcribeValidKeys');
 const transcribeStartKeyInput = getEl('transcribeStartKey');
+const transcribeStripWaitToggle = getEl('transcribeStripWaitToggle');
+const transcribeStripWaitMs = getEl('transcribeStripWaitMs');
+
+function transcribePersistIfOn() {
+    if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode();
+}
 if (transcribeModeToggle) {
     transcribeModeToggle.addEventListener('change', () => {
         if (transcribeValidKeysWrap) transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);
@@ -1472,12 +1491,19 @@ if (transcribeModeToggle) {
     });
 }
 if (transcribeValidKeysInput) {
-    transcribeValidKeysInput.addEventListener('blur', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
-    transcribeValidKeysInput.addEventListener('input', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
+    transcribeValidKeysInput.addEventListener('blur', transcribePersistIfOn);
+    transcribeValidKeysInput.addEventListener('input', transcribePersistIfOn);
 }
 if (transcribeStartKeyInput) {
-    transcribeStartKeyInput.addEventListener('blur', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
-    transcribeStartKeyInput.addEventListener('input', () => { if (transcribeModeToggle && transcribeModeToggle.checked) sendTranscribeMode(); });
+    transcribeStartKeyInput.addEventListener('blur', transcribePersistIfOn);
+    transcribeStartKeyInput.addEventListener('input', transcribePersistIfOn);
+}
+if (transcribeStripWaitToggle) {
+    transcribeStripWaitToggle.addEventListener('change', transcribePersistIfOn);
+}
+if (transcribeStripWaitMs) {
+    transcribeStripWaitMs.addEventListener('blur', transcribePersistIfOn);
+    transcribeStripWaitMs.addEventListener('input', transcribePersistIfOn);
 }
 if (transcribeValidKeysWrap && transcribeModeToggle) {
     transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);

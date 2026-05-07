@@ -338,6 +338,8 @@
   ],
   "transcribe_valid_keys": "f, e, q, r, lmb, rmb, 1, 2, 3, space, shift",
   "transcribe_start_key": "f",
+  "transcribe_strip_wait_under_enabled": false,
+  "transcribe_strip_wait_under_ms": "0",
   "combo_stats": {
     "Zani 1": {
       "success": 0,

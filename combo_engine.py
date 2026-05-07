@@ -103,6 +103,9 @@ class ComboTrackerEngine:
         self.transcribe_valid_keys: str = ""
         # Key that begins a transcription when auto-transcribe is on (normalized token, e.g. f, space, lmb)
         self.transcribe_start_key: str = "f"
+        # When enabled and transcribe_strip_wait_under_ms is non-empty, omit wait: below that many ms (legacy default 100)
+        self.transcribe_strip_wait_under_enabled: bool = True
+        self.transcribe_strip_wait_under_ms: str = "0"
         self.last_success_input: str | None = None
         # Per-ender cooldown: key -> time.perf_counter() when that key's cooldown ends.
         # When the user correctly presses an ender key, we set cooldown for that key so

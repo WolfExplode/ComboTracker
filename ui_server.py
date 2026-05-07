@@ -23,6 +23,27 @@ logger = logging.getLogger(__name__)
 TRANSCRIBE_ESC_KEY = "esc"
 
 
+def _effective_transcribe_min_wait_s() -> float:
+    """Seconds: omit wait tokens when gap is shorter than this; 0 keeps all gaps."""
+    if not getattr(engine, "transcribe_strip_wait_under_enabled", False):
+        return 0.0
+    raw = (getattr(engine, "transcribe_strip_wait_under_ms", "") or "").strip()
+    if not raw:
+        return 0.0
+    try:
+        ms = int(raw, 10)
+    except ValueError:
+        return 0.0
+    if ms <= 0:
+        return 0.0
+    return ms / 1000.0
+
+
+def _sync_transcriber_from_engine() -> None:
+    transcriber.set_valid_keys(getattr(engine, "transcribe_valid_keys", "") or "")
+    transcriber.set_min_wait_s(_effective_transcribe_min_wait_s())
+
+
 def _normalized_transcribe_start_key() -> str:
     raw = (getattr(engine, "transcribe_start_key", "") or "").strip().lower()
     return raw if raw else "f"
@@ -166,8 +187,10 @@ async def ws_handler(
                 valid_keys_str = str(msg.get("valid_keys") or "").strip()
                 start_raw = str(msg.get("start_key") or "").strip().lower()
                 engine.transcribe_start_key = start_raw if start_raw else "f"
-                transcriber.set_valid_keys(valid_keys_str)
                 engine.transcribe_valid_keys = valid_keys_str
+                engine.transcribe_strip_wait_under_enabled = bool(msg.get("strip_wait_under_enabled", False))
+                engine.transcribe_strip_wait_under_ms = str(msg.get("strip_wait_under_ms") or "").strip()
+                _sync_transcriber_from_engine()
                 engine.save_combos()
             elif mtype == "set_no_fail":
                 engine.set_no_fail_mode(bool(msg.get("enabled", False)))
@@ -213,7 +236,7 @@ async def ws_handler(
                     else:
                         try:
                             engine.load_combos()
-                            transcriber.set_valid_keys(getattr(engine, "transcribe_valid_keys", "") or "")
+                            _sync_transcriber_from_engine()
                             await broadcast_dict(engine.init_payload())
                             await websocket.send(
                                 json.dumps(
@@ -350,8 +373,8 @@ def _on_transcription_done(transcript: str) -> None:
 
 
 transcriber = Transcriber(on_stop=_on_transcription_done)
-# Sync transcriber with persisted valid keys (loaded in engine via load_combos)
-transcriber.set_valid_keys(getattr(engine, "transcribe_valid_keys", "") or "")
+# Sync transcriber with persisted transcribe settings (engine.load_combos in ComboTrackerEngine.__init__)
+_sync_transcriber_from_engine()
 
 
 def _warn_if_windows_non_elevated() -> None:

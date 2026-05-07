@@ -46,6 +46,13 @@
                             <input type="text" id="transcribeStartKey" placeholder="f" maxlength="32" class="transcribe-valid-input transcribe-start-key-input" title="Single key token (e.g. f, q, space, lmb). Must appear in Valid keys to be transcribed.">
                             <label>Valid keys (only these keys will be transcribed):</label>
                             <input type="text" id="transcribeValidKeys" placeholder="f, e, q, r, lmb, rmb, 1, 2, 3" class="transcribe-valid-input">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="transcribeStripWaitToggle" checked>
+                                Strip timings for key presses under:
+                                <input type="text" id="transcribeStripWaitMs" maxlength="8" inputmode="numeric"
+                                    class="transcribe-valid-input transcribe-start-key-input" placeholder=""
+                                    title="Will not strip timings if left empty"
+                            </label>
                         </div>
                     </div>
 

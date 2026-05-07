@@ -619,6 +619,10 @@ def init_payload(engine) -> dict[str, Any]:
         "editor": get_editor_payload(engine),
         "transcribe_valid_keys": getattr(engine, "transcribe_valid_keys", "") or "",
         "transcribe_start_key": getattr(engine, "transcribe_start_key", "f") or "f",
+        "transcribe_strip_wait_under_enabled": bool(
+            getattr(engine, "transcribe_strip_wait_under_enabled", True)
+        ),
+        "transcribe_strip_wait_under_ms": getattr(engine, "transcribe_strip_wait_under_ms", "100") or "",
     }
 
 
