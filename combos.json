@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "Aemeath, Lynae, Mornye",
+  "last_active_combo": null,
   "no_fail_mode": false,
   "combos": {
     "Zani 1": [
@@ -338,8 +338,8 @@
   ],
   "transcribe_valid_keys": "f, e, q, r, lmb, rmb, 1, 2, 3, space, shift",
   "transcribe_start_key": "f",
-  "transcribe_strip_wait_under_enabled": false,
-  "transcribe_strip_wait_under_ms": "0",
+  "transcribe_strip_wait_under_enabled": true,
+  "transcribe_strip_wait_under_ms": "100",
   "combo_stats": {
     "Zani 1": {
       "success": 0,
@@ -508,7 +508,7 @@
     },
     "Aemeath, Lynae, Mornye": {
       "success": 2,
-      "fail": 57,
+      "fail": 61,
       "best_ms": 42351,
       "total_success_ms": 90851,
       "fail_by_step": {
@@ -516,7 +516,7 @@
         "6": 3,
         "7": 1,
         "24": 1,
-        "1": 24,
+        "1": 27,
         "25": 2,
         "10": 1,
         "36": 1,
@@ -526,14 +526,14 @@
         "4": 1,
         "2": 3,
         "28": 1,
-        "0": 3
+        "0": 4
       },
       "fail_by_expected": {
         "2": 3,
         "seq(e \u2192 wait(100ms))": 3,
         "3": 1,
         "hold(lmb,\u22651500ms)": 1,
-        "seq(lmb \u2192 wait(500ms))": 24,
+        "seq(lmb \u2192 wait(500ms))": 27,
         "wait(\u2265200ms)": 2,
         "seq(lmb \u2192 wait(100ms))": 1,
         "f": 1,
@@ -543,14 +543,14 @@
         "seq(lmb \u2192 wait(200ms))": 1,
         "seq(lmb \u2192 wait(400ms))": 3,
         "seq(space \u2192 wait(750ms))": 1,
-        "seq(f \u2192 wait(150ms))": 3
+        "seq(f \u2192 wait(150ms))": 4
       },
       "fail_by_reason": {
         "expected 2": 3,
         "expected seq(e \u2192 wait(100ms))": 3,
         "expected 3": 1,
         "expected hold(lmb,\u22651500ms)": 1,
-        "expected seq(lmb \u2192 wait(500ms))": 24,
+        "expected seq(lmb \u2192 wait(500ms))": 27,
         "only waited for 0.14s, combo ended by space": 1,
         "expected seq(lmb \u2192 wait(100ms))": 1,
         "expected f": 1,
@@ -561,7 +561,7 @@
         "only waited for 0.15s, combo ended by space": 1,
         "expected seq(lmb \u2192 wait(400ms))": 3,
         "expected seq(space \u2192 wait(750ms))": 1,
-        "expected seq(f \u2192 wait(150ms))": 3
+        "expected seq(f \u2192 wait(150ms))": 4
       },
       "fail_events": [
         {
@@ -1076,6 +1076,42 @@
           "actual": "e",
           "reason": "expected seq(lmb \u2192 wait(500ms))",
           "elapsed_ms": 430
+        },
+        {
+          "ts": 1778114869,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 174
+        },
+        {
+          "ts": 1778115235,
+          "attempt": 1,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(150ms))",
+          "elapsed_ms": 42
+        },
+        {
+          "ts": 1778115394,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "space",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 506
+        },
+        {
+          "ts": 1778115396,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "e",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 448
         }
       ]
     },
@@ -1365,9 +1401,40 @@
           "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconMoNingC1.png"
         }
       }
+    },
+    "421aec4415": {
+      "name": "Hiyuki, Aemeath, Chisa",
+      "dash_image": "\ud83d\udca8",
+      "swap_images": {
+        "1": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_67_UI.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_60_UI.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_57_UI.png"
+      },
+      "lmb_images": {
+        "1": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorKnife.png",
+        "2": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorGun.png",
+        "3": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorSword.png"
+      },
+      "ability_images": {
+        "1": {
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconFeixueB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34027_UI.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconFeixueC1.png"
+        },
+        "2": {
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconLinNaiB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorGun.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconLinNaiB1.png"
+        },
+        "3": {
+          "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconQianxiaoB1.png",
+          "q": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconQianxiaoC1.png",
+          "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconQianxiaoC1.png"
+        }
+      }
     }
   },
-  "ww_active_team_id": "c70c25857f",
+  "ww_active_team_id": "421aec4415",
   "combo_ww_team": {
     "Zani Pheobe Rover Rotation": "986f16f581",
     "Zani 1": "986f16f581",

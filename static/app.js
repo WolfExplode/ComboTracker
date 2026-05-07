@@ -104,6 +104,9 @@ function initializeUI(data) {
         appState.wwLmbImages = preserved.wwLmbImages;
         appState.wwAbilityImages = preserved.wwAbilityImages;
         syncGameUIVisibility();
+        // setEditorFields() re-rendered the WW editor from backend payload. Re-render once more
+        // from restored local state so team icon fields/previews do not appear cleared on init.
+        renderWwAbilityEditor({ preserveEdits: false });
         refreshTimelineIfLoaded();
     }
     if (data.status) updateStatus(data.status.text, data.status.color);
@@ -288,38 +291,11 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
 
         charBox.appendChild(charTitle);
 
-        // LMB (basic attack)
-        const lmbRow = document.createElement('div');
-        lmbRow.className = 'ww-ability-row';
-        const lmbLabel = document.createElement('span');
-        lmbLabel.textContent = 'LMB';
-        lmbLabel.className = 'ww-ability-label';
-
-        const lmbInput = document.createElement('input');
-        lmbInput.type = 'text';
-        lmbInput.setAttribute('data-lmb', c);
-        lmbInput.placeholder = 'https://... or ⚔️';
-        lmbInput.value = (appState.wwLmbImages[c] || '').toString();
-
-        const lmbPreview = document.createElement('div');
-        lmbPreview.className = 'ww-ability-preview';
-        setPreview(lmbPreview, lmbInput.value);
-
-        lmbInput.addEventListener('input', () => {
-            appState.wwLmbImages[c] = lmbInput.value.trim();
-            setPreview(lmbPreview, lmbInput.value);
-        });
-
-        lmbRow.appendChild(lmbLabel);
-        lmbRow.appendChild(lmbInput);
-        lmbRow.appendChild(lmbPreview);
-        charBox.appendChild(lmbRow);
-
         // Swap icon (1/2/3 keys)
         const swapRow = document.createElement('div');
         swapRow.className = 'ww-ability-row';
         const swapLabel = document.createElement('span');
-        swapLabel.textContent = c;
+        swapLabel.textContent = `${c} :`;
         swapLabel.className = 'ww-ability-label';
 
         const swapInput = document.createElement('input');
@@ -342,13 +318,40 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
         swapRow.appendChild(swapPreview);
         charBox.appendChild(swapRow);
 
-        // Abilities (E/Q/R)
-        ['E', 'Q', 'R'].forEach(a => {
+        // LMB (basic attack)
+        const lmbRow = document.createElement('div');
+        lmbRow.className = 'ww-ability-row';
+        const lmbLabel = document.createElement('span');
+        lmbLabel.textContent = 'LMB :';
+        lmbLabel.className = 'ww-ability-label';
+
+        const lmbInput = document.createElement('input');
+        lmbInput.type = 'text';
+        lmbInput.setAttribute('data-lmb', c);
+        lmbInput.placeholder = 'https://... or ⚔️';
+        lmbInput.value = (appState.wwLmbImages[c] || '').toString();
+
+        const lmbPreview = document.createElement('div');
+        lmbPreview.className = 'ww-ability-preview';
+        setPreview(lmbPreview, lmbInput.value);
+
+        lmbInput.addEventListener('input', () => {
+            appState.wwLmbImages[c] = lmbInput.value.trim();
+            setPreview(lmbPreview, lmbInput.value);
+        });
+
+        lmbRow.appendChild(lmbLabel);
+        lmbRow.appendChild(lmbInput);
+        lmbRow.appendChild(lmbPreview);
+        charBox.appendChild(lmbRow);
+
+        // Abilities ordered as requested: Q, E, R
+        ['Q', 'E', 'R'].forEach(a => {
             const row = document.createElement('div');
             row.className = 'ww-ability-row';
 
             const label = document.createElement('span');
-            label.textContent = a;
+            label.textContent = `${a} :`;
             label.className = 'ww-ability-label';
 
             const input = document.createElement('input');

@@ -589,9 +589,17 @@ button.danger:hover {
 
 .ww-ability-row {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 6px;
+    grid-template-columns: 64px 1fr 40px;
+    gap: 8px;
     margin-bottom: 8px;
+    align-items: center;
+}
+
+.ww-ability-label {
+    font-family: 'Fira Code', monospace;
+    font-weight: 800;
+    color: var(--text-secondary);
+    text-align: right;
 }
 
 .ww-ability-controls {
