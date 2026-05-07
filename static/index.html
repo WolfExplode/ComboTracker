@@ -97,6 +97,24 @@
                             (Combo does not end on missed inputs)
                         </label>
                     </div>
+
+                    <label class="no-fail-label">Auto replay?</label>
+                    <div class="transcribe-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="macroModeToggle" title="Enable macro replay mode. Press your start key to replay the current combo. Esc always stops.">
+                            Macro replay (Esc always hard-stops)
+                        </label>
+                        <div id="macroSettingsWrap" class="transcribe-valid-keys-wrap hidden">
+                            <label>Start key (press to begin replay):</label>
+                            <input type="text" id="macroStartKey" placeholder="f8" maxlength="32"
+                                class="transcribe-valid-input transcribe-start-key-input"
+                                title="Key token to start replaying (e.g. f8, home). Must not appear in your combo inputs.">
+                            <label>Stop key (press to abort replay):</label>
+                            <input type="text" id="macroStopKey" placeholder="f9" maxlength="32"
+                                class="transcribe-valid-input transcribe-start-key-input"
+                                title="Key token to stop the macro mid-playback. Leave blank to use only Esc. Must not appear in your combo inputs.">
+                        </div>
+                    </div>
                     
                     <details class="collapsible demo-video-details" id="demoVideoDetails">
                         <summary>Demo video</summary>

@@ -1,7 +1,9 @@
 {
   "version": 1,
-  "last_active_combo": null,
+  "last_active_combo": "Aemeath, Lynae, Mornye",
   "no_fail_mode": false,
+  "macro_start_key": "f",
+  "macro_stop_key": "esc",
   "combos": {
     "Zani 1": [
       "f",
@@ -508,15 +510,15 @@
     },
     "Aemeath, Lynae, Mornye": {
       "success": 2,
-      "fail": 61,
+      "fail": 63,
       "best_ms": 42351,
       "total_success_ms": 90851,
       "fail_by_step": {
-        "22": 3,
+        "22": 4,
         "6": 3,
         "7": 1,
         "24": 1,
-        "1": 27,
+        "1": 28,
         "25": 2,
         "10": 1,
         "36": 1,
@@ -529,11 +531,11 @@
         "0": 4
       },
       "fail_by_expected": {
-        "2": 3,
+        "2": 4,
         "seq(e \u2192 wait(100ms))": 3,
         "3": 1,
         "hold(lmb,\u22651500ms)": 1,
-        "seq(lmb \u2192 wait(500ms))": 27,
+        "seq(lmb \u2192 wait(500ms))": 28,
         "wait(\u2265200ms)": 2,
         "seq(lmb \u2192 wait(100ms))": 1,
         "f": 1,
@@ -546,11 +548,11 @@
         "seq(f \u2192 wait(150ms))": 4
       },
       "fail_by_reason": {
-        "expected 2": 3,
+        "expected 2": 4,
         "expected seq(e \u2192 wait(100ms))": 3,
         "expected 3": 1,
         "expected hold(lmb,\u22651500ms)": 1,
-        "expected seq(lmb \u2192 wait(500ms))": 27,
+        "expected seq(lmb \u2192 wait(500ms))": 28,
         "only waited for 0.14s, combo ended by space": 1,
         "expected seq(lmb \u2192 wait(100ms))": 1,
         "expected f": 1,
@@ -1112,6 +1114,24 @@
           "actual": "e",
           "reason": "expected seq(lmb \u2192 wait(500ms))",
           "elapsed_ms": 448
+        },
+        {
+          "ts": 1778121474,
+          "attempt": 2,
+          "step_index": 22,
+          "expected": "2",
+          "actual": "space",
+          "reason": "expected 2",
+          "elapsed_ms": 19682
+        },
+        {
+          "ts": 1778121480,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "seq(lmb \u2192 wait(500ms))",
+          "actual": "r",
+          "reason": "expected seq(lmb \u2192 wait(500ms))",
+          "elapsed_ms": 1363
         }
       ]
     },
@@ -1434,7 +1454,7 @@
       }
     }
   },
-  "ww_active_team_id": "421aec4415",
+  "ww_active_team_id": "c70c25857f",
   "combo_ww_team": {
     "Zani Pheobe Rover Rotation": "986f16f581",
     "Zani 1": "986f16f581",

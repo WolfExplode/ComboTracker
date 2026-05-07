@@ -389,6 +389,18 @@ def load_engine_state(engine) -> None:
         no_fail = data.get("no_fail_mode")
         engine.no_fail_mode = bool(no_fail) if no_fail is not None else getattr(engine, "no_fail_mode", False)
 
+        macro_start = data.get("macro_start_key")
+        if isinstance(macro_start, str) and macro_start.strip():
+            engine.macro_start_key = macro_start.strip().lower()
+        else:
+            engine.macro_start_key = getattr(engine, "macro_start_key", "f8") or "f8"
+
+        macro_stop = data.get("macro_stop_key")
+        if isinstance(macro_stop, str) and macro_stop.strip():
+            engine.macro_stop_key = macro_stop.strip().lower()
+        else:
+            engine.macro_stop_key = getattr(engine, "macro_stop_key", "f9") or "f9"
+
         last_active = data.get("last_active_combo")
         if last_active in engine.combos:
             engine.set_active_combo(str(last_active), emit=False)
@@ -423,6 +435,8 @@ def save_engine_state(engine) -> None:
             "version": 1,
             "last_active_combo": engine.active_combo_name,
             "no_fail_mode": getattr(engine, "no_fail_mode", False),
+            "macro_start_key": getattr(engine, "macro_start_key", "f8") or "f8",
+            "macro_stop_key": getattr(engine, "macro_stop_key", "f9") or "f9",
             "combos": dict(engine.combos),
             "combo_enders": dict(engine.combo_enders),
             "combo_enders_soft": list(getattr(engine, "combo_enders_soft", set())),

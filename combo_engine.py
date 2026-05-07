@@ -120,6 +120,10 @@ class ComboTrackerEngine:
         # No-fail (practice) mode: on failure, mark step red and advance instead of resetting combo.
         self.no_fail_mode: bool = False
 
+        # Macro replay settings (persisted)
+        self.macro_start_key: str = "f8"
+        self.macro_stop_key: str = "f9"
+
         # Stats
         self.combo_stats: dict[str, dict[str, Any]] = {}
         # Per-combo metadata (kept minimal on purpose)

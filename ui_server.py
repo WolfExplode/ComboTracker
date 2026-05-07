@@ -16,6 +16,7 @@ import websockets
 from pynput import keyboard, mouse
 
 from combo_engine import ComboTrackerEngine
+from macro_player import MacroPlayer
 from transcriber import Transcriber
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,18 @@ def _normalized_transcribe_start_key() -> str:
     raw = (getattr(engine, "transcribe_start_key", "") or "").strip().lower()
     return raw if raw else "f"
 
+
+def _normalized_macro_start_key() -> str:
+    raw = (getattr(engine, "macro_start_key", "") or "").strip().lower()
+    return raw if raw else "f8"
+
+
+def _normalized_macro_stop_key() -> str:
+    raw = (getattr(engine, "macro_stop_key", "") or "").strip().lower()
+    return raw  # empty string = no stop key configured (only Esc stops)
+
 transcribe_mode_enabled = False
+macro_mode_enabled = False
 
 
 HOST_HTTP = "localhost"
@@ -195,6 +207,16 @@ async def ws_handler(
             elif mtype == "set_no_fail":
                 engine.set_no_fail_mode(bool(msg.get("enabled", False)))
                 engine.save_combos()
+            elif mtype == "set_macro_mode":
+                global macro_mode_enabled
+                macro_mode_enabled = bool(msg.get("enabled", False))
+                start_raw = str(msg.get("start_key") or "").strip().lower()
+                stop_raw = str(msg.get("stop_key") or "").strip().lower()
+                engine.macro_start_key = start_raw if start_raw else "f8"
+                engine.macro_stop_key = stop_raw
+                if not macro_mode_enabled and macro_player.is_running():
+                    macro_player.stop()
+                engine.save_combos()
             elif mtype == "clear_history":
                 engine.clear_history_and_stats()
             elif mtype == "load_combos_from_json":
@@ -292,6 +314,12 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
 
     def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         input_name = engine.normalize_key(key)
+
+        # Esc is always a hard stop for macro regardless of any other mode.
+        if input_name == TRANSCRIBE_ESC_KEY and macro_player.is_running():
+            macro_player.stop()
+            # Fall through: Esc also cancels the current attempt / stops transcription below.
+
         if transcribe_mode_enabled:
             if not transcriber.is_recording():
                 if input_name == TRANSCRIBE_ESC_KEY:
@@ -319,6 +347,17 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                 transcribe_keys_held.add(input_name)
                 transcriber.key_down(input_name, time.perf_counter())
             return
+        # Macro mode start/stop hotkeys (only active when not transcribing).
+        if macro_mode_enabled:
+            start_k = _normalized_macro_start_key()
+            stop_k = _normalized_macro_stop_key()
+            if input_name == start_k and not macro_player.is_running():
+                _start_macro()
+                return  # swallow the start key so it doesn't advance the combo
+            if stop_k and input_name == stop_k and macro_player.is_running():
+                macro_player.stop()
+                return  # swallow the stop key
+
         if input_name == TRANSCRIBE_ESC_KEY:
             engine.cancel_attempt()
             return
@@ -369,6 +408,24 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
 
 
 engine = ComboTrackerEngine()
+
+
+def _on_macro_status(text: str, color: str) -> None:
+    engine._send({"type": "status", "text": text, "color": color})
+
+
+macro_player = MacroPlayer(on_status=_on_macro_status)
+
+
+def _start_macro() -> None:
+    """Begin macro playback using the current active combo tokens."""
+    tokens = list(getattr(engine, "active_combo_tokens", []) or [])
+    if not tokens:
+        engine._send({"type": "status", "text": "No combo loaded — select or save a combo first.", "color": "fail"})
+        return
+    started = macro_player.start(tokens)
+    if not started:
+        pass  # already running — silently ignore per spec
 
 
 def _on_transcription_done(transcript: str) -> None:

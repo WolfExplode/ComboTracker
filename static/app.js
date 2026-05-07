@@ -136,6 +136,11 @@ function initializeUI(data) {
     if (stripMs && data.transcribe_strip_wait_under_ms !== undefined) {
         stripMs.value = data.transcribe_strip_wait_under_ms || '';
     }
+
+    const macroStartKeyEl = getEl('macroStartKey');
+    if (macroStartKeyEl && data.macro_start_key !== undefined) macroStartKeyEl.value = data.macro_start_key || '';
+    const macroStopKeyEl = getEl('macroStopKey');
+    if (macroStopKeyEl && data.macro_stop_key !== undefined) macroStopKeyEl.value = data.macro_stop_key || '';
 }
 
 function normalizeTargetGame(v) {
@@ -1536,6 +1541,45 @@ if (transcribeStripWaitMs) {
 }
 if (transcribeValidKeysWrap && transcribeModeToggle) {
     transcribeValidKeysWrap.classList.toggle('hidden', !transcribeModeToggle.checked);
+}
+
+// --- Macro replay mode ---
+function sendMacroMode() {
+    const toggle = getEl('macroModeToggle');
+    const startInput = getEl('macroStartKey');
+    const stopInput = getEl('macroStopKey');
+    sendMessage('set_macro_mode', {
+        enabled: !!(toggle && toggle.checked),
+        start_key: (startInput && startInput.value.trim()) || '',
+        stop_key: (stopInput && stopInput.value.trim()) || '',
+    });
+}
+
+function macroPersistIfOn() {
+    if (getEl('macroModeToggle')?.checked) sendMacroMode();
+}
+
+const macroModeToggle = getEl('macroModeToggle');
+const macroSettingsWrap = getEl('macroSettingsWrap');
+const macroStartKeyInput = getEl('macroStartKey');
+const macroStopKeyInput = getEl('macroStopKey');
+
+if (macroModeToggle) {
+    macroModeToggle.addEventListener('change', () => {
+        if (macroSettingsWrap) macroSettingsWrap.classList.toggle('hidden', !macroModeToggle.checked);
+        sendMacroMode();
+    });
+}
+if (macroStartKeyInput) {
+    macroStartKeyInput.addEventListener('blur', macroPersistIfOn);
+    macroStartKeyInput.addEventListener('input', macroPersistIfOn);
+}
+if (macroStopKeyInput) {
+    macroStopKeyInput.addEventListener('blur', macroPersistIfOn);
+    macroStopKeyInput.addEventListener('input', macroPersistIfOn);
+}
+if (macroSettingsWrap && macroModeToggle) {
+    macroSettingsWrap.classList.toggle('hidden', !macroModeToggle.checked);
 }
 
 window.addEventListener('resize', () => {
