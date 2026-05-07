@@ -140,7 +140,13 @@
         <!-- SECTION 3: Status & Stats -->
         <section class="section status-section">
 
-            <div id="minTimeDisplay" class="time-display">Fastest possible: —</div>
+            <div class="time-display-with-help" tabindex="0">
+                <div id="minTimeDisplay" class="time-display" aria-describedby="min-time-help-tooltip">Fastest possible: —</div>
+                <div id="min-time-help-tooltip" class="input-help-tooltip" role="tooltip">
+                    <p>This combo tracker is meant to track real time, timing data. not in game timing data.</p>
+                    <p>For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s</p>
+                </div>
+            </div>
             <div id="difficultyDisplay" class="time-display">Difficulty: —</div>
             <div id="userDifficultyDisplay" class="time-display">Your difficulty: —</div>
             <div id="apmDisplay" class="time-display">Practical APM: —</div>

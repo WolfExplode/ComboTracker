@@ -669,6 +669,32 @@ button.danger:hover {
     color: var(--accent-yellow);
 }
 
+.time-display-with-help {
+    position: relative;
+    display: block;
+    cursor: help;
+    border-radius: var(--border-radius);
+}
+
+.time-display-with-help:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+
+.time-display-with-help:hover .input-help-tooltip,
+.time-display-with-help:focus-within .input-help-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.time-display-with-help .input-help-tooltip p {
+    margin: 0 0 0.6em;
+}
+
+.time-display-with-help .input-help-tooltip p:last-child {
+    margin-bottom: 0;
+}
+
 .time-display,
 .stats-display {
     color: var(--text-secondary);

@@ -5,6 +5,11 @@ A small local web UI + Python backend that listens to your keyboard/mouse and tr
 
 ![Combo Input](https://github.com/user-attachments/assets/30466399-8db6-474d-8508-b90143143ab7)
 
+## Info
+This combo tracker is meant to track real time, timing data. not in game timing data.
+For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s
+
+
 ### Features
 - **Practice combos**: see live status + a step timeline.
 - **Wait + hold steps**:
@@ -19,8 +24,10 @@ A small local web UI + Python backend that listens to your keyboard/mouse and tr
 
 ---
 
-## Getting started
 
+
+
+## Getting started
 ### Requirements
 - Python 3.10+ recommended
 
@@ -46,7 +53,6 @@ Notes:
 - The app listens to global keyboard/mouse via `pynput` (you may need accessibility permissions on some OSes).
 
 ### Building a standalone .exe (Windows)
-
 You can package ComboTracker as a single executable so others can run it without installing Python.
 
 1. Install build tooling (once):
@@ -64,6 +70,8 @@ You can package ComboTracker as a single executable so others can run it without
 **Publishing a release:** ship `dist/ComboTracker.exe` (optionally zip it for GitHub Releases). Build on a **normal (non-elevated)** terminal; PyInstaller may warn if you run it from an elevated shell.
 
 ---
+
+
 
 ## OBS overlay
 
@@ -100,14 +108,8 @@ Detailed docs live in [`documentation.md`](documentation.md):
 
 Combos and stats are stored locally in `combos.json`.
 
-### Tests
-
-```bash
-python -m pytest tests\ -v
-```
 
 
 
 ## Troubleshooting
 If keystrokes are not registering when in game, launch the code in elevated command prompt, with administrator.
-
