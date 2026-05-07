@@ -22,7 +22,13 @@ For example, shorekeeper's Liberation is 2.9s in real time, but has a in game fr
   - Theoretical max APM (uses fastest-possible time)
   - Difficulty out of 10 (keys + timing + simple timing-variation rule)
 
+#### Easy to edit
+
+https://github.com/user-attachments/assets/e32ac3e1-9fc6-40bf-ac14-98cb3224156d
+
 ---
+
+
 
 
 
