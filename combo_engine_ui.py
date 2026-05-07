@@ -120,9 +120,9 @@ def get_editor_payload(engine, target_game_override: str | None = None) -> dict[
             # Keep it friendly for editing (no trailing .0)
             user_diff = f"{d:g}"
 
-    mode = "icons"
+    mode = "images"
     if name:
-        m = str(engine.combo_step_display_mode.get(name, "icons") or "icons").strip().lower()
+        m = str(engine.combo_step_display_mode.get(name, "images") or "images").strip().lower()
         if m in ("icons", "images"):
             mode = m
     key_images = {}

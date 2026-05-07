@@ -33,7 +33,7 @@ function sendMessage(type, payload = {}) {
 
 // Single app state (replaces scattered globals)
 const appState = {
-    stepDisplayMode: 'icons',
+    stepDisplayMode: 'images',
     keyImages: {},
     lastTimelineSteps: null,
     lastFailByStep: {},
@@ -569,8 +569,8 @@ function setEditorFields(data) {
         updateDemoVideoEmbed(demoVideoEl.value);
     }
 
-    appState.stepDisplayMode = (data.step_display_mode || 'icons').toString().trim().toLowerCase();
-    if (!['icons', 'images'].includes(appState.stepDisplayMode)) appState.stepDisplayMode = 'icons';
+    appState.stepDisplayMode = (data.step_display_mode || 'images').toString().trim().toLowerCase();
+    if (!['icons', 'images'].includes(appState.stepDisplayMode)) appState.stepDisplayMode = 'images';
     const toggle = getEl('stepDisplayToggle');
     if (toggle) toggle.checked = (appState.stepDisplayMode === 'images');
 

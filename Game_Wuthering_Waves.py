@@ -197,6 +197,9 @@ class WutheringWavesGame:
         tid = str(team_id or "").strip()
         if tid and tid in self.ww_teams:
             self.ww_active_team_id = tid
+            return
+        # Explicitly clear when empty/invalid so stateless UI changes can reset team data.
+        self.ww_active_team_id = None
 
     def save_or_update_ww_team(
         self,
@@ -330,14 +333,17 @@ def select_team_stateless(engine, team_id: str, target_game: str) -> None:
     tid = str(team_id or "").strip()
     game = str(target_game or "generic").strip().lower()
 
-    if game == "wuthering_waves" and tid and tid in engine.ww.ww_teams:
+    if game == "wuthering_waves":
+        # set_active_ww_team now clears on empty/invalid, so one path covers select + clear.
         engine.ww.set_active_ww_team(tid)
         engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
         engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
-    elif game == "wuthering_waves" and not tid:
-        engine.ww.set_active_ww_team("")
-        engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
-        engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
+        return
+
+    # Keep behavior predictable for non-WW game selections.
+    engine.ww.set_active_ww_team("")
+    engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
+    engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
 
 
 def update_target_game_stateless(engine, target_game: str) -> None:
