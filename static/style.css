@@ -783,6 +783,24 @@ button.danger:hover {
     will-change: transform;
 }
 
+.timeline-chain-dash {
+    flex: 0 0 auto;
+    width: 10px;
+    height: 3px;
+    margin: 0 -8px;
+    border-radius: 999px;
+    background: rgba(185, 185, 185, 0.8);
+    align-self: center;
+    pointer-events: none;
+}
+
+.timeline-viewport.auto-scroll-on .timeline-chain-dash {
+    width: 28px;
+    height: 4px;
+    margin: 0 -10px;
+    background: rgba(195, 195, 195, 0.85);
+}
+
 .timeline-viewport.auto-scroll-on .step,
 .timeline-viewport.auto-scroll-on .step-group,
 .timeline-viewport.auto-scroll-on .step-group-items,

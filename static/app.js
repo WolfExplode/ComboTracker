@@ -1467,11 +1467,22 @@ function updateTimeline(steps, opts) {
         return;
     }
 
+    const isLmbPressWait = (step) =>
+        !!step
+        && step.type === 'press_wait'
+        && ((step.input || '').toString().toLowerCase() === 'lmb');
+
     let activeChar = '1';
     steps.forEach((s, idx) => {
         const { tile, nextActiveChar } = renderStep(s, idx, activeChar);
         activeChar = nextActiveChar;
         container.appendChild(tile);
+        if (isLmbPressWait(s) && isLmbPressWait(steps[idx + 1])) {
+            const dash = document.createElement('div');
+            dash.className = 'timeline-chain-dash';
+            dash.setAttribute('aria-hidden', 'true');
+            container.appendChild(dash);
+        }
     });
 
     if (viewport?.classList.contains('auto-scroll-on')) {
