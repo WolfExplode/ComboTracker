@@ -728,6 +728,10 @@ button.danger:hover {
 }
 
 /* Timeline Base */
+#comboTimeline {
+    margin-left: 10px;
+}
+
 .timeline-viewport {
     position: relative;
     overflow: hidden;
@@ -929,6 +933,10 @@ button.danger:hover {
     pointer-events: none;
 }
 
+.corner-key.step-field-editable {
+    pointer-events: auto;
+}
+
 .step-fail-count {
     position: absolute;
     bottom: 4px;
@@ -937,6 +945,37 @@ button.danger:hover {
     font-weight: 800;
     color: var(--accent-red);
     pointer-events: none;
+}
+
+/* Step inline editing */
+.step-field-editable {
+    cursor: text;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 120ms ease;
+}
+
+.step-field-editable:hover {
+    border-bottom-color: rgba(74, 158, 255, 0.7);
+}
+
+.step-field-editing {
+    border-bottom-color: var(--accent-blue) !important;
+}
+
+.step-field-input {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid var(--accent-blue);
+    border-radius: 3px;
+    color: var(--text-primary);
+    font-family: 'Fira Code', monospace;
+    font-size: inherit;
+    font-weight: inherit;
+    padding: 0 3px;
+    outline: none;
+    min-width: 30px;
+    max-width: 120px;
+    text-align: center;
+    box-shadow: 0 0 6px rgba(74, 158, 255, 0.4);
 }
 
 /* Drag-to-reorder */

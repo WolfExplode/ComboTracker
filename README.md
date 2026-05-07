@@ -34,6 +34,8 @@ https://github.com/user-attachments/assets/e32ac3e1-9fc6-40bf-ac14-98cb3224156d
 
 
 ## Getting started
+You can simply run ComboTracker.exe or run the code via python:
+
 ### Requirements
 - Python 3.10+ recommended
 

@@ -799,6 +799,308 @@ function startWaitAnimation(requiredMs) {
     waitRafId = requestAnimationFrame(tickWaitAnimation);
 }
 
+// ---------------------------------------------------------------------------
+// Step inline editing helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * JS port of the Python split_inputs: splits a comma-separated inputs string
+ * into top-level tokens, respecting nested (, {, [ delimiters.
+ */
+function splitInputsTokens(str) {
+    const out = [];
+    let buf = '';
+    let paren = 0, brace = 0, bracket = 0;
+    for (const ch of (str || '')) {
+        if (ch === '(') paren++;
+        else if (ch === ')') paren = Math.max(0, paren - 1);
+        else if (ch === '{') brace++;
+        else if (ch === '}') brace = Math.max(0, brace - 1);
+        else if (ch === '[') bracket++;
+        else if (ch === ']') bracket = Math.max(0, bracket - 1);
+
+        if (ch === ',' && paren === 0 && brace === 0 && bracket === 0) {
+            const tok = buf.trim();
+            if (tok) out.push(tok);
+            buf = '';
+            continue;
+        }
+        buf += ch;
+    }
+    const last = buf.trim();
+    if (last) out.push(last);
+    return out;
+}
+
+/**
+ * Format a duration in milliseconds back to the shortest token string.
+ * Uses "s" suffix if divisible cleanly, otherwise "ms".
+ */
+function formatDurationToken(ms) {
+    const n = Number(ms);
+    if (!Number.isFinite(n) || n <= 0) return `${ms}ms`;
+    if (n % 1000 === 0) return `${n / 1000}s`;
+    if (n % 100 === 0) return `${(n / 1000).toFixed(1)}s`;
+    if (n % 10 === 0) return `${(n / 1000).toFixed(2)}s`;
+    return `${Math.round(n)}ms`;
+}
+
+/**
+ * Parse a user-entered duration string (e.g. "0.23s", "230ms", "230") to ms.
+ * Returns null if unparseable.
+ */
+function parseDurationToMs(raw) {
+    const s = (raw || '').trim().toLowerCase();
+    if (!s) return null;
+    if (s.endsWith('ms')) {
+        const v = parseFloat(s.slice(0, -2));
+        return Number.isFinite(v) && v > 0 ? Math.round(v) : null;
+    }
+    if (s.endsWith('s')) {
+        const v = parseFloat(s.slice(0, -1));
+        return Number.isFinite(v) && v > 0 ? Math.round(v * 1000) : null;
+    }
+    const v = parseFloat(s);
+    if (Number.isFinite(v) && v > 0) {
+        // Treat as seconds if it looks fractional, ms otherwise.
+        return s.includes('.') ? Math.round(v * 1000) : Math.round(v);
+    }
+    return null;
+}
+
+/**
+ * Reconstruct source token(s) for a step after an inline field edit.
+ * Returns an array of 1 or 2 token strings, or null on invalid input.
+ *
+ * `field` is either 'key' or 'duration'.
+ * `newValue` is the raw string the user typed.
+ * `s` is the step data dict from the backend.
+ */
+function reconstructTokensForEdit(s, field, newValue) {
+    const val = (newValue || '').trim().toLowerCase();
+    if (!val) return null;
+
+    if (s.type === 'press') {
+        // Only 'key' editable
+        return [val];
+    }
+
+    if (s.type === 'press_wait') {
+        // Two source tokens: key token + wait:Xs token
+        const key = field === 'key' ? val : (s.input || '').toLowerCase();
+        if (!key) return null;
+        const durMs = field === 'duration' ? parseDurationToMs(val) : s.duration;
+        if (!durMs) return null;
+        return [key, `wait:${formatDurationToken(durMs)}`];
+    }
+
+    if (s.type === 'hold') {
+        // One token: hold(key, durMs)
+        const key = field === 'key' ? val : (s.input || '').toLowerCase();
+        if (!key) return null;
+        const durMs = field === 'duration' ? parseDurationToMs(val) : s.duration;
+        if (!durMs) return null;
+        return [`hold(${key}, ${formatDurationToken(durMs)})`];
+    }
+
+    if (s.type === 'wait' && s.mode === 'mandatory') {
+        // One token: wait(key, durMs)
+        const key = field === 'key' ? val : (s.wait_for || '').toLowerCase();
+        if (!key) return null;
+        const durMs = field === 'duration' ? parseDurationToMs(val) : s.duration;
+        if (!durMs) return null;
+        return [`wait(${key}, ${formatDurationToken(durMs)})`];
+    }
+
+    if (s.type === 'wait') {
+        // Standalone soft/hard wait: one token wait:Xs
+        const durMs = parseDurationToMs(val);
+        if (!durMs) return null;
+        return [`wait:${formatDurationToken(durMs)}`];
+    }
+
+    return null;
+}
+
+/**
+ * Commit an inline step field edit:
+ *  1. Locate source token(s) via runtime_source_token_indices (runtime index → source indices).
+ *  2. Splice new token(s) into the inputs textarea.
+ *  3. Send save_combo with the updated inputs string.
+ */
+function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
+    const newTokens = reconstructTokensForEdit(s, field, newValue);
+    if (!newTokens) return false;
+
+    const inputsEl = getEl('comboInputs');
+    if (!inputsEl) return false;
+
+    const raw = inputsEl.value || '';
+    const currentTokens = splitInputsTokens(raw);
+    if (!currentTokens.length) return false;
+
+    // Ask the backend to resolve runtime→source mapping by sending a targeted
+    // rewrite via a new delete+insert path — but since we already have the
+    // runtime_source_token_indices logic on the backend (used by delete/reorder),
+    // the cleanest approach here is: send the full updated inputs string ourselves.
+    // We reconstruct it purely on the JS side using the same source-map approach:
+    // runtimeIdx is the index in runtime steps. We need the source token positions.
+    // Since we know the current tokens list, we rebuild the mapping in JS.
+    const srcMap = buildRuntimeToSourceMap(currentTokens);
+    if (!srcMap || runtimeIdx >= srcMap.length) return false;
+
+    const srcIndices = srcMap[runtimeIdx];
+    if (!srcIndices || srcIndices.length === 0) return false;
+
+    // Splice: replace source token(s) at srcIndices with newTokens.
+    const minSrc = Math.min(...srcIndices);
+    const result = [];
+    let i = 0;
+    while (i < currentTokens.length) {
+        if (srcIndices.includes(i)) {
+            if (i === minSrc) {
+                newTokens.forEach(t => result.push(t));
+            }
+            // skip the rest of the source group
+        } else {
+            result.push(currentTokens[i]);
+        }
+        i++;
+    }
+    if (result.length === 0) return false;
+
+    const newInputs = result.join(', ');
+    inputsEl.value = newInputs;
+    if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
+
+    // Save via the same path as the Save/Update button.
+    readKeyImagesFromUI();
+    readWwDataFromUI();
+    const toggle = getEl('stepDisplayToggle');
+    sendMessage('save_combo', {
+        name: (getEl('comboName')?.value || '').toString(),
+        inputs: newInputs,
+        enders: (getEl('comboEnders')?.value || '').toString(),
+        expected_time: (getEl('comboExpectedTime')?.value || '').toString(),
+        user_difficulty: (getEl('comboUserDifficulty')?.value || '').toString(),
+        step_display_mode: toggle?.checked ? 'images' : 'icons',
+        key_images: appState.keyImages,
+        demo_video: (getEl('comboDemoVideo')?.value || '').toString().trim(),
+        target_game: appState.targetGame,
+        ww_team_id: appState.wwTeamId || '',
+    });
+    return true;
+}
+
+/**
+ * JS port of runtime_source_token_indices_from_tokens from parser.py.
+ * Returns an array where entry[runtimeIdx] = [srcTokenIdx, ...].
+ */
+function buildRuntimeToSourceMap(tokens) {
+    const srcMap = [];
+    let i = 0;
+    while (i < tokens.length) {
+        const tok = tokens[i].trim().toLowerCase();
+        if (!tok) { i++; continue; }
+
+        // press + following soft/hard wait -> one runtime SequenceNode (press_wait tile)
+        if (!tok.startsWith('wait') && !tok.startsWith('hold(') && !tok.startsWith('[') && !tok.startsWith('{')) {
+            // Could be a plain press followed by wait:Xs
+            if (i + 1 < tokens.length) {
+                const nxt = tokens[i + 1].trim().toLowerCase();
+                if (nxt.startsWith('wait:')) {
+                    srcMap.push([i, i + 1]);
+                    i += 2;
+                    continue;
+                }
+            }
+        }
+
+        // wait(key, t) -> two runtime steps (press + mandatory wait) from the same source token
+        if (tok.startsWith('wait(') && tok.endsWith(')')) {
+            srcMap.push([i]);
+            srcMap.push([i]);
+            i++;
+            continue;
+        }
+
+        // hold(key, ms, total_ms) -> two runtime steps from the same source token
+        if (tok.startsWith('hold(') && tok.endsWith(')')) {
+            // Check for three args (hold + anim lock)
+            const inner = tok.slice(5, -1);
+            const parts = inner.split(',').map(p => p.trim());
+            if (parts.length >= 3) {
+                srcMap.push([i]);
+                srcMap.push([i]);
+                i++;
+                continue;
+            }
+        }
+
+        srcMap.push([i]);
+        i++;
+    }
+    return srcMap;
+}
+
+/**
+ * Make a span inline-editable on double-click when edit mode is active.
+ * `s` = step dict, `field` = 'key' | 'duration', `runtimeIdx` = first runtime index.
+ */
+function attachInlineEdit(span, s, field, runtimeIdx) {
+    if (!appState.stepEditMode) return;
+    span.classList.add('step-field-editable');
+    span.title = 'Double-click to edit';
+
+    span.addEventListener('dblclick', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (span.querySelector('input')) return; // already editing
+
+        const original = span.textContent;
+        // For duration fields strip the leading label text so user edits just the value
+        let editValue = original;
+        if (field === 'duration') {
+            // "hold 300ms" -> "300ms", "Wait 500ms" -> "500ms", "230ms" -> "230ms"
+            editValue = original.replace(/^(hold\s+|Wait\s+)/i, '').trim();
+        }
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = editValue;
+        input.className = 'step-field-input';
+        input.size = Math.max(4, editValue.length + 1);
+        span.textContent = '';
+        span.appendChild(input);
+        input.focus();
+        input.select();
+
+        const commit = () => {
+            const newVal = input.value.trim();
+            span.textContent = original;
+            span.classList.remove('step-field-editing');
+            if (newVal && newVal !== editValue) {
+                const ok = commitStepFieldEdit(runtimeIdx, s, field, newVal);
+                if (!ok) {
+                    span.title = 'Invalid value — double-click to try again';
+                }
+            }
+        };
+
+        const cancel = () => {
+            span.textContent = original;
+            span.classList.remove('step-field-editing');
+        };
+
+        span.classList.add('step-field-editing');
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', (ke) => {
+            if (ke.key === 'Enter') { ke.preventDefault(); input.blur(); }
+            if (ke.key === 'Escape') { ke.preventDefault(); input.removeEventListener('blur', commit); cancel(); }
+        });
+    });
+}
+
 // Timeline rendering
 function refreshTimelineIfLoaded() {
     if (appState.lastTimelineSteps) updateTimeline(appState.lastTimelineSteps);
@@ -855,14 +1157,15 @@ function updateTimeline(steps, opts) {
         el.style.minWidth = `${baseStepWidthPx}px`;
         el.style.width = `${baseStepWidthPx}px`;
     };
-    const addCornerKey = (el, key) => {
+    const addCornerKey = (el, key, s, runtimeIdx) => {
         if (ctx.stepDisplayMode !== 'images') return;
         const k = (key || '').toString().trim();
         if (!k) return;
         const span = document.createElement('span');
         span.className = 'corner-key';
-        span.textContent = k;
+        span.textContent = k.toUpperCase();
         el.appendChild(span);
+        if (s && runtimeIdx != null) attachInlineEdit(span, s, 'key', runtimeIdx);
     };
     const parseStepIndices = (stepIndices) => {
         if (!Array.isArray(stepIndices)) return [];
@@ -1141,12 +1444,13 @@ function updateTimeline(steps, opts) {
             applyBaseWidth(tile);
         }
 
+        const runtimeIdxNormal = Array.isArray(s.step_indices) ? s.step_indices[0] : idx;
         let keyForCorner = '';
         if (s.type === 'wait' && s.wait_for) keyForCorner = s.wait_for;
         else if (s.input) keyForCorner = s.input;
-        if (keyForCorner) addCornerKey(tile, keyForCorner);
+        if (keyForCorner) addCornerKey(tile, keyForCorner, s, runtimeIdxNormal);
 
-        appendStepContent(tile, s, nextChar, ctx);
+        appendStepContent(tile, s, nextChar, ctx, runtimeIdxNormal);
         attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
@@ -1222,7 +1526,7 @@ function getMouseIconSvg(type) {
     return '';
 }
 
-function appendStepContent(parent, s, characterId, ctx) {
+function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
     const useImages = (ctx && ctx.stepDisplayMode === 'images') || !!getEl('stepDisplayToggle')?.checked;
     const inp = (s.input || '').toString().toLowerCase();
     const label = (s.input || '').toString().toUpperCase();
@@ -1268,12 +1572,13 @@ function appendStepContent(parent, s, characterId, ctx) {
         }
     };
 
-    // Append duration/secondary text.
+    // Append duration/secondary text; attach inline edit when runtimeIdx is provided.
     const appendDuration = (text) => {
         const dur = document.createElement('span');
         dur.className = 'step-secondary';
         dur.textContent = text;
         parent.appendChild(dur);
+        if (runtimeIdx != null) attachInlineEdit(dur, s, 'duration', runtimeIdx);
     };
 
     // Single unified logic — no duplication across WW / generic / icons.
