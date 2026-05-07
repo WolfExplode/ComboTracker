@@ -38,6 +38,7 @@ const appState = {
     lastTimelineSteps: null,
     lastFailByStep: {},
     showFailCount: false,
+    collapseChainedPresses: true,
     autoScrollEnabled: false,
     stepEditMode: false,
     targetGame: 'generic',
@@ -78,6 +79,7 @@ function initializeUI(data) {
         stepDisplayMode: appState.stepDisplayMode,
         noFailMode: !!getEl('noFailMode')?.checked,
         stepEditMode: !!getEl('stepEditToggle')?.checked,
+        collapseChainedPresses: !!getEl('collapseChainsToggle')?.checked,
         keyImages: { ...appState.keyImages },
         wwDashImage: appState.wwDashImage,
         wwSwapImages: { ...appState.wwSwapImages },
@@ -103,6 +105,9 @@ function initializeUI(data) {
         appState.stepEditMode = preserved.stepEditMode;
         const stepEditToggle = getEl('stepEditToggle');
         if (stepEditToggle) stepEditToggle.checked = preserved.stepEditMode;
+        appState.collapseChainedPresses = preserved.collapseChainedPresses;
+        const collapseChainsToggle = getEl('collapseChainsToggle');
+        if (collapseChainsToggle) collapseChainsToggle.checked = preserved.collapseChainedPresses;
         appState.keyImages = preserved.keyImages;
         appState.wwDashImage = preserved.wwDashImage;
         appState.wwSwapImages = preserved.wwSwapImages;
@@ -1462,6 +1467,38 @@ function updateTimeline(steps, opts) {
         return renderNormalStep(s, idx, activeChar);
     }
 
+    const buildCollapsedLmbPressWaitStep = (chainSteps) => {
+        const flattenedIndices = chainSteps.flatMap((it) =>
+            Array.isArray(it.step_indices) ? it.step_indices : []
+        );
+        const totalDuration = chainSteps.reduce((sum, it) => sum + (Number(it.duration) || 0), 0);
+        const progressTotal = chainSteps.reduce((sum, it) => {
+            const pct = (it.progress !== undefined && it.progress !== null) ? Number(it.progress) : (it.completed ? 100 : 0);
+            return sum + (Number.isFinite(pct) ? pct : 0);
+        }, 0);
+        const avgProgress = chainSteps.length > 0 ? (progressTotal / chainSteps.length) : 0;
+        const anyMark = (name) => chainSteps.some((it) => (it.mark || '') === name);
+        let collapsedMark = '';
+        if (anyMark('wrong') || anyMark('fail')) collapsedMark = 'wrong';
+        else if (anyMark('missed')) collapsedMark = 'missed';
+        else if (anyMark('early')) collapsedMark = 'early';
+        else if (anyMark('success')) collapsedMark = 'success';
+
+        return {
+            ...chainSteps[0],
+            type: 'press_wait',
+            input: 'lmb',
+            duration: totalDuration,
+            progress: avgProgress,
+            chain_count: chainSteps.length,
+            chain_collapsed: true,
+            active: chainSteps.some((it) => !!it.active),
+            completed: chainSteps.every((it) => !!it.completed),
+            step_indices: flattenedIndices,
+            mark: collapsedMark,
+        };
+    };
+
     if (!steps || steps.length === 0) {
         container.innerHTML = '<div class="help-text">No combo selected</div>';
         return;
@@ -1472,18 +1509,36 @@ function updateTimeline(steps, opts) {
         && step.type === 'press_wait'
         && ((step.input || '').toString().toLowerCase() === 'lmb');
 
+    const collapseChains = !!appState.collapseChainedPresses;
     let activeChar = '1';
-    steps.forEach((s, idx) => {
+    for (let idx = 0; idx < steps.length; idx += 1) {
+        const s = steps[idx];
+
+        if (collapseChains && isLmbPressWait(s)) {
+            let chainEnd = idx + 1;
+            while (chainEnd < steps.length && isLmbPressWait(steps[chainEnd])) chainEnd += 1;
+            const chainLen = chainEnd - idx;
+            if (chainLen > 1) {
+                const collapsed = buildCollapsedLmbPressWaitStep(steps.slice(idx, chainEnd));
+                const { tile, nextActiveChar } = renderStep(collapsed, idx, activeChar);
+                tile.classList.add('chain-collapsed');
+                activeChar = nextActiveChar;
+                container.appendChild(tile);
+                idx = chainEnd - 1;
+                continue;
+            }
+        }
+
         const { tile, nextActiveChar } = renderStep(s, idx, activeChar);
         activeChar = nextActiveChar;
         container.appendChild(tile);
-        if (isLmbPressWait(s) && isLmbPressWait(steps[idx + 1])) {
+        if (!collapseChains && isLmbPressWait(s) && isLmbPressWait(steps[idx + 1])) {
             const dash = document.createElement('div');
             dash.className = 'timeline-chain-dash';
             dash.setAttribute('aria-hidden', 'true');
             container.appendChild(dash);
         }
-    });
+    }
 
     if (viewport?.classList.contains('auto-scroll-on')) {
         requestAnimationFrame(() => {
@@ -1544,13 +1599,13 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
     const charId = characterId || '1';
 
     // Helper to decide content (icon or text when no image)
-    const appendIconOrText = (key, fallbackText) => {
+    const appendIconOrText = (key, fallbackText, target = parent) => {
         const svg = getMouseIconSvg(key);
         if (svg) {
             const icon = document.createElement('span');
             icon.className = 'mouse-icon';
             icon.innerHTML = svg;
-            parent.appendChild(icon);
+            target.appendChild(icon);
             return;
         }
         const span = document.createElement('span');
@@ -1561,7 +1616,7 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
         } else {
             span.textContent = fallbackText;
         }
-        parent.appendChild(span);
+        target.appendChild(span);
     };
 
     // Resolve image URL based on current game/mode (WW vs generic); returns null when no image.
@@ -1574,12 +1629,12 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
     };
 
     // Append primary content: image if available, else icon/text.
-    const appendPrimary = (key, fallbackText) => {
+    const appendPrimary = (key, fallbackText, target = parent) => {
         const imgUrl = resolveImage(key);
         if (imgUrl) {
-            parent.appendChild(createImageElement(imgUrl));
+            target.appendChild(createImageElement(imgUrl));
         } else {
-            appendIconOrText(key, fallbackText);
+            appendIconOrText(key, fallbackText, target);
         }
     };
 
@@ -1601,7 +1656,19 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
         appendPrimary(inp, label);
         appendDuration(`hold ${s.duration}ms`);
     } else if (s.type === 'press_wait') {
-        appendPrimary(inp, label);
+        const chainCount = Number(s.chain_count || 0);
+        if (chainCount > 1) {
+            const primaryRow = document.createElement('div');
+            primaryRow.className = 'step-chain-primary';
+            appendPrimary(inp, label, primaryRow);
+            const count = document.createElement('span');
+            count.className = 'step-chain-count';
+            count.textContent = `x${chainCount}`;
+            primaryRow.appendChild(count);
+            parent.appendChild(primaryRow);
+        } else {
+            appendPrimary(inp, label);
+        }
         appendDuration(`${s.duration}ms`);
     } else if (s.type === 'wait') {
         appendDuration(`Wait ${s.duration}ms`);
@@ -1899,6 +1966,15 @@ const stepEditToggleEl = getEl('stepEditToggle');
 if (stepEditToggleEl) {
     stepEditToggleEl.addEventListener('change', () => {
         appState.stepEditMode = stepEditToggleEl.checked;
+        refreshTimelineIfLoaded();
+    });
+}
+
+const collapseChainsToggleEl = getEl('collapseChainsToggle');
+if (collapseChainsToggleEl) {
+    collapseChainsToggleEl.checked = !!appState.collapseChainedPresses;
+    collapseChainsToggleEl.addEventListener('change', () => {
+        appState.collapseChainedPresses = collapseChainsToggleEl.checked;
         refreshTimelineIfLoaded();
     });
 }

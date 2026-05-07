@@ -801,6 +801,23 @@ button.danger:hover {
     background: rgba(195, 195, 195, 0.85);
 }
 
+.step.chain-collapsed {
+    min-width: 220px;
+}
+
+.step-chain-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.step-chain-count {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+}
+
 .timeline-viewport.auto-scroll-on .step,
 .timeline-viewport.auto-scroll-on .step-group,
 .timeline-viewport.auto-scroll-on .step-group-items,
