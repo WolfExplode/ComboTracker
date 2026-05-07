@@ -9,7 +9,6 @@ A small local web UI + Python backend that listens to your keyboard/mouse and tr
 This combo tracker is meant to track real time, timing data. not in game timing data.
 For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s
 
-
 ### Features
 - **Practice combos**: see live status + a step timeline.
 - **Wait + hold steps**:
@@ -29,8 +28,8 @@ https://github.com/user-attachments/assets/e32ac3e1-9fc6-40bf-ac14-98cb3224156d
 ---
 
 
-
-
+## Demo Video:
+[![Watch the video](https://img.youtube.com/vi/goTBFZBsBTo/maxresdefault.jpg)](https://youtu.be/goTBFZBsBTo)
 
 
 ## Getting started
