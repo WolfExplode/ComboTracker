@@ -12,7 +12,7 @@ def format_ms(ms: int) -> str:
     ms = int(ms)
     if ms % 1000 == 0:
         return f"{ms//1000:d}s ({ms}ms)"
-    return f"{ms/1000.0:.3g}s ({ms}ms)"
+    return f"{ms/1000.0:.4g}s ({ms}ms)"
 
 
 def format_ms_brief(ms: float | int | None) -> str:

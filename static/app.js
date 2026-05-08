@@ -301,9 +301,12 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
     container.appendChild(dashBox);
 
     // For each character slot (1/2/3)
+    let wwDragSourceSlot = null;
     ['1', '2', '3'].forEach(c => {
         const charBox = document.createElement('div');
         charBox.className = 'ww-ability-char';
+        charBox.draggable = true;
+        charBox.dataset.slot = c;
 
         const charTitle = document.createElement('div');
         charTitle.className = 'ww-ability-key';
@@ -401,6 +404,57 @@ function renderWwAbilityEditor({ preserveEdits = true } = {}) {
             row.appendChild(input);
             row.appendChild(preview);
             charBox.appendChild(row);
+        });
+
+        charBox.addEventListener('dragstart', e => {
+            wwDragSourceSlot = c;
+            e.dataTransfer.effectAllowed = 'move';
+            // Defer so the drag image is captured before the class changes opacity
+            setTimeout(() => charBox.classList.add('ww-drag-active'), 0);
+        });
+
+        charBox.addEventListener('dragend', () => {
+            wwDragSourceSlot = null;
+            charBox.classList.remove('ww-drag-active');
+            container.querySelectorAll('.ww-ability-char').forEach(el => el.classList.remove('ww-drag-over'));
+        });
+
+        charBox.addEventListener('dragover', e => {
+            if (wwDragSourceSlot && wwDragSourceSlot !== c) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                container.querySelectorAll('.ww-ability-char[data-slot]').forEach(el => el.classList.remove('ww-drag-over'));
+                charBox.classList.add('ww-drag-over');
+            }
+        });
+
+        charBox.addEventListener('dragleave', e => {
+            if (!charBox.contains(e.relatedTarget)) {
+                charBox.classList.remove('ww-drag-over');
+            }
+        });
+
+        charBox.addEventListener('drop', e => {
+            e.preventDefault();
+            const src = wwDragSourceSlot;
+            const tgt = c;
+            if (src && src !== tgt) {
+                // Swap ability images
+                const tmpAbility = appState.wwAbilityImages[src];
+                appState.wwAbilityImages[src] = appState.wwAbilityImages[tgt];
+                appState.wwAbilityImages[tgt] = tmpAbility;
+                // Swap swap-key images
+                const tmpSwap = appState.wwSwapImages[src];
+                appState.wwSwapImages[src] = appState.wwSwapImages[tgt];
+                appState.wwSwapImages[tgt] = tmpSwap;
+                // Swap LMB images
+                const tmpLmb = appState.wwLmbImages[src];
+                appState.wwLmbImages[src] = appState.wwLmbImages[tgt];
+                appState.wwLmbImages[tgt] = tmpLmb;
+                // Re-render editor and refresh timeline images with updated appState
+                renderWwAbilityEditor({ preserveEdits: false });
+                refreshTimelineIfLoaded();
+            }
         });
 
         container.appendChild(charBox);

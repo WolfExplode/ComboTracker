@@ -582,6 +582,26 @@ button.danger:hover {
     border-radius: var(--border-radius);
     background: rgba(0, 0, 0, 0.10);
     padding: 10px;
+    transition: opacity 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.ww-ability-char[draggable="true"] .ww-ability-key {
+    cursor: grab;
+}
+
+.ww-ability-char[draggable="true"] .ww-ability-key::before {
+    content: '⠿ ';
+    opacity: 0.4;
+    font-size: 11px;
+}
+
+.ww-ability-char.ww-drag-active {
+    opacity: 0.4;
+}
+
+.ww-ability-char.ww-drag-over {
+    border-color: var(--accent-color, #7c6af7);
+    box-shadow: 0 0 0 2px rgba(124, 106, 247, 0.35);
 }
 
 .ww-ability-char-title {

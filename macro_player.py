@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # Must be well below any realistic spam interval to avoid the next press
 # arriving before the previous release, which would make it look like a
 # key-repeat and get silently ignored by the combo engine.
-_TAP_HOLD_MS = 20
+_TAP_HOLD_MS = 30
 
 # Extra sleep (ms) inserted after a spam-collapsed chain when more nodes follow.
 # Absorbs combo-engine tick-loop drift (~20ms per soft-wait) so the next key
