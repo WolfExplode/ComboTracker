@@ -379,6 +379,9 @@ def _execute(
         if replay is not None:
             replay.fire(node.key)
     elif isinstance(node, HoldNode):
+        # Karaoke: press + release markers so the UI can run hold_begin/hold_end (same pattern as HoldWithBody).
+        if replay is not None:
+            replay.fire(node.key)
         _hold(node.key, node.duration_ms, stop)
         if replay is not None:
             replay.fire(node.key)
