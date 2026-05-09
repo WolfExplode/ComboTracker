@@ -166,13 +166,27 @@ async def ws_handler(
                 ok, err = engine.save_or_update_ww_team(
                     team_id=str(msg.get("team_id") or ""),
                     team_name=str(msg.get("team_name") or ""),
-                    dash_image=str(msg.get("dash_image") or ""),
-                    swap_images=msg.get("swap_images"),
-                    lmb_images=msg.get("lmb_images"),
+                    slot1=str(msg.get("slot1") or ""),
+                    slot2=str(msg.get("slot2") or ""),
+                    slot3=str(msg.get("slot3") or ""),
+                )
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
+            elif mtype == "save_character":
+                ok, err = engine.save_ww_character(
+                    name=str(msg.get("name") or ""),
+                    swap_image=str(msg.get("swap_image") or ""),
+                    lmb_image=str(msg.get("lmb_image") or ""),
                     ability_images=msg.get("ability_images"),
                 )
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
+            elif mtype == "delete_character":
+                ok, err = engine.delete_ww_character(str(msg.get("name") or ""))
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "alert_notice", "text": err}))
+            elif mtype == "update_ww_dash":
+                engine.update_ww_dash(str(msg.get("dash_image") or ""))
             elif mtype == "select_team":
                 # Stateless team selection: accepts target_game parameter
                 target_game = str(msg.get("target_game") or "").strip().lower()

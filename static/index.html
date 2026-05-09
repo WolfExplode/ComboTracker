@@ -148,19 +148,48 @@
                         <option value="wuthering_waves">Wuthering Waves</option>
                     </select>
 
-                    <label id="wwTeamLabel" class="hidden">Team:</label>
-                    <div id="wwTeamControls" class="hidden">
-                        <div class="ww-team-row">
-                            <select id="wwTeamSelect">
-                                <option value="">— New Team —</option>
-                            </select>
-                            <input type="text" id="wwTeamName" placeholder="Team name">
+                    <!-- WW panels – visible only when Wuthering Waves is selected -->
+                    <div id="wwPanels" class="hidden full-row">
+
+                        <!-- Teams panel -->
+                        <div class="ww-panel">
+                            <div class="ww-panel-header">
+                                <h4 class="ww-panel-title">Teams</h4>
+                                <select id="wwTeamSelect" class="ww-panel-select">
+                                    <option value="">— New Team —</option>
+                                </select>
+                                <input type="text" id="wwTeamName" placeholder="Team name" class="ww-panel-name-input">
+                                <button id="saveTeamBtn" type="button">Save / Update</button>
+                                <button id="newTeamBtn" type="button">New Team</button>
+                                <button id="deleteTeamBtn" type="button" class="danger">Delete</button>
+                            </div>
+                            <div id="wwTeamSlots" class="ww-team-slots">
+                                <!-- Slot rows rendered by JS -->
+                            </div>
                         </div>
-                        <div class="ww-team-buttons">
-                            <button id="saveTeamBtn" type="button">Save / Update</button>
-                            <button id="newTeamBtn" type="button">New Team</button>
-                            <button id="deleteTeamBtn" type="button" class="danger">Delete</button>
+
+                        <!-- Characters panel -->
+                        <div class="ww-panel">
+                            <div class="ww-panel-header">
+                                <h4 class="ww-panel-title">Characters</h4>
+                                <select id="wwCharSelect" class="ww-panel-select">
+                                    <option value="">— New Character —</option>
+                                </select>
+                            </div>
+                            <div id="wwCharEditor" class="ww-char-editor">
+                                <!-- Character editor rendered by JS -->
+                            </div>
                         </div>
+
+                        <!-- Dash / global RMB icon -->
+                        <div class="ww-panel ww-dash-panel">
+                            <span class="ww-panel-title">Dash / RMB:</span>
+                            <div class="ww-ability-controls">
+                                <input type="text" id="wwDashImageInput" placeholder="https://... or 💨">
+                                <div id="wwDashPreview" class="ww-ability-preview"></div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </details>
@@ -219,12 +248,6 @@
                         Inputs.
                     </div>
                     <div id="keyImagesEditor" class="key-images-editor"></div>
-                </div>
-            </details>
-            <details class="collapsible hidden" id="wwAbilityDetails">
-                <summary>Wuthering Waves ability images</summary>
-                <div class="collapsible-body">
-                    <div id="wwAbilityEditor" class="ww-ability-editor"></div>
                 </div>
             </details>
             <div id="statusDisplay" class="status-ready" style="margin-bottom: 8px;">Status: Select a combo to start

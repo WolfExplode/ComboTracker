@@ -18,13 +18,12 @@ class WutheringWavesGame:
     # Per-combo target game ("generic" | "wuthering_waves")
     combo_target_game: dict[str, str] = field(default_factory=dict)
 
-    # Team presets
+    # Team presets (slot-based; characters are stored in ww_characters)
     # ww_teams: team_id -> {
     #   "name": str,
-    #   "dash_image": str,  # RMB / dash (shared)
-    #   "swap_images": {"1":..,"2":..,"3":..},
-    #   "lmb_images": {"1":..,"2":..,"3":..},
-    #   "ability_images": {"1":{"e":..,"q":..,"r":..}, ...}
+    #   "slot1": char_name_lower | "",
+    #   "slot2": char_name_lower | "",
+    #   "slot3": char_name_lower | "",
     # }
     ww_teams: dict[str, dict[str, Any]] = field(default_factory=dict)
     ww_active_team_id: str | None = None
@@ -32,9 +31,13 @@ class WutheringWavesGame:
     # Per-combo assigned team (when target_game = wuthering_waves)
     combo_ww_team: dict[str, str] = field(default_factory=dict)
 
+    # Character library: name_lower -> { name, swap_image, lmb_image, ability_images: {e,q,r} }
+    ww_characters: dict[str, Any] = field(default_factory=dict)
+
+    # Global dash / RMB icon (shared across all teams)
+    ww_dash_image: str = ""
+
     # Active character slot during an attempt ("1", "2", or "3").
-    # In WW, pressing the current slot (e.g. 3 when on character 3) should not end the combo
-    # until you switch off that character. Reset on new attempt / fail.
     ww_active_character: str | None = None
 
     # Character slot keys (for WW and future games with swap slots)
@@ -124,33 +127,61 @@ class WutheringWavesGame:
         self.combo_ww_team.pop(cname, None)
 
     # -------------------------
+    # Character library helpers
+    # -------------------------
+
+    def _resolve_slot(self, slot_name: str) -> dict[str, Any] | None:
+        key = (slot_name or "").strip().lower()
+        if not key:
+            return None
+        return self.ww_characters.get(key)
+
+    def _resolved_team_images(self, team_data: dict[str, Any]) -> tuple[dict, dict, dict]:
+        """Returns (swap_images, lmb_images, ability_images) keyed by slot '1'/'2'/'3'."""
+        swap: dict[str, str] = {}
+        lmb: dict[str, str] = {}
+        ability: dict[str, dict[str, str]] = {}
+        for field_name, sk in zip(("slot1", "slot2", "slot3"), ("1", "2", "3")):
+            char = self._resolve_slot(str(team_data.get(field_name, "") or ""))
+            if not char:
+                continue
+            if char.get("swap_image"):
+                swap[sk] = char["swap_image"]
+            if char.get("lmb_image"):
+                lmb[sk] = char["lmb_image"]
+            ai = char.get("ability_images") or {}
+            if isinstance(ai, dict):
+                m = {a: str(v) for a, v in ai.items() if a in ("e", "q", "r") and str(v or "").strip()}
+                if m:
+                    ability[sk] = m
+        return swap, lmb, ability
+
+    # -------------------------
     # Editor payload helpers
     # -------------------------
+
     def editor_payload(self, combo_name: str, target_game_override: str | None = None) -> dict[str, Any]:
         """
         Build the WW-related section of the editor payload for the frontend.
-        Returns keys:
-        - target_game
-        - ww_teams
-        - ww_team_id
-        - ww_team_name
-        - ww_team_dash_image
-        - ww_team_swap_images
-        - ww_team_lmb_images
-        - ww_team_ability_images
         """
         name = (combo_name or "").strip()
         target_game = str(target_game_override).strip().lower() if target_game_override else self.get_target_game(name)
 
+        # Build teams list with slot info
         ww_teams = []
         for tid, tv in self.ww_teams.items():
             if not isinstance(tv, dict):
                 continue
-            ww_teams.append({"id": str(tid), "name": str(tv.get("name", "") or "Team")})
+            ww_teams.append({
+                "id": str(tid),
+                "name": str(tv.get("name", "") or "Team"),
+                "slot1": str(tv.get("slot1", "") or ""),
+                "slot2": str(tv.get("slot2", "") or ""),
+                "slot3": str(tv.get("slot3", "") or ""),
+            })
         ww_teams.sort(key=lambda x: (x.get("name") or "").lower())
 
         # Selected team: active team > combo assignment > none
-        # We prioritize the active ephemeral team to support stateless editing/switching.
         sel_team_id = ""
         if target_game == "wuthering_waves":
             if self.ww_active_team_id and self.ww_active_team_id in self.ww_teams:
@@ -159,46 +190,118 @@ class WutheringWavesGame:
                 sel_team_id = self.combo_ww_team[name]
 
         team_name = ""
+        team_slots = {"slot1": "", "slot2": "", "slot3": ""}
         team_swap_images: dict[str, str] = {}
         team_lmb_images: dict[str, str] = {}
-        team_dash_image = ""
         team_ability_images: dict[str, dict[str, str]] = {}
         if sel_team_id and sel_team_id in self.ww_teams:
-            tv = self.ww_teams.get(sel_team_id) or {}
+            tv = self.ww_teams[sel_team_id]
             team_name = str(tv.get("name", "") or "")
-            team_dash_image = str(tv.get("dash_image", "") or "")
-            si = tv.get("swap_images", {})
-            if isinstance(si, dict):
-                team_swap_images = {k: str(v) for k, v in si.items() if k in ("1", "2", "3") and str(v).strip()}
-            li = tv.get("lmb_images", {})
-            if isinstance(li, dict):
-                team_lmb_images = {k: str(v) for k, v in li.items() if k in ("1", "2", "3") and str(v).strip()}
-            ai = tv.get("ability_images", {})
-            if isinstance(ai, dict):
-                for ck, vv in ai.items():
-                    if ck in ("1", "2", "3") and isinstance(vv, dict):
-                        team_ability_images[ck] = {a: str(u) for a, u in vv.items() if a in ("e", "q", "r") and str(u).strip()}
+            team_slots = {
+                "slot1": str(tv.get("slot1", "") or ""),
+                "slot2": str(tv.get("slot2", "") or ""),
+                "slot3": str(tv.get("slot3", "") or ""),
+            }
+            team_swap_images, team_lmb_images, team_ability_images = self._resolved_team_images(tv)
+
+        # Characters list sorted by display name
+        ww_chars_list = []
+        for key, cv in sorted(
+            self.ww_characters.items(),
+            key=lambda x: (x[1].get("name") or "").lower() if isinstance(x[1], dict) else "",
+        ):
+            if not isinstance(cv, dict):
+                continue
+            ww_chars_list.append({
+                "name": str(cv.get("name", "") or key),
+                "name_key": key,
+                "swap_image": str(cv.get("swap_image", "") or ""),
+                "lmb_image": str(cv.get("lmb_image", "") or ""),
+                "ability_images": {
+                    a: str(v)
+                    for a, v in (cv.get("ability_images") or {}).items()
+                    if a in ("e", "q", "r") and str(v or "").strip()
+                },
+            })
 
         return {
             "target_game": target_game,
             "ww_teams": ww_teams,
             "ww_team_id": sel_team_id,
             "ww_team_name": team_name,
-            "ww_team_dash_image": team_dash_image,
+            "ww_team_slots": team_slots,
+            "ww_dash_image": self.ww_dash_image,
+            "ww_team_dash_image": self.ww_dash_image,  # backward-compat alias for timeline
             "ww_team_swap_images": team_swap_images,
             "ww_team_lmb_images": team_lmb_images,
             "ww_team_ability_images": team_ability_images,
+            "ww_characters": ww_chars_list,
         }
+
+    # -------------------------
+    # Character operations
+    # -------------------------
+
+    def save_character(
+        self,
+        name: str,
+        swap_image: str,
+        lmb_image: str,
+        ability_images: Any,
+    ) -> tuple[bool, str | None]:
+        n = (name or "").strip()
+        if not n:
+            return False, "Please provide a character name."
+        key = n.lower()
+        ai: dict[str, str] = {}
+        if isinstance(ability_images, dict):
+            for a, v in ability_images.items():
+                akey = str(a or "").strip().lower()
+                if akey in ("e", "q", "r"):
+                    url = str(v or "").strip()
+                    if url:
+                        ai[akey] = url
+        self.ww_characters[key] = {
+            "name": n,
+            "swap_image": str(swap_image or "").strip(),
+            "lmb_image": str(lmb_image or "").strip(),
+            "ability_images": ai,
+        }
+        return True, None
+
+    def delete_character(self, name: str) -> tuple[bool, str | None]:
+        key = (name or "").strip().lower()
+        if not key:
+            return False, "No character name provided."
+        if key not in self.ww_characters:
+            return False, "Character not found."
+        # Block deletion if any team references this character
+        ref_teams: list[str] = []
+        for tid, tv in self.ww_teams.items():
+            if not isinstance(tv, dict):
+                continue
+            slots = [
+                str(tv.get("slot1", "") or "").lower(),
+                str(tv.get("slot2", "") or "").lower(),
+                str(tv.get("slot3", "") or "").lower(),
+            ]
+            if key in slots:
+                ref_teams.append(str(tv.get("name", "") or tid))
+        if ref_teams:
+            team_list = ", ".join(ref_teams)
+            return False, f"Remove from these teams first: {team_list}"
+        del self.ww_characters[key]
+        return True, None
 
     # -------------------------
     # Team operations (called by engine)
     # -------------------------
+
     def set_active_ww_team(self, team_id: str):
         tid = str(team_id or "").strip()
         if tid and tid in self.ww_teams:
             self.ww_active_team_id = tid
             return
-        # Explicitly clear when empty/invalid so stateless UI changes can reset team data.
         self.ww_active_team_id = None
 
     def save_or_update_ww_team(
@@ -206,57 +309,19 @@ class WutheringWavesGame:
         *,
         team_id: str,
         team_name: str,
-        dash_image: str | None,
-        swap_images: Any | None,
-        lmb_images: Any | None,
-        ability_images: Any | None,
+        slot1: str,
+        slot2: str,
+        slot3: str,
     ) -> tuple[bool, str | None, str]:
-        """
-        Returns (ok, err, resolved_team_id).
-        """
+        """Returns (ok, err, resolved_team_id)."""
         tid = str(team_id or "").strip() or uuid4().hex[:10]
         name = str(team_name or "").strip() or "Team"
-        dash = str(dash_image or "").strip()
-
-        # Sanitize swap/lmb maps
-        swap: dict[str, str] = {}
-        if isinstance(swap_images, dict):
-            for k, v in swap_images.items():
-                kk = str(k or "").strip()
-                if kk not in ("1", "2", "3"):
-                    continue
-                url = str(v or "").strip()
-                if url:
-                    swap[kk] = url
-
-        lmb: dict[str, str] = {}
-        if isinstance(lmb_images, dict):
-            for k, v in lmb_images.items():
-                kk = str(k or "").strip()
-                if kk not in ("1", "2", "3"):
-                    continue
-                url = str(v or "").strip()
-                if url:
-                    lmb[kk] = url
-
-        abil: dict[str, dict[str, str]] = {}
-        if isinstance(ability_images, dict):
-            for ck, mapping in ability_images.items():
-                c = str(ck or "").strip()
-                if c not in ("1", "2", "3") or not isinstance(mapping, dict):
-                    continue
-                m: dict[str, str] = {}
-                for akey, av in mapping.items():
-                    a = str(akey or "").strip().lower()
-                    if a not in ("e", "q", "r"):
-                        continue
-                    url = str(av or "").strip()
-                    if url:
-                        m[a] = url
-                if m:
-                    abil[c] = m
-
-        self.ww_teams[tid] = {"name": name, "dash_image": dash, "swap_images": swap, "lmb_images": lmb, "ability_images": abil}
+        self.ww_teams[tid] = {
+            "name": name,
+            "slot1": str(slot1 or "").strip().lower(),
+            "slot2": str(slot2 or "").strip().lower(),
+            "slot3": str(slot3 or "").strip().lower(),
+        }
         self.ww_active_team_id = tid
         return True, None, tid
 
@@ -266,7 +331,6 @@ class WutheringWavesGame:
             return False, "Select a team to delete."
 
         del self.ww_teams[tid]
-        # Remove any combo mappings pointing at this team
         for cname, ct in list(self.combo_ww_team.items()):
             if ct == tid:
                 del self.combo_ww_team[cname]
@@ -282,7 +346,7 @@ class WutheringWavesGame:
 
 def set_active_ww_team(engine, team_id: str) -> None:
     tid = str(team_id or "").strip()
-    if tid and tid in engine.ww_teams:
+    if tid and tid in engine.ww.ww_teams:
         engine.ww.set_active_ww_team(tid)
         engine.save_combos()
         engine._send({"type": "combo_data", **engine.get_editor_payload()})
@@ -294,10 +358,9 @@ def save_or_update_ww_team(
     *,
     team_id: str | None,
     team_name: str | None,
-    dash_image: str | None,
-    swap_images: Any | None,
-    lmb_images: Any | None,
-    ability_images: Any | None,
+    slot1: str,
+    slot2: str,
+    slot3: str,
 ) -> tuple[bool, str | None]:
     name = str(team_name or "").strip()
     if not name:
@@ -306,10 +369,9 @@ def save_or_update_ww_team(
     ok, err, _tid = engine.ww.save_or_update_ww_team(
         team_id=str(team_id or "").strip(),
         team_name=name,
-        dash_image=dash_image,
-        swap_images=swap_images,
-        lmb_images=lmb_images,
-        ability_images=ability_images,
+        slot1=slot1,
+        slot2=slot2,
+        slot3=slot3,
     )
     if not ok:
         return False, err
@@ -334,13 +396,11 @@ def select_team_stateless(engine, team_id: str, target_game: str) -> None:
     game = str(target_game or "generic").strip().lower()
 
     if game == "wuthering_waves":
-        # set_active_ww_team now clears on empty/invalid, so one path covers select + clear.
         engine.ww.set_active_ww_team(tid)
         engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
         engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
         return
 
-    # Keep behavior predictable for non-WW game selections.
     engine.ww.set_active_ww_team("")
     engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
     engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
@@ -355,4 +415,36 @@ def update_target_game_stateless(engine, target_game: str) -> None:
     payload = engine.get_editor_payload(target_game_override=game)
     payload["target_game"] = game
     engine._send({"type": "combo_data", **payload})
+
+
+def save_ww_character_cmd(
+    engine,
+    *,
+    name: str,
+    swap_image: str,
+    lmb_image: str,
+    ability_images: Any,
+) -> tuple[bool, str | None]:
+    ok, err = engine.ww.save_character(name, swap_image, lmb_image, ability_images)
+    if not ok:
+        return False, err
+    engine.save_combos()
+    engine._send({"type": "init", **engine.init_payload()})
+    return True, None
+
+
+def delete_ww_character_cmd(engine, *, name: str) -> tuple[bool, str | None]:
+    ok, err = engine.ww.delete_character(name)
+    if not ok:
+        return False, err
+    engine.save_combos()
+    engine._send({"type": "init", **engine.init_payload()})
+    return True, None
+
+
+def update_ww_dash_cmd(engine, *, dash_image: str) -> tuple[bool, str | None]:
+    engine.ww.ww_dash_image = str(dash_image or "").strip()
+    engine.save_combos()
+    engine._send({"type": "combo_data", **engine.get_editor_payload()})
     engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
+    return True, None

@@ -570,7 +570,146 @@ button.danger:hover {
     flex-wrap: wrap;
 }
 
-/* Wuthering Waves ability image editor */
+/* Full-width row inside form-grid */
+.full-row {
+    grid-column: 1 / -1;
+}
+
+/* WW panels container */
+#wwPanels {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 6px;
+}
+
+.ww-panel {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--border-radius);
+    background: rgba(0, 0, 0, 0.10);
+    padding: 12px 14px;
+}
+
+.ww-panel-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.ww-panel-title {
+    font-family: 'Fira Code', monospace;
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--text-primary);
+    margin: 0;
+    white-space: nowrap;
+}
+
+.ww-panel-select {
+    flex: 1;
+    min-width: 140px;
+    max-width: 240px;
+}
+
+.ww-panel-name-input {
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+}
+
+/* Team slot rows */
+.ww-team-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ww-slot-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    transition: opacity 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.ww-slot-handle {
+    cursor: grab;
+    opacity: 0.45;
+    font-size: 13px;
+    padding: 0 2px;
+    user-select: none;
+}
+
+.ww-slot-label {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-width: 48px;
+}
+
+.ww-slot-char-select {
+    flex: 1;
+}
+
+.ww-slot-row.ww-drag-active {
+    opacity: 0.4;
+}
+
+.ww-slot-row.ww-drag-over {
+    border-color: var(--accent-color, #7c6af7);
+    box-shadow: 0 0 0 2px rgba(124, 106, 247, 0.35);
+}
+
+/* Dash panel */
+.ww-dash-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ww-dash-panel .ww-ability-controls {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Character editor */
+.ww-char-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Wider label column than generic .ww-ability-row (64px) so "Character :" etc. don't wrap */
+.ww-char-editor .ww-ability-row {
+    grid-template-columns: minmax(108px, max-content) 1fr 40px;
+}
+
+.ww-char-editor .ww-ability-label {
+    white-space: nowrap;
+}
+
+.ww-char-name-row {
+    display: grid;
+    grid-template-columns: minmax(108px, max-content) 1fr;
+    gap: 8px;
+    align-items: center;
+}
+
+.ww-char-btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* Wuthering Waves ability image editor (legacy kept for compatibility) */
 .ww-ability-editor {
     display: grid;
     grid-template-columns: 1fr;

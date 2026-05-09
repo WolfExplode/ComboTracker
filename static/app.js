@@ -48,6 +48,9 @@ const appState = {
     wwDashImage: "",
     wwTeams: [],
     wwTeamId: '',
+    wwTeamSlots: ["", "", ""],
+    wwCharacters: {},
+    wwCurrentChar: null,
     batchQueue: [],
     isProcessingBatch: false,
     avgStepMsByPosition: [],
@@ -76,16 +79,11 @@ function initializeUI(data) {
     const preserved = isNewCombo ? {
         targetGame: appState.targetGame,
         wwTeamId: appState.wwTeamId,
-        wwTeamName: (getEl('wwTeamName')?.value || '').toString(),
         stepDisplayMode: appState.stepDisplayMode,
         noFailMode: !!getEl('noFailMode')?.checked,
         stepEditMode: !!getEl('stepEditToggle')?.checked,
         collapseChainedPresses: !!getEl('collapseChainsToggle')?.checked,
         keyImages: { ...appState.keyImages },
-        wwDashImage: appState.wwDashImage,
-        wwSwapImages: { ...appState.wwSwapImages },
-        wwLmbImages: { ...appState.wwLmbImages },
-        wwAbilityImages: JSON.parse(JSON.stringify(appState.wwAbilityImages)),
     } : null;
 
     if (data.editor) setEditorFields(data.editor);
@@ -97,8 +95,6 @@ function initializeUI(data) {
         if (gameSelect) gameSelect.value = appState.targetGame;
         const teamSelect = getEl('wwTeamSelect');
         if (teamSelect) teamSelect.value = appState.wwTeamId;
-        const teamNameEl = getEl('wwTeamName');
-        if (teamNameEl) teamNameEl.value = preserved.wwTeamName;
         const stepToggle = getEl('stepDisplayToggle');
         if (stepToggle) stepToggle.checked = (appState.stepDisplayMode === 'images');
         const noFailEl = getEl('noFailMode');
@@ -110,14 +106,7 @@ function initializeUI(data) {
         const collapseChainsToggle = getEl('collapseChainsToggle');
         if (collapseChainsToggle) collapseChainsToggle.checked = preserved.collapseChainedPresses;
         appState.keyImages = preserved.keyImages;
-        appState.wwDashImage = preserved.wwDashImage;
-        appState.wwSwapImages = preserved.wwSwapImages;
-        appState.wwLmbImages = preserved.wwLmbImages;
-        appState.wwAbilityImages = preserved.wwAbilityImages;
         syncGameUIVisibility();
-        // setEditorFields() re-rendered the WW editor from backend payload. Re-render once more
-        // from restored local state so team icon fields/previews do not appear cleared on init.
-        renderWwAbilityEditor({ preserveEdits: false });
         refreshTimelineIfLoaded();
     }
     if (data.status) updateStatus(data.status.text, data.status.color);
@@ -188,277 +177,303 @@ function ensureWwSlotShape(obj) {
 }
 
 function syncGameUIVisibility() {
-    const imagesOn = appState.stepDisplayMode === 'images' || !!getEl('stepDisplayToggle')?.checked;
-    const wwDetails = getEl('wwAbilityDetails');
-    if (wwDetails) {
-        // Only show WW editor when WW mode AND images are enabled.
-        wwDetails.classList.toggle('hidden', !(appState.targetGame === 'wuthering_waves' && imagesOn));
-    }
-    const keyDetails = getEl('keyImagesDetails');
-    if (keyDetails) {
-        // In WW mode, the WW panel replaces key images completely.
-        keyDetails.classList.toggle('hidden', appState.targetGame === 'wuthering_waves');
-    }
+    const isWW = appState.targetGame === 'wuthering_waves';
 
-    const teamLabel = getEl('wwTeamLabel');
-    const teamControls = getEl('wwTeamControls');
-    if (teamLabel) teamLabel.classList.toggle('hidden', appState.targetGame !== 'wuthering_waves');
-    if (teamControls) teamControls.classList.toggle('hidden', appState.targetGame !== 'wuthering_waves');
+    const wwPanels = getEl('wwPanels');
+    if (wwPanels) wwPanels.classList.toggle('hidden', !isWW);
+
+    const keyDetails = getEl('keyImagesDetails');
+    if (keyDetails) keyDetails.classList.toggle('hidden', isWW);
+
+    if (isWW) {
+        renderWwTeamEditor();
+        renderWwCharacterEditor();
+        renderWwDashPreview();
+    }
 
     // Re-render key images editor (generic mode only).
     renderKeyImagesEditor();
 }
 
-function readWwDataFromUI() {
-    const container = getEl('wwAbilityEditor');
-    if (!container) return;
-
-    appState.wwAbilityImages = { "1": {}, "2": {}, "3": {} };
-    appState.wwSwapImages = { "1": "", "2": "", "3": "" };
-    appState.wwLmbImages = { "1": "", "2": "", "3": "" };
-
-    const isValidChar = c => ['1', '2', '3'].includes(c);
-
-    container.querySelectorAll('input[data-char][data-ability]').forEach(inp => {
-        const c = inp.getAttribute('data-char')?.trim();
-        const a = inp.getAttribute('data-ability')?.trim().toLowerCase();
-        if (!isValidChar(c) || !['e', 'q', 'r'].includes(a)) return;
-        const url = (inp.value || '').toString().trim();
-        if (url) appState.wwAbilityImages[c][a] = url;
-    });
-
-    const readFlat = (attr, target) => {
-        container.querySelectorAll(`input[data-${attr}]`).forEach(inp => {
-            const c = inp.getAttribute(`data-${attr}`)?.trim();
-            if (!isValidChar(c)) return;
-            target[c] = (inp.value || '').toString().trim();
-        });
-    };
-
-    readFlat('swap', appState.wwSwapImages);
-    readFlat('lmb', appState.wwLmbImages);
-
-    appState.wwDashImage = (getEl('wwDashImageInput')?.value || '').toString().trim();
+// ----- WW helper: image preview -----
+function wwSetPreview(el, val) {
+    const v = (val || '').toString().trim();
+    if (!v) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    if (/^https?:\/\//i.test(v)) {
+        el.innerHTML = `<img class="key-step-image" src="${escapeHtml(v)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:32px;height:32px;object-fit:contain;" />`;
+    } else {
+        el.innerHTML = `<span class="key-step-emoji">${escapeHtml(v)}</span>`;
+    }
 }
 
-function renderWwAbilityEditor({ preserveEdits = true } = {}) {
-    // In most re-renders we want to preserve in-progress edits by reading from the UI first.
-    // But when selecting a team (loading from JSON), we must NOT overwrite loaded state with old DOM values.
-    if (preserveEdits) {
-        readWwDataFromUI();
-    }
-    const container = getEl('wwAbilityEditor');
-    if (!container) return;
-    container.innerHTML = '';
+/** Team display names that still reference this character (by name_key, case-insensitive). */
+function wwTeamNamesReferencingCharacter(nameKey) {
+    const key = (nameKey || '').toString().trim().toLowerCase();
+    if (!key) return [];
+    const names = [];
+    (appState.wwTeams || []).forEach(t => {
+        if (!t || typeof t !== 'object') return;
+        const slots = [t.slot1, t.slot2, t.slot3].map(s => (s || '').toString().trim().toLowerCase());
+        if (slots.includes(key)) names.push((t.name || t.id || '').toString() || 'Team');
+    });
+    return names;
+}
 
-    const setPreview = (imgEl, val) => {
-        const v = (val || '').toString().trim();
-        if (!v) {
-            imgEl.innerHTML = '';
-            imgEl.style.display = 'none';
-            return;
-        }
-        imgEl.style.display = 'flex';
-        imgEl.style.alignItems = 'center';
-        imgEl.style.justifyContent = 'center';
-        if (/^https?:\/\//i.test(v)) {
-            imgEl.innerHTML = `<img class="key-step-image" src="${escapeHtml(v)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:32px;height:32px;object-fit:contain;" />`;
-        } else {
-            imgEl.innerHTML = `<span class="key-step-emoji">${escapeHtml(v)}</span>`;
-        }
+// ----- WW Dash preview -----
+function renderWwDashPreview() {
+    const input = getEl('wwDashImageInput');
+    const preview = getEl('wwDashPreview');
+    if (input && preview) {
+        input.value = (appState.wwDashImage || '').toString();
+        wwSetPreview(preview, input.value);
+    }
+}
+
+// ----- WW Teams editor -----
+function renderWwTeamEditor() {
+    // Populate team select dropdown
+    const teamSelect = getEl('wwTeamSelect');
+    if (teamSelect) {
+        const prev = teamSelect.value;
+        teamSelect.innerHTML = '<option value="">— New Team —</option>';
+        appState.wwTeams.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name;
+            teamSelect.appendChild(opt);
+        });
+        teamSelect.value = prev || appState.wwTeamId;
+    }
+
+    // Build slot rows
+    const slotsContainer = getEl('wwTeamSlots');
+    if (!slotsContainer) return;
+    slotsContainer.innerHTML = '';
+
+    const charOptions = () => {
+        const empty = '<option value="">— (empty) —</option>';
+        const chars = Object.values(appState.wwCharacters)
+            .filter(c => c && c.name)
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        return empty + chars.map(c => `<option value="${escapeHtml(c.name_key || c.name.toLowerCase())}">${escapeHtml(c.name)}</option>`).join('');
     };
 
-    // Dash (RMB) icon (shared)
-    const dashBox = document.createElement('div');
-    dashBox.className = 'ww-ability-char';
+    let dragSrcIdx = null;
 
-    const dashTitle = document.createElement('div');
-    dashTitle.className = 'ww-ability-key';
-    dashTitle.textContent = 'Dash';
+    appState.wwTeamSlots.forEach((charKey, idx) => {
+        const row = document.createElement('div');
+        row.className = 'ww-slot-row';
+        row.draggable = true;
+        row.dataset.idx = idx;
 
-    const dashControls = document.createElement('div');
-    dashControls.className = 'ww-ability-controls';
+        const handle = document.createElement('span');
+        handle.className = 'ww-slot-handle';
+        handle.textContent = '⠿';
+        handle.title = 'Drag to reorder';
 
-    const dashInput = document.createElement('input');
-    dashInput.type = 'text';
-    dashInput.placeholder = 'https://... or 💨';
-    dashInput.id = 'wwDashImageInput';
-    dashInput.value = (appState.wwDashImage || '').toString();
+        const label = document.createElement('span');
+        label.className = 'ww-slot-label';
+        label.textContent = `Slot ${idx + 1}`;
 
-    const dashPreview = document.createElement('div');
-    dashPreview.className = 'ww-ability-preview';
-    setPreview(dashPreview, dashInput.value);
+        const sel = document.createElement('select');
+        sel.className = 'ww-slot-char-select';
+        sel.innerHTML = charOptions();
+        sel.value = charKey || '';
 
-    dashInput.addEventListener('input', () => {
-        appState.wwDashImage = dashInput.value.trim();
-        setPreview(dashPreview, dashInput.value);
-    });
-
-    dashControls.appendChild(dashInput);
-    dashControls.appendChild(dashPreview);
-    dashBox.appendChild(dashTitle);
-    dashBox.appendChild(dashControls);
-    container.appendChild(dashBox);
-
-    // For each character slot (1/2/3)
-    let wwDragSourceSlot = null;
-    ['1', '2', '3'].forEach(c => {
-        const charBox = document.createElement('div');
-        charBox.className = 'ww-ability-char';
-        charBox.draggable = true;
-        charBox.dataset.slot = c;
-
-        const charTitle = document.createElement('div');
-        charTitle.className = 'ww-ability-key';
-        charTitle.textContent = `Character ${c}`;
-
-        charBox.appendChild(charTitle);
-
-        // Swap icon (1/2/3 keys)
-        const swapRow = document.createElement('div');
-        swapRow.className = 'ww-ability-row';
-        const swapLabel = document.createElement('span');
-        swapLabel.textContent = `${c} :`;
-        swapLabel.className = 'ww-ability-label';
-
-        const swapInput = document.createElement('input');
-        swapInput.type = 'text';
-        swapInput.setAttribute('data-swap', c);
-        swapInput.placeholder = 'https://... or 🔄';
-        swapInput.value = (appState.wwSwapImages[c] || '').toString();
-
-        const swapPreview = document.createElement('div');
-        swapPreview.className = 'ww-ability-preview';
-        setPreview(swapPreview, swapInput.value);
-
-        swapInput.addEventListener('input', () => {
-            appState.wwSwapImages[c] = swapInput.value.trim();
-            setPreview(swapPreview, swapInput.value);
+        sel.addEventListener('change', () => {
+            appState.wwTeamSlots[idx] = sel.value;
         });
 
-        swapRow.appendChild(swapLabel);
-        swapRow.appendChild(swapInput);
-        swapRow.appendChild(swapPreview);
-        charBox.appendChild(swapRow);
+        row.appendChild(handle);
+        row.appendChild(label);
+        row.appendChild(sel);
+        slotsContainer.appendChild(row);
 
-        // LMB (basic attack)
-        const lmbRow = document.createElement('div');
-        lmbRow.className = 'ww-ability-row';
-        const lmbLabel = document.createElement('span');
-        lmbLabel.textContent = 'LMB :';
-        lmbLabel.className = 'ww-ability-label';
-
-        const lmbInput = document.createElement('input');
-        lmbInput.type = 'text';
-        lmbInput.setAttribute('data-lmb', c);
-        lmbInput.placeholder = 'https://... or ⚔️';
-        lmbInput.value = (appState.wwLmbImages[c] || '').toString();
-
-        const lmbPreview = document.createElement('div');
-        lmbPreview.className = 'ww-ability-preview';
-        setPreview(lmbPreview, lmbInput.value);
-
-        lmbInput.addEventListener('input', () => {
-            appState.wwLmbImages[c] = lmbInput.value.trim();
-            setPreview(lmbPreview, lmbInput.value);
-        });
-
-        lmbRow.appendChild(lmbLabel);
-        lmbRow.appendChild(lmbInput);
-        lmbRow.appendChild(lmbPreview);
-        charBox.appendChild(lmbRow);
-
-        // Abilities ordered as requested: Q, E, R
-        ['Q', 'E', 'R'].forEach(a => {
-            const row = document.createElement('div');
-            row.className = 'ww-ability-row';
-
-            const label = document.createElement('span');
-            label.textContent = `${a} :`;
-            label.className = 'ww-ability-label';
-
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.setAttribute('data-char', c);
-            input.setAttribute('data-ability', a.toLowerCase());
-            input.placeholder = 'https://... or emoji';
-            const key = a.toLowerCase();
-            input.value = ((appState.wwAbilityImages[c] || {})[key] || '').toString();
-
-            const preview = document.createElement('div');
-            preview.className = 'ww-ability-preview';
-            setPreview(preview, input.value);
-
-            input.addEventListener('input', () => {
-                if (!appState.wwAbilityImages[c]) appState.wwAbilityImages[c] = {};
-                const v = input.value.trim();
-                if (v) {
-                    appState.wwAbilityImages[c][key] = v;
-                } else {
-                    delete appState.wwAbilityImages[c][key];
-                }
-                setPreview(preview, input.value);
-            });
-
-            row.appendChild(label);
-            row.appendChild(input);
-            row.appendChild(preview);
-            charBox.appendChild(row);
-        });
-
-        charBox.addEventListener('dragstart', e => {
-            wwDragSourceSlot = c;
+        row.addEventListener('dragstart', e => {
+            dragSrcIdx = idx;
             e.dataTransfer.effectAllowed = 'move';
-            // Defer so the drag image is captured before the class changes opacity
-            setTimeout(() => charBox.classList.add('ww-drag-active'), 0);
+            setTimeout(() => row.classList.add('ww-drag-active'), 0);
         });
-
-        charBox.addEventListener('dragend', () => {
-            wwDragSourceSlot = null;
-            charBox.classList.remove('ww-drag-active');
-            container.querySelectorAll('.ww-ability-char').forEach(el => el.classList.remove('ww-drag-over'));
+        row.addEventListener('dragend', () => {
+            dragSrcIdx = null;
+            row.classList.remove('ww-drag-active');
+            slotsContainer.querySelectorAll('.ww-slot-row').forEach(r => r.classList.remove('ww-drag-over'));
         });
-
-        charBox.addEventListener('dragover', e => {
-            if (wwDragSourceSlot && wwDragSourceSlot !== c) {
+        row.addEventListener('dragover', e => {
+            if (dragSrcIdx !== null && dragSrcIdx !== idx) {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                container.querySelectorAll('.ww-ability-char[data-slot]').forEach(el => el.classList.remove('ww-drag-over'));
-                charBox.classList.add('ww-drag-over');
+                slotsContainer.querySelectorAll('.ww-slot-row').forEach(r => r.classList.remove('ww-drag-over'));
+                row.classList.add('ww-drag-over');
             }
         });
-
-        charBox.addEventListener('dragleave', e => {
-            if (!charBox.contains(e.relatedTarget)) {
-                charBox.classList.remove('ww-drag-over');
-            }
+        row.addEventListener('dragleave', e => {
+            if (!row.contains(e.relatedTarget)) row.classList.remove('ww-drag-over');
         });
-
-        charBox.addEventListener('drop', e => {
+        row.addEventListener('drop', e => {
             e.preventDefault();
-            const src = wwDragSourceSlot;
-            const tgt = c;
-            if (src && src !== tgt) {
-                // Swap ability images
-                const tmpAbility = appState.wwAbilityImages[src];
-                appState.wwAbilityImages[src] = appState.wwAbilityImages[tgt];
-                appState.wwAbilityImages[tgt] = tmpAbility;
-                // Swap swap-key images
-                const tmpSwap = appState.wwSwapImages[src];
-                appState.wwSwapImages[src] = appState.wwSwapImages[tgt];
-                appState.wwSwapImages[tgt] = tmpSwap;
-                // Swap LMB images
-                const tmpLmb = appState.wwLmbImages[src];
-                appState.wwLmbImages[src] = appState.wwLmbImages[tgt];
-                appState.wwLmbImages[tgt] = tmpLmb;
-                // Re-render editor and refresh timeline images with updated appState
-                renderWwAbilityEditor({ preserveEdits: false });
+            const src = dragSrcIdx;
+            if (src !== null && src !== idx) {
+                const tmp = appState.wwTeamSlots[src];
+                appState.wwTeamSlots[src] = appState.wwTeamSlots[idx];
+                appState.wwTeamSlots[idx] = tmp;
+                renderWwTeamEditor();
+                _resolveTeamImagesToState();
                 refreshTimelineIfLoaded();
             }
         });
-
-        container.appendChild(charBox);
     });
+}
+
+// Resolve current team slots → appState.wwSwapImages / wwLmbImages / wwAbilityImages for timeline
+function _resolveTeamImagesToState() {
+    const swap = { "1": "", "2": "", "3": "" };
+    const lmb = { "1": "", "2": "", "3": "" };
+    const ability = { "1": {}, "2": {}, "3": {} };
+    appState.wwTeamSlots.forEach((charKey, idx) => {
+        const sk = String(idx + 1);
+        const char = charKey ? appState.wwCharacters[charKey] : null;
+        if (!char) return;
+        if (char.swap_image) swap[sk] = char.swap_image;
+        if (char.lmb_image) lmb[sk] = char.lmb_image;
+        if (char.ability_images && typeof char.ability_images === 'object') {
+            ability[sk] = { ...char.ability_images };
+        }
+    });
+    appState.wwSwapImages = swap;
+    appState.wwLmbImages = lmb;
+    appState.wwAbilityImages = ability;
+}
+
+// ----- WW Character editor -----
+function _buildCharRow(labelText, inputValue, onInput) {
+    const row = document.createElement('div');
+    row.className = 'ww-ability-row';
+    const label = document.createElement('span');
+    label.className = 'ww-ability-label';
+    label.textContent = labelText;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'https://... or emoji';
+    input.value = inputValue || '';
+    const preview = document.createElement('div');
+    preview.className = 'ww-ability-preview';
+    wwSetPreview(preview, input.value);
+    input.addEventListener('input', () => {
+        onInput(input.value.trim());
+        wwSetPreview(preview, input.value);
+    });
+    row.appendChild(label);
+    row.appendChild(input);
+    row.appendChild(preview);
+    return row;
+}
+
+function renderWwCharacterEditor() {
+    // Populate character select dropdown
+    const charSelect = getEl('wwCharSelect');
+    if (charSelect) {
+        const prev = charSelect.value;
+        charSelect.innerHTML = '<option value="">— New Character —</option>';
+        Object.values(appState.wwCharacters)
+            .filter(c => c && c.name)
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            .forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.name_key || c.name.toLowerCase();
+                opt.textContent = c.name;
+                charSelect.appendChild(opt);
+            });
+        // Restore selection or keep current
+        charSelect.value = (appState.wwCurrentChar !== null ? appState.wwCurrentChar : prev) || '';
+    }
+
+    const container = getEl('wwCharEditor');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const loaded = appState.wwCurrentChar ? appState.wwCharacters[appState.wwCurrentChar] : null;
+
+    // Name row
+    const nameRow = document.createElement('div');
+    nameRow.className = 'ww-char-name-row';
+    const nameLabel = document.createElement('span');
+    nameLabel.className = 'ww-ability-label';
+    nameLabel.textContent = 'Name :';
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.id = 'wwCharNameInput';
+    nameInput.placeholder = 'Character name';
+    nameInput.value = (loaded && loaded.name) ? loaded.name : '';
+    nameRow.appendChild(nameLabel);
+    nameRow.appendChild(nameInput);
+    container.appendChild(nameRow);
+
+    // Character (slot swap) key icon, LMB, Q, E, R rows
+    let swapVal = (loaded && loaded.swap_image) || '';
+    let lmbVal = (loaded && loaded.lmb_image) || '';
+    let abilVals = { q: '', e: '', r: '' };
+    if (loaded && loaded.ability_images) {
+        abilVals.q = loaded.ability_images.q || '';
+        abilVals.e = loaded.ability_images.e || '';
+        abilVals.r = loaded.ability_images.r || '';
+    }
+
+    container.appendChild(_buildCharRow('Character :', swapVal, v => { swapVal = v; }));
+    container.appendChild(_buildCharRow('LMB :', lmbVal, v => { lmbVal = v; }));
+    container.appendChild(_buildCharRow('Q :', abilVals.q, v => { abilVals.q = v; }));
+    container.appendChild(_buildCharRow('E :', abilVals.e, v => { abilVals.e = v; }));
+    container.appendChild(_buildCharRow('R :', abilVals.r, v => { abilVals.r = v; }));
+
+    // Save & Delete buttons
+    const btnRow = document.createElement('div');
+    btnRow.className = 'ww-char-btn-row';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', () => {
+        const name = (nameInput.value || '').trim();
+        if (!name) { updateStatus('Please enter a character name.', 'fail'); return; }
+        const nameKey = name.toLowerCase();
+        const isNew = appState.wwCurrentChar === null;
+        const overwritingDifferent = !isNew && nameKey !== appState.wwCurrentChar && nameKey in appState.wwCharacters;
+        const overwritingExisting = isNew && nameKey in appState.wwCharacters;
+        const doSave = () => sendMessage('save_character', {
+            name,
+            swap_image: swapVal,
+            lmb_image: lmbVal,
+            ability_images: { q: abilVals.q, e: abilVals.e, r: abilVals.r },
+        });
+        if (overwritingDifferent || overwritingExisting) {
+            if (!confirm(`"${name}" already exists. Overwrite?`)) return;
+        }
+        doSave();
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.className = 'danger';
+    deleteBtn.disabled = !loaded;
+    deleteBtn.addEventListener('click', () => {
+        if (!appState.wwCurrentChar) return;
+        const charName = (loaded && loaded.name) || appState.wwCurrentChar;
+        const blockingTeams = wwTeamNamesReferencingCharacter(appState.wwCurrentChar);
+        if (blockingTeams.length) {
+            alert(`Remove from these teams first: ${blockingTeams.join(', ')}`);
+            return;
+        }
+        if (!confirm(`Delete character "${charName}"?`)) return;
+        sendMessage('delete_character', { name: charName });
+    });
+
+    btnRow.appendChild(saveBtn);
+    btnRow.appendChild(deleteBtn);
+    container.appendChild(btnRow);
 }
 
 // Extract keys from inputs text
@@ -658,33 +673,45 @@ function setEditorFields(data) {
     const gameSelect = getEl('targetGameSelect');
     if (gameSelect) gameSelect.value = appState.targetGame;
 
-    // WW teams list
+    // WW character library
+    const charsList = Array.isArray(data.ww_characters) ? data.ww_characters : [];
+    appState.wwCharacters = {};
+    charsList.forEach(c => {
+        if (c && c.name_key) appState.wwCharacters[c.name_key] = c;
+    });
+
+    // WW teams list (now includes slot1/slot2/slot3)
     appState.wwTeams = Array.isArray(data.ww_teams) ? [...data.ww_teams] : [];
-    const teamSelect = getEl('wwTeamSelect');
-    if (teamSelect) {
-        teamSelect.innerHTML = '<option value="">— New Team —</option>';
-        appState.wwTeams.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t.id;
-            opt.textContent = t.name;
-            teamSelect.appendChild(opt);
-        });
-    }
 
-    // Selected team (from combo assignment or active team)
+    // Selected team
     appState.wwTeamId = (data.ww_team_id || '').toString().trim();
-    if (teamSelect) teamSelect.value = appState.wwTeamId;
-
     const teamNameEl = getEl('wwTeamName');
     if (teamNameEl) teamNameEl.value = (data.ww_team_name || '').toString();
 
-    appState.wwDashImage = (data.ww_team_dash_image || '').toString().trim();
+    // Team slots
+    const slots = data.ww_team_slots || {};
+    appState.wwTeamSlots = [
+        (slots.slot1 || '').toString(),
+        (slots.slot2 || '').toString(),
+        (slots.slot3 || '').toString(),
+    ];
+
+    // Global dash
+    appState.wwDashImage = (data.ww_dash_image || data.ww_team_dash_image || '').toString().trim();
+
+    // Resolved images for timeline rendering
     appState.wwSwapImages = ensureWwSlotShape(data.ww_team_swap_images);
     appState.wwLmbImages = ensureWwSlotShape(data.ww_team_lmb_images);
     appState.wwAbilityImages = ensureWwAbilityShape(data.ww_team_ability_images);
 
+    // Keep the character editor selection across WW refreshes (e.g. changing team sends
+    // combo_data). Only clear if that character no longer exists in the library.
+    const prevCharKey = appState.wwCurrentChar;
+    if (prevCharKey && !appState.wwCharacters[prevCharKey]) {
+        appState.wwCurrentChar = null;
+    }
+
     syncGameUIVisibility();
-    renderWwAbilityEditor({ preserveEdits: false });
 }
 
 // Status display
@@ -1244,7 +1271,6 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
 
     // Save via the same path as the Save/Update button.
     readKeyImagesFromUI();
-    readWwDataFromUI();
     const toggle = getEl('stepDisplayToggle');
     sendMessage('save_combo', {
         name: (getEl('comboName')?.value || '').toString(),
@@ -2113,7 +2139,6 @@ const saveBtn = getEl('saveBtn');
 if (saveBtn) {
     saveBtn.addEventListener('click', () => {
         readKeyImagesFromUI();
-        readWwDataFromUI();
 
         const name = (getEl('comboName')?.value || '').toString();
         const inputs = (getEl('comboInputs')?.value || '').toString();
@@ -2535,52 +2560,45 @@ if (targetGameEl) {
         // Send target game change to backend immediately for stateless operation
         sendMessage('update_target_game', { target_game: appState.targetGame });
         syncGameUIVisibility();
-        renderWwAbilityEditor({ preserveEdits: true });
         refreshTimelineIfLoaded();
     });
 }
 
-const wwTeamSelectEl = getEl('wwTeamSelect');
-if (wwTeamSelectEl) {
-    wwTeamSelectEl.addEventListener('change', () => {
-        appState.wwTeamId = (wwTeamSelectEl.value || '').toString();
-        // Send both team_id AND target_game for stateless operation
+// WW: team select dropdown
+document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'wwTeamSelect') {
+        appState.wwTeamId = (e.target.value || '').toString();
         sendMessage('select_team', { team_id: appState.wwTeamId, target_game: appState.targetGame });
-    });
-}
+    }
+});
 
-const saveTeamBtn = getEl('saveTeamBtn');
-if (saveTeamBtn) {
-    saveTeamBtn.addEventListener('click', () => {
-        readWwDataFromUI();
-        const name = (getEl('wwTeamName')?.value || '').toString();
+// WW: save team button
+document.addEventListener('click', e => {
+    if (e.target && e.target.id === 'saveTeamBtn') {
+        const name = (getEl('wwTeamName')?.value || '').toString().trim();
+        if (!name) { updateStatus('Please enter a team name.', 'fail'); return; }
         sendMessage('save_team', {
             team_id: appState.wwTeamId || '',
             team_name: name,
-            dash_image: appState.wwDashImage || '',
-            swap_images: appState.wwSwapImages || {},
-            lmb_images: appState.wwLmbImages || {},
-            ability_images: appState.wwAbilityImages || {}
+            slot1: appState.wwTeamSlots[0] || '',
+            slot2: appState.wwTeamSlots[1] || '',
+            slot3: appState.wwTeamSlots[2] || '',
         });
-    });
-}
-
-const newTeamBtn = getEl('newTeamBtn');
-if (newTeamBtn) {
-    newTeamBtn.addEventListener('click', () => {
+    }
+    if (e.target && e.target.id === 'newTeamBtn') {
         appState.wwTeamId = '';
+        appState.wwTeamSlots = ['', '', ''];
         const teamSel = getEl('wwTeamSelect');
         if (teamSel) teamSel.value = '';
         const nameEl = getEl('wwTeamName');
         if (nameEl) nameEl.value = '';
-        appState.wwSwapImages = { "1": "", "2": "", "3": "" };
-        appState.wwLmbImages = { "1": "", "2": "", "3": "" };
-        appState.wwDashImage = "";
-        appState.wwAbilityImages = { "1": {}, "2": {}, "3": {} };
-        renderWwAbilityEditor({ preserveEdits: false });
-    });
-}
+        renderWwTeamEditor();
+        _resolveTeamImagesToState();
+        refreshTimelineIfLoaded();
+    }
+});
 
+// WW: delete team (two-click confirm wired after DOM is ready)
 const deleteTeamBtn = getEl('deleteTeamBtn');
 if (deleteTeamBtn) {
     attachTwoClickConfirm(deleteTeamBtn, {
@@ -2592,12 +2610,24 @@ if (deleteTeamBtn) {
     });
 }
 
-const wwDetails = getEl('wwAbilityDetails');
-if (wwDetails) {
-    wwDetails.addEventListener('toggle', () => {
-        renderWwAbilityEditor({ preserveEdits: true });
-    });
-}
+// WW: character select dropdown — load character into editor
+document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'wwCharSelect') {
+        appState.wwCurrentChar = e.target.value || null;
+        renderWwCharacterEditor();
+    }
+});
+
+// WW: dash input
+document.addEventListener('input', e => {
+    if (e.target && e.target.id === 'wwDashImageInput') {
+        appState.wwDashImage = e.target.value.trim();
+        const preview = getEl('wwDashPreview');
+        if (preview) wwSetPreview(preview, e.target.value);
+        sendMessage('update_ww_dash', { dash_image: appState.wwDashImage });
+        refreshTimelineIfLoaded();
+    }
+});
 
 // Batched message handling (keeps UI smooth with lots of hits)
 
@@ -2642,6 +2672,10 @@ const MESSAGE_HANDLERS = {
     },
     clear_results: () => clearAttemptLog(),
     status: (msg) => updateStatus(msg.text, msg.color),
+    alert_notice: (msg) => {
+        const t = (msg.text || '').toString();
+        if (t) window.alert(t);
+    },
     stat_update: (msg) => updateStats(msg.stats),
     attempt_start: (msg) => addAttemptSeparator(msg.name, msg.attempt),
     timeline_update: (msg) => updateTimeline(msg.steps, { focusLatest: !!msg.focus_latest }),

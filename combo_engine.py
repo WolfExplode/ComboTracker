@@ -12,6 +12,9 @@ from Game_Wuthering_Waves import (
     delete_ww_team,
     select_team_stateless,
     update_target_game_stateless,
+    save_ww_character_cmd,
+    delete_ww_character_cmd,
+    update_ww_dash_cmd,
 )
 import combo_analytics
 import combo_engine_ui as ui
@@ -523,21 +526,44 @@ class ComboTrackerEngine:
         *,
         team_id: str | None,
         team_name: str | None,
-        dash_image: str | None,
-        swap_images: Any | None,
-        lmb_images: Any | None,
-        ability_images: Any | None,
+        slot1: str,
+        slot2: str,
+        slot3: str,
     ) -> tuple[bool, str | None]:
         with self._lock:
             return save_or_update_ww_team(
                 self,
                 team_id=team_id,
                 team_name=team_name,
-                dash_image=dash_image,
-                swap_images=swap_images,
-                lmb_images=lmb_images,
+                slot1=slot1,
+                slot2=slot2,
+                slot3=slot3,
+            )
+
+    def save_ww_character(
+        self,
+        *,
+        name: str,
+        swap_image: str,
+        lmb_image: str,
+        ability_images: Any,
+    ) -> tuple[bool, str | None]:
+        with self._lock:
+            return save_ww_character_cmd(
+                self,
+                name=name,
+                swap_image=swap_image,
+                lmb_image=lmb_image,
                 ability_images=ability_images,
             )
+
+    def delete_ww_character(self, name: str) -> tuple[bool, str | None]:
+        with self._lock:
+            return delete_ww_character_cmd(self, name=name)
+
+    def update_ww_dash(self, dash_image: str) -> tuple[bool, str | None]:
+        with self._lock:
+            return update_ww_dash_cmd(self, dash_image=dash_image)
 
     def delete_ww_team(self, team_id: str) -> tuple[bool, str | None]:
         with self._lock:

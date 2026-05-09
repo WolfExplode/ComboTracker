@@ -260,7 +260,35 @@ def load_engine_state(engine) -> None:
                 if g in ("generic", "wuthering_waves"):
                     engine.ww.combo_target_game[name] = g
 
-        # WW teams
+        # WW character library
+        chars_raw = data.get("ww_characters", {})
+        ww_characters: dict[str, Any] = {}
+        if isinstance(chars_raw, dict):
+            for ckey, cv in chars_raw.items():
+                key = str(ckey or "").strip().lower()
+                if not key or not isinstance(cv, dict):
+                    continue
+                ai: dict[str, str] = {}
+                ai_raw = cv.get("ability_images", {})
+                if isinstance(ai_raw, dict):
+                    for a, v in ai_raw.items():
+                        akey = str(a or "").strip().lower()
+                        if akey in ("e", "q", "r"):
+                            url = str(v or "").strip()
+                            if url:
+                                ai[akey] = url
+                ww_characters[key] = {
+                    "name": str(cv.get("name", "") or key),
+                    "swap_image": str(cv.get("swap_image", "") or "").strip(),
+                    "lmb_image": str(cv.get("lmb_image", "") or "").strip(),
+                    "ability_images": ai,
+                }
+        engine.ww.ww_characters = ww_characters
+
+        # Global dash image
+        engine.ww.ww_dash_image = str(data.get("ww_dash_image", "") or "").strip()
+
+        # WW teams (new slot-based format; migrates from old embedded-image format)
         teams = data.get("ww_teams", {})
         ww_teams: dict[str, dict[str, Any]] = {}
         if isinstance(teams, dict):
@@ -268,52 +296,64 @@ def load_engine_state(engine) -> None:
                 team_id = str(tid).strip()
                 if not team_id or not isinstance(tv, dict):
                     continue
-                name = str(tv.get("name", "") or "").strip() or "Team"
-                dash_image = str(tv.get("dash_image", "") or "").strip()
-                swap_raw = tv.get("swap_images", {})
-                swap_images: dict[str, str] = {}
-                if isinstance(swap_raw, dict):
-                    for kk, vv in swap_raw.items():
-                        k = str(kk or "").strip()
-                        if k not in ("1", "2", "3"):
-                            continue
-                        url = str(vv or "").strip()
-                        if url:
-                            swap_images[k] = url
-                lmb_raw = tv.get("lmb_images", {})
-                lmb_images: dict[str, str] = {}
-                if isinstance(lmb_raw, dict):
-                    for kk, vv in lmb_raw.items():
-                        k = str(kk or "").strip()
-                        if k not in ("1", "2", "3"):
-                            continue
-                        url = str(vv or "").strip()
-                        if url:
-                            lmb_images[k] = url
-                abil_raw = tv.get("ability_images", {})
-                ability_images: dict[str, dict[str, str]] = {}
-                if isinstance(abil_raw, dict):
-                    for ck, mapping in abil_raw.items():
-                        c = str(ck or "").strip()
-                        if c not in ("1", "2", "3") or not isinstance(mapping, dict):
-                            continue
-                        m: dict[str, str] = {}
-                        for akey, av in mapping.items():
-                            a = str(akey or "").strip().lower()
-                            if a not in ("e", "q", "r"):
-                                continue
-                            url = str(av or "").strip()
-                            if url:
-                                m[a] = url
-                        if m:
-                            ability_images[c] = m
-                ww_teams[team_id] = {
-                    "name": name,
-                    "dash_image": dash_image,
-                    "swap_images": swap_images,
-                    "lmb_images": lmb_images,
-                    "ability_images": ability_images,
-                }
+                team_name = str(tv.get("name", "") or "").strip() or "Team"
+
+                if "slot1" in tv or "slot2" in tv or "slot3" in tv:
+                    # New format
+                    ww_teams[team_id] = {
+                        "name": team_name,
+                        "slot1": str(tv.get("slot1", "") or "").strip().lower(),
+                        "slot2": str(tv.get("slot2", "") or "").strip().lower(),
+                        "slot3": str(tv.get("slot3", "") or "").strip().lower(),
+                    }
+                else:
+                    # Old format: migrate embedded swap/lmb/ability per slot into characters
+                    dash_old = str(tv.get("dash_image", "") or "").strip()
+                    if dash_old and not engine.ww.ww_dash_image:
+                        engine.ww.ww_dash_image = dash_old
+                    swap_old = tv.get("swap_images") or {}
+                    lmb_old = tv.get("lmb_images") or {}
+                    abil_old = tv.get("ability_images") or {}
+                    slot_chars: dict[str, str] = {}
+                    for slot in ("1", "2", "3"):
+                        has_swap = isinstance(swap_old, dict) and str(swap_old.get(slot, "") or "").strip()
+                        has_lmb = isinstance(lmb_old, dict) and str(lmb_old.get(slot, "") or "").strip()
+                        has_abil = (
+                            isinstance(abil_old, dict)
+                            and isinstance(abil_old.get(slot), dict)
+                            and any(str(v or "").strip() for v in abil_old[slot].values())
+                        )
+                        if has_swap or has_lmb or has_abil:
+                            char_display = f"{team_name} {slot}"
+                            char_key = char_display.lower()
+                            suffix = 0
+                            while char_key in engine.ww.ww_characters:
+                                suffix += 1
+                                char_key = f"{char_display.lower()}_{suffix}"
+                                char_display = f"{team_name} {slot}_{suffix}"
+                            slot_ai: dict[str, str] = {}
+                            if isinstance(abil_old, dict) and isinstance(abil_old.get(slot), dict):
+                                for a, v in abil_old[slot].items():
+                                    akey = str(a or "").strip().lower()
+                                    if akey in ("e", "q", "r"):
+                                        url = str(v or "").strip()
+                                        if url:
+                                            slot_ai[akey] = url
+                            engine.ww.ww_characters[char_key] = {
+                                "name": char_display,
+                                "swap_image": str(swap_old.get(slot, "") or "").strip() if isinstance(swap_old, dict) else "",
+                                "lmb_image": str(lmb_old.get(slot, "") or "").strip() if isinstance(lmb_old, dict) else "",
+                                "ability_images": slot_ai,
+                            }
+                            slot_chars[slot] = char_key
+                        else:
+                            slot_chars[slot] = ""
+                    ww_teams[team_id] = {
+                        "name": team_name,
+                        "slot1": slot_chars.get("1", ""),
+                        "slot2": slot_chars.get("2", ""),
+                        "slot3": slot_chars.get("3", ""),
+                    }
         engine.ww.ww_teams = ww_teams
 
         active_team = str(data.get("ww_active_team_id") or "").strip()
@@ -331,7 +371,7 @@ def load_engine_state(engine) -> None:
                     combo_ww_team[cname] = tid
         engine.ww.combo_ww_team = combo_ww_team
 
-        # Migration: old per-combo ww ability images -> teams (so presets don't vanish)
+        # Migration: old per-combo ww ability images -> character library + teams
         legacy = data.get("combo_ww_ability_images", {})
         if isinstance(legacy, dict):
             for combo_name, mapping in legacy.items():
@@ -357,30 +397,28 @@ def load_engine_state(engine) -> None:
                     continue
 
                 team_id = uuid4().hex[:10]
-                swap_images: dict[str, str] = {}
-                lmb_images: dict[str, str] = {}
-                dash_image = ""
-                try:
-                    km = (key_images.get(cname) or {})
-                    if isinstance(km, dict):
-                        for sk in ("1", "2", "3"):
-                            url = str(km.get(sk, "") or "").strip()
-                            if url:
-                                swap_images[sk] = url
-                        dash_image = str(km.get("rmb", "") or "").strip()
-                        lmb_any = str(km.get("lmb", "") or "").strip()
-                        if lmb_any:
-                            for sk in ("1", "2", "3"):
-                                lmb_images[sk] = lmb_any
-                except Exception:
-                    pass
+                slot_chars_legacy: dict[str, str] = {}
+                for slot in ("1", "2", "3"):
+                    slot_abil = per_char.get(slot, {})
+                    char_display = f"Imported: {cname} {slot}"
+                    char_key = char_display.lower()
+                    suffix = 0
+                    while char_key in engine.ww.ww_characters:
+                        suffix += 1
+                        char_key = f"{char_display.lower()}_{suffix}"
+                    engine.ww.ww_characters[char_key] = {
+                        "name": char_display,
+                        "swap_image": "",
+                        "lmb_image": "",
+                        "ability_images": slot_abil,
+                    }
+                    slot_chars_legacy[slot] = char_key
 
                 engine.ww.ww_teams[team_id] = {
                     "name": f"Imported: {cname}",
-                    "dash_image": dash_image,
-                    "swap_images": swap_images,
-                    "lmb_images": lmb_images,
-                    "ability_images": per_char,
+                    "slot1": slot_chars_legacy.get("1", ""),
+                    "slot2": slot_chars_legacy.get("2", ""),
+                    "slot3": slot_chars_legacy.get("3", ""),
                 }
                 engine.ww.combo_ww_team[cname] = team_id
                 if engine.ww.ww_active_team_id is None:
@@ -431,6 +469,8 @@ def load_engine_state(engine) -> None:
         engine.combo_key_images = {}
         engine.combo_demo_video = {}
         engine.ww.combo_target_game = {}
+        engine.ww.ww_characters = {}
+        engine.ww.ww_dash_image = ""
         engine.ww.ww_teams = {}
         engine.ww.ww_active_team_id = None
         engine.ww.combo_ww_team = {}
@@ -471,7 +511,18 @@ def save_engine_state(engine) -> None:
             "combo_key_images": dict(engine.combo_key_images),
             "combo_demo_video": dict(getattr(engine, "combo_demo_video", {})),
             "combo_target_game": dict(engine.ww.combo_target_game),
-            "ww_teams": dict(engine.ww.ww_teams),
+            "ww_characters": dict(engine.ww.ww_characters),
+            "ww_dash_image": engine.ww.ww_dash_image,
+            "ww_teams": {
+                tid: {
+                    "name": tv.get("name", "Team"),
+                    "slot1": tv.get("slot1", ""),
+                    "slot2": tv.get("slot2", ""),
+                    "slot3": tv.get("slot3", ""),
+                }
+                for tid, tv in engine.ww.ww_teams.items()
+                if isinstance(tv, dict)
+            },
             "ww_active_team_id": engine.ww.ww_active_team_id,
             "combo_ww_team": dict(engine.ww.combo_ww_team),
         }
