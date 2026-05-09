@@ -476,52 +476,86 @@ function renderWwCharacterEditor() {
     container.appendChild(btnRow);
 }
 
+// Split a combo string into top-level tokens (respects (), {}, []).
+function splitTopLevelTokens(str) {
+    const out = [];
+    let buf = '';
+    let paren = 0, brace = 0, bracket = 0;
+    for (const ch of (str || '')) {
+        if (ch === '(') paren++;
+        else if (ch === ')') paren = Math.max(0, paren - 1);
+        else if (ch === '{') brace++;
+        else if (ch === '}') brace = Math.max(0, brace - 1);
+        else if (ch === '[') bracket++;
+        else if (ch === ']') bracket = Math.max(0, bracket - 1);
+        if (ch === ',' && paren === 0 && brace === 0 && bracket === 0) {
+            const t = buf.trim();
+            if (t) out.push(t);
+            buf = '';
+        } else {
+            buf += ch;
+        }
+    }
+    const t = buf.trim();
+    if (t) out.push(t);
+    return out;
+}
+
+// Extract the hold key from a hold(key, ...) token.
+function _extractHoldKey(part) {
+    const tl = part.toLowerCase();
+    if (!tl.startsWith('hold(') || !tl.endsWith(')')) return null;
+    const inner = part.slice('hold('.length, -1);
+    const args = splitTopLevelTokens(inner);
+    return args.length >= 1 ? args[0].trim().toLowerCase() : null;
+}
+
 // Extract keys from inputs text
 function extractKeysFromInputs() {
     const txt = (getEl('comboInputs')?.value || '').toString();
     if (!txt.trim()) return [];
 
-    const parts = txt.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+    const parts = splitTopLevelTokens(txt).map(x => x.toLowerCase());
     const keys = new Set();
 
     parts.forEach(part => {
-        // hold(key,time) or key{time}
-        let m = part.match(/^hold\(\s*([^,]+)\s*,/i);
-        if (m) {
-            keys.add(m[1].trim());
+        // hold(key, time) or hold(key, time, {body}) — new or existing form
+        if (/^hold\s*\(/i.test(part)) {
+            const hk = _extractHoldKey(part);
+            if (hk) keys.add(hk);
+            // Also extract keys from {body} if present
+            const bodyM = part.match(/\{([^}]*)\}\s*\)$/);
+            if (bodyM) {
+                splitTopLevelTokens(bodyM[1]).forEach(bi => {
+                    const bit = bi.trim().toLowerCase();
+                    if (!/^wait[_a-z]*[:(\s]/i.test(bit)) keys.add(bit);
+                });
+            }
             return;
         }
-        m = part.match(/^([^{]+)\{/);
+        // key{time} shorthand
+        let m = part.match(/^([^{]+)\{/);
         if (m) {
             keys.add(m[1].trim());
             return;
         }
         // wait(...) -> skip
         if (/^wait[_a-z]*[:(\s]/i.test(part)) return;
-        // [group] -> extract items
-        m = part.match(/^\[(.+)\]$/);
+        // [group] -> extract items using top-level split
+        m = part.match(/^\[(.+)\]$/s);
         if (m) {
-            const group = m[1];
-            group.split(',').forEach(gi => {
-                const gg = gi.trim();
-                let mm = gg.match(/^hold\(\s*([^,]+)\s*,/i);
-                if (mm) {
-                    keys.add(mm[1].trim());
+            splitTopLevelTokens(m[1]).forEach(gi => {
+                const gg = gi.trim().toLowerCase();
+                if (/^hold\s*\(/i.test(gg)) {
+                    const hk = _extractHoldKey(gg);
+                    if (hk) keys.add(hk);
                     return;
                 }
-                mm = gg.match(/^([^{]+)\{/);
-                if (mm) {
-                    keys.add(mm[1].trim());
-                    return;
-                }
+                let mm = gg.match(/^([^{]+)\{/);
+                if (mm) { keys.add(mm[1].trim()); return; }
                 mm = gg.match(/^wait\(\s*([^,]+)\s*,/i);
-                if (mm) {
-                    keys.add(mm[1].trim());
-                    return;
-                }
-                if (!/^wait[_a-z]*[:(\s]/i.test(gg)) {
-                    keys.add(gg);
-                }
+                if (mm) { keys.add(mm[1].trim()); return; }
+                if (!/^wait[_a-z]*[:(\s]/i.test(gg)) keys.add(gg);
             });
             return;
         }
@@ -1026,7 +1060,7 @@ function tickHoldAnimation() {
         holdRafId = null;
         return;
     }
-    const stepEl = document.querySelector('.step.hold.active');
+    const stepEl = document.querySelector('.step.hold.active, .step.hold-with-body.active, .step.hold-with_body.active');
     if (!stepEl) {
         // Timeline might be re-rendering; try again next frame.
         holdRafId = requestAnimationFrame(tickHoldAnimation);
@@ -1724,7 +1758,7 @@ function updateTimeline(steps, opts) {
             tile.appendChild(badge);
         }
 
-        if (s.type) tile.classList.add(s.type.replace('_', '-'));
+        if (s.type) tile.classList.add(s.type.replace(/_/g, '-'));
         if (s.optional) tile.classList.add('optional');
         if (s.optional && s.completed && !s.was_skipped) tile.classList.add('was-pressed');
         let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
@@ -1732,7 +1766,7 @@ function updateTimeline(steps, opts) {
             tile.style.setProperty('--wait-pct', `${pct}%`);
             if (s.duration <= SHORT_WAIT_MS) tile.classList.add('short-wait');
             if (s.duration) applyWaitWidth(tile, s.duration);
-        } else if (s.type === 'hold') {
+        } else if (s.type === 'hold' || s.type === 'hold_with_body') {
             tile.style.setProperty('--hold-pct', `${pct}%`);
             if (s.duration) applyHoldWidth(tile, s.duration);
         } else if (isAutoScroll) {
@@ -1743,7 +1777,7 @@ function updateTimeline(steps, opts) {
         let keyForCorner = '';
         if (s.type === 'wait' && s.wait_for) keyForCorner = s.wait_for;
         else if (s.input) keyForCorner = s.input;
-        if (keyForCorner) addCornerKey(tile, keyForCorner, s, runtimeIdxNormal);
+        if (keyForCorner && s.type !== 'hold_with_body') addCornerKey(tile, keyForCorner, s, runtimeIdxNormal);
 
         appendStepContent(tile, s, nextChar, ctx, runtimeIdxNormal);
         attachStepDeleteControl(tile, s.step_indices);
@@ -1871,6 +1905,7 @@ function renderStepLabel(s) {
         return `Wait ${dur}ms`;
     }
     if (s.type === 'hold') return `Hold ${inp} ${dur}ms`;
+    if (s.type === 'hold_with_body') return `Hold ${inp} ${dur}ms (+body)`;
     if (s.type === 'press_wait') return `${inp} + ${dur}ms`;
     return inp;
 }
@@ -1936,11 +1971,11 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
     };
 
     // Append duration/secondary text; attach inline edit when runtimeIdx is provided.
-    const appendDuration = (text) => {
+    const appendDuration = (text, target = parent) => {
         const dur = document.createElement('span');
         dur.className = 'step-secondary';
         dur.textContent = text;
-        parent.appendChild(dur);
+        target.appendChild(dur);
         if (runtimeIdx != null) attachInlineEdit(dur, s, 'duration', runtimeIdx);
     };
 
@@ -1949,6 +1984,73 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
         const key = s.wait_for.toLowerCase();
         appendPrimary(key, key.toUpperCase());
         appendDuration(`${s.duration}ms`);
+    } else if (s.type === 'hold_with_body') {
+        const shell = document.createElement('div');
+        shell.className = 'hold-body-layout';
+
+        const anchor = document.createElement('div');
+        anchor.className = 'hold-anchor';
+        appendPrimary(inp, label, anchor);
+
+        const keyTag = document.createElement('span');
+        keyTag.className = 'corner-key hold-anchor-key';
+        keyTag.textContent = label;
+        anchor.appendChild(keyTag);
+        if (runtimeIdx != null) attachInlineEdit(keyTag, s, 'key', runtimeIdx);
+
+        const right = document.createElement('div');
+        right.className = 'hold-content';
+        const bodyDoneLabel = s.body_done ? ' ✓' : '';
+        appendDuration(`hold ${s.duration}ms${bodyDoneLabel}`, right);
+
+        const bodyRow = document.createElement('div');
+        bodyRow.className = 'hold-body-row';
+        const bodyItems = (s.body && Array.isArray(s.body.items)) ? s.body.items : [];
+        bodyItems.forEach((it) => {
+            const chip = document.createElement('span');
+            const isActive = !!(it && it.active);
+            const isCompleted = !!(it && it.completed);
+            const itemType = (it && it.type ? String(it.type) : '').toLowerCase();
+            if (itemType === 'wait') {
+                chip.className = 'hold-body-chip wait';
+                chip.textContent = `${Number(it.duration || 0)}ms`;
+                const waitPct = Number(it.progress);
+                if (Number.isFinite(waitPct)) {
+                    chip.style.setProperty('--chip-wait-pct', `${Math.max(0, Math.min(100, waitPct))}%`);
+                }
+            } else {
+                chip.className = 'hold-body-chip press';
+                const key = (it && it.input ? it.input : '').toString().toLowerCase();
+                if (key) {
+                    const imgUrl = resolveImage(key);
+                    if (imgUrl) chip.appendChild(createImageElement(imgUrl));
+                    else appendIconOrText(key, key.toUpperCase(), chip);
+                } else {
+                    chip.textContent = '?';
+                }
+                // Body sequences often arrive as press_wait (collapsed press + following wait).
+                // Render the wait timing inline so all hold-body waits stay visible.
+                if (itemType === 'press_wait') {
+                    chip.classList.add('press-wait');
+                    const inlineWait = document.createElement('span');
+                    inlineWait.className = 'hold-body-inline-wait';
+                    inlineWait.textContent = `${Number(it.duration || 0)}ms`;
+                    const waitPct = Number(it.progress);
+                    if (Number.isFinite(waitPct)) {
+                        inlineWait.style.setProperty('--chip-wait-pct', `${Math.max(0, Math.min(100, waitPct))}%`);
+                    }
+                    chip.appendChild(inlineWait);
+                }
+            }
+            if (isActive) chip.classList.add('active');
+            if (isCompleted) chip.classList.add('completed');
+            bodyRow.appendChild(chip);
+        });
+        right.appendChild(bodyRow);
+
+        shell.appendChild(anchor);
+        shell.appendChild(right);
+        parent.appendChild(shell);
     } else if (s.type === 'hold') {
         appendPrimary(inp, label);
         appendDuration(`hold ${s.duration}ms`);

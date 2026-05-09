@@ -12,6 +12,7 @@ from typing import Literal, Protocol, Union
 from parser import (
     GroupNode,
     HoldNode,
+    HoldWithBodyNode,
     PressNode,
     SequenceNode,
     StepNode,
@@ -188,6 +189,129 @@ class HoldState:
         self.in_progress = False
         self.started_at = 0.0
         self.completed = False
+
+    def skip_and_advance(self, now: float) -> bool:
+        return True
+
+
+@dataclass
+class HoldWithBodyState:
+    """Hold key for minimum duration while executing an inner sequence of presses/waits.
+    Fails immediately if the holder key is released before both conditions are met:
+    - held_ms >= required_ms
+    - all body steps completed
+    """
+    expected: str
+    required_ms: int
+    body: "SequenceState"
+
+    # Runtime mutable state
+    in_progress: bool = False
+    started_at: float = 0.0
+    completed: bool = False
+    body_done: bool = False
+
+    def _is_body_done(self) -> bool:
+        return self.body_done or (
+            self.body.started and self.body.current_index >= len(self.body.steps)
+        )
+
+    def process_press(self, key: str, now: float) -> ProcessResult:
+        if key == self.expected:
+            if not self.in_progress:
+                # Start hold + body sequence
+                self.in_progress = True
+                self.started_at = now
+                self.body.started = True
+                # If first body step is a WaitState, start its timer immediately
+                if self.body.steps and isinstance(self.body.steps[0], WaitState):
+                    self.body.steps[0].start(now)
+                return AcceptResult(advance=False)
+            # Repeat press of hold key; ignore
+            return IgnoreResult()
+
+        if not self.in_progress or self._is_body_done():
+            return IgnoreResult()
+
+        result = self.body.process_press(key, now)
+
+        # AcceptResult(advance=True) or CompleteResult both mean the body sequence finished
+        body_finished = (
+            (isinstance(result, AcceptResult) and result.advance)
+            or isinstance(result, CompleteResult)
+        )
+        if body_finished:
+            self.body_done = True
+            if self.check_complete(now):
+                self.complete()
+                return AcceptResult(advance=True)
+            # Body done but hold time not yet reached; stay in progress
+            return AcceptResult(advance=False)
+
+        return result
+
+    def process_release(self, key: str, now: float) -> ProcessResult:
+        if key != self.expected or not self.in_progress:
+            return IgnoreResult()
+        # Fail immediately if either condition not yet met at release time
+        if not self._is_body_done() or (now - self.started_at) * 1000 < self.required_ms:
+            self.in_progress = False
+            return FailResult("released hold early")
+        self.complete()
+        return AcceptResult(advance=True)
+
+    def tick(self, now: float) -> ProcessResult:
+        if not self.in_progress:
+            return IgnoreResult()
+
+        if not self._is_body_done():
+            result = self.body.tick(now)
+            body_finished = (
+                (isinstance(result, AcceptResult) and result.advance)
+                or isinstance(result, CompleteResult)
+            )
+            if body_finished:
+                self.body_done = True
+                if self.check_complete(now):
+                    self.complete()
+                    return AcceptResult(advance=True)
+            return IgnoreResult()
+
+        # Body is done; check if hold time satisfied
+        if self.check_complete(now):
+            self.complete()
+            return AcceptResult(advance=True)
+
+        return IgnoreResult()
+
+    def check_complete(self, now: float) -> bool:
+        """True if both body finished and hold time satisfied."""
+        if not self.in_progress:
+            return False
+        return self._is_body_done() and (now - self.started_at) * 1000 >= self.required_ms
+
+    def complete(self) -> None:
+        self.in_progress = False
+        self.completed = True
+        self.body_done = True
+
+    def to_dict(self) -> dict:
+        return {
+            "type": "hold_with_body",
+            "input": self.expected,
+            "duration": self.required_ms,
+            "in_progress": self.in_progress,
+            "completed": self.completed,
+            "body_done": self.body_done,
+            "body": self.body.to_dict(),
+        }
+
+    def reset(self) -> None:
+        self.in_progress = False
+        self.started_at = 0.0
+        self.completed = False
+        self.body_done = False
+        self.body.reset()
 
     def skip_and_advance(self, now: float) -> bool:
         return True
@@ -603,6 +727,11 @@ def build_runtime_state(node: StepNode) -> StepState:
 
         case HoldNode(key=key, duration_ms=ms):
             return HoldState(expected=key, required_ms=ms)
+
+        case HoldWithBodyNode(key=key, duration_ms=ms, body=body_steps):
+            body_state_steps: list[StepState] = [build_runtime_state(s) for s in body_steps]
+            body_seq = SequenceState(steps=body_state_steps)
+            return HoldWithBodyState(expected=key, required_ms=ms, body=body_seq)
 
         case WaitNode(duration_ms=ms, mode=mode, wait_for=wf):
             return WaitState(required_ms=ms, mode=mode, wait_for=wf)

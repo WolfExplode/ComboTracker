@@ -11,6 +11,7 @@ import step_introspection
 from states import (
     GroupState,
     HoldState,
+    HoldWithBodyState,
     PressState,
     SequenceState,
     WaitState,
@@ -35,6 +36,10 @@ def _step_time_ms(s: Any) -> int:
         return int(s.required_ms or 0)
     if isinstance(s, HoldState):
         return int(s.required_ms or 0)
+    if isinstance(s, HoldWithBodyState):
+        # Total time is max of the hold duration and sum of body step times
+        body_ms = sum(_step_time_ms(x) for x in s.body.steps)
+        return max(int(s.required_ms or 0), body_ms)
     if isinstance(s, PressState):
         return 0
     if isinstance(s, SequenceState):
@@ -59,6 +64,10 @@ def _count_step_actions(s: Any) -> tuple[int, int]:
         return (1, 0)
     if isinstance(s, HoldState):
         return (0, 1)
+    if isinstance(s, HoldWithBodyState):
+        # Count as one hold plus the presses inside the body
+        body_press = sum(_count_step_actions(x)[0] for x in s.body.steps)
+        return (body_press, 1)
     if isinstance(s, WaitState):
         return (0, 0)
     if isinstance(s, SequenceState):
@@ -182,6 +191,10 @@ def _timing_variation_points(engine) -> int:
             process_wait_hold(s.required_ms, None)
         elif isinstance(s, HoldState):
             process_wait_hold(None, s.required_ms)
+        elif isinstance(s, HoldWithBodyState):
+            process_wait_hold(None, s.required_ms)
+            for sub in s.body.steps:
+                process_step(sub)
         elif isinstance(s, PressState):
             pass
         elif isinstance(s, SequenceState):
@@ -214,6 +227,13 @@ def _collect_wait_hold_scores(steps: list[Any]) -> tuple[list[float], list[float
                 hold_scores.append(_hold_score(int(s.required_ms or 0)))
             except Exception:
                 pass
+        elif isinstance(s, HoldWithBodyState):
+            try:
+                hold_scores.append(_hold_score(int(s.required_ms or 0)))
+            except Exception:
+                pass
+            for sub in s.body.steps:
+                process(sub)
         elif isinstance(s, SequenceState):
             for sub in s.steps:
                 process(sub)

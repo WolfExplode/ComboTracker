@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "test",
+  "last_active_combo": "test2",
   "no_fail_mode": false,
   "macro_start_key": "f",
   "macro_stop_key": "esc",
@@ -367,7 +367,7 @@
       "space",
       "wait:0.81s",
       "lmb",
-      "wait:0.77s",
+      "wait:0.78s",
       "q",
       "wait:0.2s",
       "wait(2, 0.9s)",
@@ -394,67 +394,8 @@
     ],
     "test2": [
       "f",
-      "wait:0.1s",
-      "wait(r, 4.2s)",
-      "3",
-      "wait:0.3s",
-      "lmb",
-      "wait:0.8s",
-      "lmb",
-      "wait:0.2s",
-      "1",
-      "wait:0.05s",
-      "e",
-      "wait:0.05s",
-      "2",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.85s",
-      "lmb",
-      "wait:0.1s",
-      "-q",
-      "wait:0.05s",
-      "3",
-      "hold(lmb, 1.38s)",
-      "wait(r, 4.8s)",
-      "hold(lmb, 1.55s)",
-      "e",
-      "wait:1s",
-      "hold(lmb, 1.75s)",
-      "wait(1, 0.8s)",
-      "hold(lmb, 1.7s)",
-      "wait:0.47s",
-      "space",
-      "wait:0.66s",
-      "space",
-      "wait:0.65s",
-      "space",
-      "wait:0.81s",
-      "lmb",
-      "wait:0.77s",
-      "q",
-      "wait:0.2s",
-      "wait(2, 0.9s)",
-      "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.85s",
-      "lmb",
-      "wait:0.77s",
-      "wait(f, 1.73s)",
-      "wait(r, 4.2s)",
-      "wait(e, 2.8s)",
-      "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.9s",
-      "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.5s",
-      "wait(e, 3s)",
-      "hold(lmb, 1.1s)",
-      "wait(r, 4.2s)"
+      "hold(lmb, 1.75s, {wait:0.5s, q, wait:0.5s, e, wait:0.35s})",
+      "wait(r, 4.8s)"
     ]
   },
   "combo_enders": {
@@ -554,14 +495,30 @@
       "fail_events": []
     },
     "test2": {
-      "success": 0,
-      "fail": 0,
-      "best_ms": null,
-      "total_success_ms": 0,
-      "fail_by_step": {},
-      "fail_by_expected": {},
-      "fail_by_reason": {},
-      "fail_events": []
+      "success": 3,
+      "fail": 1,
+      "best_ms": 3862,
+      "total_success_ms": 15770,
+      "fail_by_step": {
+        "1": 1
+      },
+      "fail_by_expected": {
+        "hold(lmb,\u22651750ms,body)": 1
+      },
+      "fail_by_reason": {
+        "expected hold(lmb,\u22651750ms,body)": 1
+      },
+      "fail_events": [
+        {
+          "ts": 1778298584,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "hold(lmb,\u22651750ms,body)",
+          "actual": "space",
+          "reason": "expected hold(lmb,\u22651750ms,body)",
+          "elapsed_ms": 90
+        }
+      ]
     }
   },
   "combo_expected_ms": {

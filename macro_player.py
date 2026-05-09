@@ -23,6 +23,7 @@ from parser import (
     expanded_ast_from_tokens,
     GroupNode,
     HoldNode,
+    HoldWithBodyNode,
     PressNode,
     SequenceNode,
     WaitNode,
@@ -379,6 +380,52 @@ def _execute(
             replay.fire(node.key)
     elif isinstance(node, HoldNode):
         _hold(node.key, node.duration_ms, stop)
+        if replay is not None:
+            replay.fire(node.key)
+    elif isinstance(node, HoldWithBodyNode):
+        # Press hold key, execute inner body steps (timed relative to hold start), then release.
+        # Body waits encode timing from hold start, e.g. {wait:0.15s, q} means press q
+        # at 0.15s after hold key down.
+        n_key = (node.key or "").strip().lower()
+        hold_start = time.perf_counter()
+        if n_key in _MOUSE_BTN:
+            try:
+                _MOUSE.press(_MOUSE_BTN[n_key])
+            except Exception:
+                logger.debug("hold_with_body: mouse press failed: %s", n_key, exc_info=True)
+        else:
+            hk = _resolve_key(n_key)
+            if hk is not None:
+                try:
+                    _KB.press(hk)
+                except Exception:
+                    logger.debug("hold_with_body: key press failed: %s", n_key, exc_info=True)
+        if replay is not None:
+            # Emit holder key-down as its own replay event so karaoke timing/logging
+            # can track the full hold-with-body timeline (start, inner keys, release).
+            replay.fire(node.key)
+        # Execute inner body (waits + presses) while holder is down
+        if not stop.is_set():
+            _execute_node_list(list(node.body), stop, None, pending_timers, replay)
+        # Sleep any remaining hold time beyond what body steps consumed
+        if not stop.is_set():
+            elapsed_s = time.perf_counter() - hold_start
+            remaining_s = (node.duration_ms / 1000.0) - elapsed_s
+            if remaining_s > 0:
+                _sleep_interruptible(remaining_s, stop)
+        # Release hold key
+        if n_key in _MOUSE_BTN:
+            try:
+                _MOUSE.release(_MOUSE_BTN[n_key])
+            except Exception:
+                pass
+        else:
+            hk = _resolve_key(n_key)
+            if hk is not None:
+                try:
+                    _KB.release(hk)
+                except Exception:
+                    pass
         if replay is not None:
             replay.fire(node.key)
     elif isinstance(node, WaitNode):

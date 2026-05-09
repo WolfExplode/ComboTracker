@@ -1142,6 +1142,112 @@ button.danger:hover {
     pointer-events: none;
 }
 
+.hold-body-layout {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hold-anchor {
+    flex: 0 0 44px;
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.hold-anchor .corner-key.hold-anchor-key {
+    position: static;
+    margin-top: 2px;
+    display: block;
+    opacity: 0.95;
+    font-size: 10px;
+}
+
+.hold-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.hold-body-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+}
+
+.hold-body-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.25);
+    white-space: nowrap;
+    position: relative;
+    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.hold-body-chip.wait {
+    --chip-wait-pct: 0%;
+    color: var(--accent-yellow);
+    background: linear-gradient(to right,
+            rgba(255, 221, 74, 0.32) var(--chip-wait-pct),
+            rgba(0, 0, 0, 0.25) var(--chip-wait-pct));
+}
+
+.hold-body-chip.press .key-img-wrap {
+    width: 24px;
+    height: 24px;
+}
+
+.hold-body-chip.press .key-step-image {
+    width: 24px;
+    height: 24px;
+}
+
+.hold-body-chip.press.press-wait {
+    gap: 6px;
+}
+
+.hold-body-inline-wait {
+    --chip-wait-pct: 0%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 20px;
+    padding: 1px 5px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 221, 74, 0.45);
+    color: var(--accent-yellow);
+    font-size: 11px;
+    line-height: 1;
+    background: linear-gradient(to right,
+            rgba(255, 221, 74, 0.32) var(--chip-wait-pct),
+            rgba(0, 0, 0, 0.15) var(--chip-wait-pct));
+}
+
+.hold-body-chip.active {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 6px rgba(74, 158, 255, 0.45);
+}
+
+.hold-body-chip.press.completed,
+.hold-body-chip.wait.completed {
+    border-color: var(--accent-green);
+    background: rgba(74, 255, 136, 0.14);
+}
+
 .corner-key.step-field-editable {
     pointer-events: auto;
 }
@@ -1569,7 +1675,8 @@ button.danger:hover {
     border-color: rgba(255, 221, 74, 0.35);
 }
 
-.step.hold {
+.step.hold,
+.step.hold-with-body {
     border-color: var(--accent-blue);
     border-style: solid;
     --hold-pct: 0%;
@@ -1755,7 +1862,8 @@ button.danger:hover {
     border-color: rgba(255, 221, 74, 0.4);
 }
 
-.timeline-section .step.hold {
+.timeline-section .step.hold,
+.timeline-section .step.hold-with-body {
     border-color: var(--accent-blue);
 }
 

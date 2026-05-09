@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from states import GroupState, HoldState, PressState, SequenceState, WaitState
+from states import GroupState, HoldState, HoldWithBodyState, PressState, SequenceState, WaitState
 
 
 def expected_label_for_step(step: Any) -> str:
@@ -23,6 +23,10 @@ def expected_label_for_step(step: Any) -> str:
         h = step.required_ms
         inp = (step.expected or "").strip().lower()
         return f"hold({inp},≥{h}ms)" if inp else f"hold(≥{h}ms)"
+    if isinstance(step, HoldWithBodyState):
+        h = step.required_ms
+        inp = (step.expected or "").strip().lower()
+        return f"hold({inp},≥{h}ms,body)" if inp else f"hold(≥{h}ms,body)"
     if isinstance(step, WaitState):
         w = step.required_ms
         if step.mode == "hard":
@@ -85,7 +89,7 @@ def start_keys_for_step(step: Any) -> set[str]:
             if k:
                 out.add(k)
             return out
-        if isinstance(step, HoldState):
+        if isinstance(step, (HoldState, HoldWithBodyState)):
             k = str(step.expected or "").strip().lower()
             if k:
                 out.add(k)
@@ -147,7 +151,7 @@ def step_accepts_input(step: Any, input_name: str) -> bool:
         return False
     if isinstance(step, PressState):
         return (step.expected or "").strip().lower() == input_name
-    if isinstance(step, HoldState):
+    if isinstance(step, (HoldState, HoldWithBodyState)):
         return (step.expected or "").strip().lower() == input_name
     if isinstance(step, GroupState):
         for item in step.items:

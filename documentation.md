@@ -61,11 +61,26 @@ The hold step is complete when you’ve held the key for at least the required d
 
 #### Hold + animation lock: `hold(key, hold_time, total_lock_time)`
 
+Reasoning: sometimes abilities require you to hold for some minimum amount of time but also play a animation during which no inputs are read by the game.
 For abilities that require a hold followed by an animation lock (no extra input; animation plays automatically after the hold), use the three-argument form:
 
 - **Syntax:** `hold(lmb, 0.5s, 2s)` — hold for ≥ 0.5s, then a mandatory wait for the remaining time (2s − 0.5s = 1.5s). The third value is the **total** lock time from key down until you can act again.
 - In the combo steps this appears as two tiles: **hold(e, 0.5s)** then **wait(e, 1.5s)**.
 - The hold completes when the hold duration is satisfied — **even if you never release the key**. The mandatory wait then runs automatically (inputs ignored until it finishes).
+
+#### Hold + inner sequence: `hold(key, hold_time, {body})`
+
+Use when a key must remain held while you press one or more other buttons inside the hold.
+
+- **Syntax:** `hold(lmb, 1.75s, {wait:0.15s, q, wait:0.15s, e, wait:0.35s})`
+- The `hold_time` is the **minimum** duration the holder key must be held from key-down (same as plain `hold`).
+- The `{body}` is a sequence of **presses** (`q`, `e`, …) and **`wait:` delay gates** that must be completed while the holder key is down. Waits in the body encode the relative timing from hold-start (useful for replay / macro playback).
+- **Both** conditions must be true before the step advances: holder held for ≥ `hold_time` AND all body steps completed.
+- Releasing the holder key **before** either condition is met **immediately fails** the combo (no forgiving hold).
+- Body steps may only be plain presses or `wait:` delays — no nested `hold(...)`, groups, or optional steps.
+- **This notation is mutually exclusive with the anim-lock form:** `hold(key, a, b, {…})` (four arguments) is not valid.
+
+**Replay / macro:** the inner body steps are executed in order while the holder is held; any remaining `hold_time` after the body finishes is slept before the holder is released.
 
 ### Wait steps vs Animation Locks
 

@@ -9,6 +9,7 @@ import combo_analytics
 from states import (
     GroupState,
     HoldState,
+    HoldWithBodyState,
     PressState,
     SequenceState,
     WaitState,
@@ -202,7 +203,7 @@ def get_status(engine) -> Status:
         if isinstance(step, PressState):
             start_key = str(step.expected or "").upper()
             return Status(f"Ready! Press '{start_key}' to start.", "ready")
-        if isinstance(step, HoldState):
+        if isinstance(step, (HoldState, HoldWithBodyState)):
             start_key = str(step.expected or "").upper()
             return Status(
                 f"Ready! Hold '{start_key}' for {int(step.required_ms or 0)}ms to start.",
@@ -334,6 +335,24 @@ def _render_sequence_items(
                     "duration": sub.required_ms,
                     "active": is_active,
                     "completed": is_completed,
+                }
+            )
+        elif isinstance(sub, HoldWithBodyState):
+            body_items = _render_sequence_items(
+                seq=sub.body,
+                parent_is_active=is_active and bool(getattr(sub, "in_progress", False)),
+                parent_is_completed=is_completed or bool(getattr(sub, "completed", False)),
+                now=now,
+            )
+            seq_items.append(
+                {
+                    "type": "hold_with_body",
+                    "input": sub.expected,
+                    "duration": sub.required_ms,
+                    "active": is_active,
+                    "completed": is_completed,
+                    "body_done": bool(getattr(sub, "body_done", False)),
+                    "body": {"items": body_items},
                 }
             )
         else:
@@ -585,6 +604,27 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                 i += 1
                 continue
 
+            case HoldWithBodyState():
+                body_items = _render_sequence_items(
+                    seq=step.body,
+                    parent_is_active=bool(idx == cur and getattr(step, "in_progress", False)),
+                    parent_is_completed=bool(idx < cur or getattr(step, "completed", False)),
+                    now=now,
+                )
+                steps.append({
+                    "type": "hold_with_body",
+                    "input": step.expected,
+                    "duration": step.required_ms,
+                    "active": idx == cur,
+                    "completed": idx < cur or bool(getattr(step, "completed", False)),
+                    "body_done": bool(getattr(step, "body_done", False)),
+                    "body": {"items": body_items},
+                    "mark": mark,
+                    "step_indices": [idx],
+                })
+                i += 1
+                continue
+
             case _:
                 i += 1
                 continue
@@ -740,6 +780,17 @@ def ui_signature_for_step(step: Any) -> Any:
                 int(getattr(step, "required_ms", 0) or 0),
                 bool(getattr(step, "in_progress", False)),
                 bool(getattr(step, "completed", False)),
+            )
+
+        if isinstance(step, HoldWithBodyState):
+            return (
+                "hold_with_body",
+                str(step.expected or ""),
+                int(getattr(step, "required_ms", 0) or 0),
+                bool(getattr(step, "in_progress", False)),
+                bool(getattr(step, "body_done", False)),
+                bool(getattr(step, "completed", False)),
+                ui_signature_for_step(getattr(step, "body", None)),
             )
 
         if isinstance(step, WaitState):

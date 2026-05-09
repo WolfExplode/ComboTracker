@@ -28,6 +28,17 @@ class HoldNode:
 
 
 @dataclass(frozen=True)
+class HoldWithBodyNode:
+    """Hold key for minimum duration while executing an inner sequence of presses/waits.
+    Syntax: hold(lmb, 1.75s, {wait:0.15s, q, wait:0.15s, e, wait:0.35s})
+    Body may contain PressNode and WaitNode only (no nested holds/groups).
+    Fail immediately on early release of the holder key."""
+    key: str
+    duration_ms: int
+    body: tuple["StepNode", ...]  # PressNode and WaitNode only
+
+
+@dataclass(frozen=True)
 class WaitNode:
     duration_ms: int
     mode: Literal["soft", "hard", "mandatory"]
@@ -51,7 +62,7 @@ class GroupNode:
     items: tuple[GroupItemNode, ...]
 
 
-StepNode = PressNode | HoldNode | WaitNode | SequenceNode | GroupNode
+StepNode = PressNode | HoldNode | HoldWithBodyNode | WaitNode | SequenceNode | GroupNode
 
 
 # ---------------------------------------------------------------------------
@@ -262,18 +273,37 @@ def parse_step(token: str) -> StepNode | None:
             return WaitNode(wait_ms, "soft", None)
 
     # Hold: hold(e, 0.35) or hold(e, 0.5s, 2s) for hold + animation lock
+    #       or hold(e, 1.75s, {wait:0.15s, q, ...}) for hold-with-body
     if tl.startswith("hold(") and tl.endswith(")"):
         inner = tl[len("hold("):-1]
         parts = [p.strip() for p in split_inputs(inner) if p.strip()]
         if len(parts) >= 2 and parts[0]:
             hold_ms = _parse_duration(parts[1])
             if hold_ms is not None:
-                anim_lock_total_ms: int | None = None
-                if len(parts) >= 3:
+                if len(parts) == 3 and parts[2].startswith("{") and parts[2].endswith("}"):
+                    # hold(key, time, {body}) — new hold-with-body form
+                    body_inner = parts[2][1:-1].strip()
+                    body_parts = [bp.strip() for bp in split_inputs(body_inner) if bp.strip()]
+                    body_nodes: list[StepNode] = []
+                    ok = True
+                    for bp in body_parts:
+                        bn = parse_step(bp)
+                        if bn is None or not isinstance(bn, (PressNode, WaitNode)):
+                            ok = False
+                            break
+                        body_nodes.append(bn)
+                    if ok and body_nodes:
+                        return HoldWithBodyNode(parts[0].strip().lower(), hold_ms, tuple(body_nodes))
+                    # Fall through to plain press if body parse fails
+                elif len(parts) >= 3:
+                    # hold(key, hold_ms, total_lock_ms) — existing anim-lock form
+                    anim_lock_total_ms: int | None = None
                     total_ms = _parse_duration(parts[2])
                     if total_ms is not None and total_ms > hold_ms:
                         anim_lock_total_ms = total_ms
-                return HoldNode(parts[0].strip().lower(), hold_ms, anim_lock_total_ms)
+                    return HoldNode(parts[0].strip().lower(), hold_ms, anim_lock_total_ms)
+                else:
+                    return HoldNode(parts[0].strip().lower(), hold_ms, None)
 
     # Optional press: -key
     if tl.startswith("-") and len(tl) > 1:
@@ -325,6 +355,15 @@ def build_state(node: StepNode) -> dict[str, Any]:
                     ]
                 }
             return {"input": key, "hold_ms": ms, "wait_ms": None}
+
+        case HoldWithBodyNode(key=key, duration_ms=ms, body=body_steps):
+            return {
+                "input": key,
+                "hold_ms": ms,
+                "wait_ms": None,
+                "hold_with_body": True,
+                "body_steps": [build_state(s) for s in body_steps],
+            }
 
         case WaitNode(duration_ms=ms, mode=mode, wait_for=wf):
             return {
@@ -501,6 +540,9 @@ def expanded_ast_from_tokens(tokens: list[str]) -> list[StepNode]:
             wait_ms = max(0, node.anim_lock_total_ms - node.duration_ms)
             ast_list.append(HoldNode(node.key, node.duration_ms))
             ast_list.append(WaitNode(wait_ms, "mandatory", node.key))
+        elif isinstance(node, HoldWithBodyNode):
+            # hold-with-body is a single step; no expansion
+            ast_list.append(node)
         else:
             ast_list.append(node)
         i += 1
@@ -539,6 +581,9 @@ def runtime_source_token_indices_from_tokens(tokens: list[str]) -> list[list[int
             # hold(key, hold_ms, total_lock_ms) expands to hold + mandatory wait,
             # both originating from the same source token.
             source_map.append([i])
+            source_map.append([i])
+        elif isinstance(node, HoldWithBodyNode):
+            # hold-with-body is a single runtime step
             source_map.append([i])
         else:
             source_map.append([i])
