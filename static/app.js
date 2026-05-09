@@ -1180,8 +1180,10 @@ function formatDurationToken(ms) {
  * Returns null if unparseable.
  */
 function parseDurationToMs(raw) {
-    const s = (raw || '').trim().toLowerCase();
+    let s = (raw || '').trim().toLowerCase();
     if (!s) return null;
+    // Strip trailing UI markers (e.g. hold-with-body status checkmark)
+    s = s.replace(/\s*✓\s*$/u, '').trim();
     if (s.endsWith('ms')) {
         const v = parseFloat(s.slice(0, -2));
         return Number.isFinite(v) && v > 0 ? Math.round(v) : null;
@@ -1205,8 +1207,24 @@ function parseDurationToMs(raw) {
  * `field` is either 'key' or 'duration'.
  * `newValue` is the raw string the user typed.
  * `s` is the step data dict from the backend.
+ * `oldSourceToken` — original combo-input token when rebuilding complex holds (hold-with-body).
  */
-function reconstructTokensForEdit(s, field, newValue) {
+function extractHoldWithBodyParts(oldSourceToken) {
+    const t = (oldSourceToken || '').trim();
+    if (!t.toLowerCase().startsWith('hold(') || !t.endsWith(')')) return null;
+    const inner = t.slice(5, -1);
+    const braceIdx = inner.indexOf('{');
+    if (braceIdx === -1) return null;
+    let head = inner.slice(0, braceIdx).replace(/,\s*$/, '').trim();
+    const bodyPart = inner.slice(braceIdx).trim();
+    const commaIdx = head.indexOf(',');
+    if (commaIdx === -1) return null;
+    const key = head.slice(0, commaIdx).trim();
+    const durPart = head.slice(commaIdx + 1).trim();
+    return { key, durPart, bodyPart };
+}
+
+function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
     const val = (newValue || '').trim().toLowerCase();
     if (!val) return null;
 
@@ -1231,6 +1249,22 @@ function reconstructTokensForEdit(s, field, newValue) {
         const durMs = field === 'duration' ? parseDurationToMs(val) : s.duration;
         if (!durMs) return null;
         return [`hold(${key}, ${formatDurationToken(durMs)})`];
+    }
+
+    if (s.type === 'hold_with_body') {
+        const parts = extractHoldWithBodyParts(oldSourceToken);
+        if (!parts) return null;
+        let key = parts.key.toLowerCase();
+        let durMs = field === 'duration' ? parseDurationToMs(val) : Number(s.duration || 0);
+        if (field === 'key') key = val;
+        if (field === 'duration') {
+            if (!durMs || !Number.isFinite(durMs)) return null;
+        } else if (!durMs || !Number.isFinite(durMs)) {
+            durMs = parseDurationToMs(parts.durPart);
+            if (!durMs) return null;
+        }
+        const durTok = formatDurationToken(durMs);
+        return [`hold(${key}, ${durTok}, ${parts.bodyPart})`];
     }
 
     if (s.type === 'wait' && s.mode === 'mandatory') {
@@ -1259,9 +1293,6 @@ function reconstructTokensForEdit(s, field, newValue) {
  *  3. Send save_combo with the updated inputs string.
  */
 function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
-    const newTokens = reconstructTokensForEdit(s, field, newValue);
-    if (!newTokens) return false;
-
     const inputsEl = getEl('comboInputs');
     if (!inputsEl) return false;
 
@@ -1269,21 +1300,18 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     const currentTokens = splitInputsTokens(raw);
     if (!currentTokens.length) return false;
 
-    // Ask the backend to resolve runtime→source mapping by sending a targeted
-    // rewrite via a new delete+insert path — but since we already have the
-    // runtime_source_token_indices logic on the backend (used by delete/reorder),
-    // the cleanest approach here is: send the full updated inputs string ourselves.
-    // We reconstruct it purely on the JS side using the same source-map approach:
-    // runtimeIdx is the index in runtime steps. We need the source token positions.
-    // Since we know the current tokens list, we rebuild the mapping in JS.
     const srcMap = buildRuntimeToSourceMap(currentTokens);
     if (!srcMap || runtimeIdx >= srcMap.length) return false;
 
     const srcIndices = srcMap[runtimeIdx];
     if (!srcIndices || srcIndices.length === 0) return false;
 
-    // Splice: replace source token(s) at srcIndices with newTokens.
     const minSrc = Math.min(...srcIndices);
+    const oldSourceToken = currentTokens[minSrc];
+    const newTokens = reconstructTokensForEdit(s, field, newValue, oldSourceToken);
+    if (!newTokens) return false;
+
+    // Splice: replace source token(s) at srcIndices with newTokens.
     const result = [];
     let i = 0;
     while (i < currentTokens.length) {
@@ -1353,10 +1381,16 @@ function buildRuntimeToSourceMap(tokens) {
             continue;
         }
 
-        // hold(key, ms, total_ms) -> two runtime steps from the same source token
+        // hold(key, dur, {body}) -> one runtime step (matches parser HoldWithBodyNode).
+        // hold(key, dur, total_ms) anim-lock -> two runtime steps from the same source token.
         if (tok.startsWith('hold(') && tok.endsWith(')')) {
-            // Check for three args (hold + anim lock)
-            const inner = tok.slice(5, -1);
+            const raw = tokens[i].trim();
+            const inner = raw.slice(5, -1);
+            if (inner.indexOf('{') !== -1) {
+                srcMap.push([i]);
+                i++;
+                continue;
+            }
             const parts = inner.split(',').map(p => p.trim());
             if (parts.length >= 3) {
                 srcMap.push([i]);
@@ -1392,6 +1426,7 @@ function attachInlineEdit(span, s, field, runtimeIdx) {
         if (field === 'duration') {
             // "hold 300ms" -> "300ms", "Wait 500ms" -> "500ms", "230ms" -> "230ms"
             editValue = original.replace(/^(hold\s+|Wait\s+)/i, '').trim();
+            editValue = editValue.replace(/\s*✓\s*$/u, '').trim();
         }
 
         const input = document.createElement('input');

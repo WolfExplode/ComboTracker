@@ -74,6 +74,8 @@ class ComboTrackerEngine:
         # Boundary-based timing: finalize previous step when next boundary is reached.
         self.pending_step_label: str | None = None
         self.pending_step_started_at = 0.0
+        # Wall-clock anchor for macro-style row deltas (replay + hold_with_body manual)
+        self._attempt_hit_clock: float | None = None
         self.attempt_counter = 0
 
         self.hold_in_progress = False
@@ -783,6 +785,7 @@ class ComboTrackerEngine:
         self.last_input_time = 0.0
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
+        self._attempt_hit_clock = None
         self.attempt_counter = 0
         self.last_success_input = None
         self._ender_cooldown_until.clear()
@@ -826,6 +829,31 @@ class ComboTrackerEngine:
             total = str(total_ms)
         # Keep split_ms temporarily for compatibility with older clients.
         self._send({"type": "hit", "input": label, "step_ms": step_s, "split_ms": step_s, "total_ms": total})
+        self._attempt_hit_clock = time.perf_counter()
+
+    def _attempt_hit_delta_ms(self, now: float) -> float:
+        """Milliseconds since last attempt-log row (matches macro replay karaoke deltas)."""
+        if self._attempt_hit_clock is None:
+            if self.start_time and self.start_time > 0:
+                return max(0.0, (now - self.start_time) * 1000.0)
+            return 0.0
+        return max(0.0, (now - self._attempt_hit_clock) * 1000.0)
+
+    def _emit_pending_attempt_row(self, now: float) -> None:
+        """Emit pending boundary row only (does not queue a new pending label)."""
+        if self.pending_step_label is None or self.pending_step_started_at <= 0:
+            return
+        step_ms = max(0.0, (now - self.pending_step_started_at) * 1000.0)
+        total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+        self.record_hit(self.pending_step_label, step_ms, total_ms)
+        self.pending_step_label = None
+        self.pending_step_started_at = 0.0
+
+    def _record_attempt_hit_delta(self, label: str, now: float) -> None:
+        """Log one attempt row with split = wall time since last hit (replay-compatible)."""
+        total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
+        step_ms = self._attempt_hit_delta_ms(now)
+        self.record_hit(label, step_ms, total_ms)
 
     def _record_step_timing(self, label: str, now: float) -> None:
         """Finalize previous step timing and queue current accepted step."""
@@ -894,6 +922,7 @@ class ComboTrackerEngine:
         self.last_input_time = 0.0
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
+        self._attempt_hit_clock = None
         try:
             self.currently_pressed.clear()
         except Exception:
@@ -938,6 +967,7 @@ class ComboTrackerEngine:
         self.last_input_time = 0.0
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
+        self._attempt_hit_clock = None
         self._ender_cooldown_until.clear()
         self.ww.ww_active_character = None
         self._hold_max_held_ms = 0.0
@@ -1250,7 +1280,10 @@ class ComboTrackerEngine:
             label += " [auto]"
 
         if ok:
-            self._record_step_timing(label, now)
+            if isinstance(step, HoldWithBodyState):
+                self._record_attempt_hit_delta(label, now)
+            else:
+                self._record_step_timing(label, now)
             self.last_input_time = now
             self.last_success_input = target_input
             self._start_ender_cooldown(target_input, now)
@@ -1519,7 +1552,7 @@ class ComboTrackerEngine:
             if input_name == self.hold.expected:
                 return
             if self.hold.check_complete(now):
-                self._complete_hold(now, auto=True)
+                self._complete_hold(now, auto=False)
                 return self._process_press_unlocked(input_name)
 
             if isinstance(self.hold, HoldWithBodyState):
@@ -1528,11 +1561,16 @@ class ComboTrackerEngine:
                 result = step.process_press(input_name, now)
                 if isinstance(result, AcceptResult) and result.advance:
                     # Both body and hold time satisfied; complete the whole step.
+                    self._ensure_attempt_started(now)
+                    if result.record_hit:
+                        self._record_attempt_hit_delta(str(input_name), now)
                     self._complete_hold(now, auto=False)
                     return
                 if isinstance(result, AcceptResult):
                     # Body advanced but not fully done (or hold time not yet met).
                     self._ensure_attempt_started(now)
+                    if result.record_hit:
+                        self._record_attempt_hit_delta(str(input_name), now)
                     self.last_input_time = now
                     self._start_ender_cooldown(input_name, now)
                     self.ww.on_accepted_key(self, input_name)
@@ -1576,7 +1614,11 @@ class ComboTrackerEngine:
         if isinstance(result, AcceptResult):
             self._ensure_attempt_started(now)
             if result.record_hit:
-                self._record_step_timing(input_name, now)
+                if isinstance(step, HoldWithBodyState):
+                    self._emit_pending_attempt_row(now)
+                    self._record_attempt_hit_delta(str(input_name), now)
+                else:
+                    self._record_step_timing(input_name, now)
             self.last_input_time = now
             self.last_success_input = input_name
             self._start_ender_cooldown(input_name, now)
@@ -1805,7 +1847,7 @@ class ComboTrackerEngine:
                 elif isinstance(step, HoldWithBodyState):
                     # HoldWithBodyState.tick returns AcceptResult(advance=True) when both
                     # body finished and hold time satisfied; use _complete_hold for bookkeeping.
-                    self._complete_hold(now, auto=True)
+                    self._complete_hold(now, auto=False)
                     self._sync_wait_animation_ui(now)
                 else:
                     self._advance_step(now)
