@@ -5,14 +5,26 @@ Uses pynput.keyboard.Controller and pynput.mouse.Controller.
 Design:
 - Runs in a daemon thread; at most one playback at a time.
 - Interruptible at any point via a threading.Event (Esc hard-stop).
-- Sleeps in 10ms chunks so the stop signal is acted on quickly.
+- Sleeps in coarse slices when far from the deadline, 1ms slices when close, so
+  waits stay accurate without adding ~10ms error per step.
+- On Windows, requests 1ms multimedia timer resolution for the playback run so
+  time.sleep matches short waits better.
+- Tap releases and karaoke chain fires use one shared delay thread (heap +
+  condition) instead of a threading.Timer per tap.
 - Group nodes are executed left-to-right (defined order) for macro playback.
+- Plain taps fire twice in a row (release then immediate second tap) to mimic
+  light button spam when games drop single synthetic presses; chain spam uses
+  single taps per interval so timing stays correct.
 """
 
 from __future__ import annotations
 
+import ctypes
+import heapq
 import logging
 import math
+import queue
+import sys
 import threading
 import time
 from typing import Callable
@@ -35,6 +47,8 @@ logger = logging.getLogger(__name__)
 # Must be well below any realistic spam interval to avoid the next press
 # arriving before the previous release, which would make it look like a
 # key-repeat and get silently ignored by the combo engine.
+# Plain taps schedule a second identical tap in the release callback (two pulses
+# per combo step); chain spam disables that so interval math stays valid.
 _TAP_HOLD_MS = 30
 
 # Extra sleep (ms) inserted after a spam-collapsed chain when more nodes follow.
@@ -100,30 +114,109 @@ _MOUSE_BTN: dict[str, mouse.Button] = {
 
 _DEFAULT_CHAIN_SPAM_INTERVAL_MS = 100
 
+# When more than this much time remains, use 10ms sleep slices (low CPU).
+# Below it, use 1ms slices so short waits do not systematically overshoot.
+_SLEEP_COARSE_THRESHOLD_S = 0.05
+
+
+def _windows_timer_1ms_enter() -> Callable[[], None]:
+    """Request 1ms system timer resolution on Windows; return closer to restore."""
+
+    if sys.platform != "win32":
+        return lambda: None
+    try:
+        winmm = ctypes.WinDLL("winmm")
+        winmm.timeBeginPeriod.argtypes = [ctypes.c_uint]
+        winmm.timeBeginPeriod.restype = ctypes.c_uint
+        winmm.timeEndPeriod.argtypes = [ctypes.c_uint]
+        winmm.timeEndPeriod.restype = ctypes.c_uint
+        if winmm.timeBeginPeriod(1) != 0:
+            return lambda: None
+
+        def _end() -> None:
+            try:
+                winmm.timeEndPeriod(1)
+            except Exception:
+                logger.debug("timeEndPeriod failed", exc_info=True)
+
+        return _end
+    except Exception:
+        logger.debug("timeBeginPeriod unavailable", exc_info=True)
+        return lambda: None
+
+
+class _DelayScheduler:
+    """Single daemon thread for delayed callbacks (tap release, replay.fire offsets)."""
+
+    def __init__(self) -> None:
+        self._heap: list[tuple[float, int, Callable[[], None]]] = []
+        self._seq = 0
+        self._cv = threading.Condition(threading.Lock())
+        self._thread: threading.Thread | None = None
+
+    def _ensure_thread(self) -> None:
+        with self._cv:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._thread = threading.Thread(
+                target=self._loop, name="MacroDelaySched", daemon=True
+            )
+            self._thread.start()
+
+    def schedule(self, delay_s: float, fn: Callable[[], None]) -> None:
+        self._ensure_thread()
+        fire_at = time.perf_counter() + max(0.0, delay_s)
+        with self._cv:
+            self._seq += 1
+            heapq.heappush(self._heap, (fire_at, self._seq, fn))
+            self._cv.notify()
+
+    def _loop(self) -> None:
+        while True:
+            with self._cv:
+                while not self._heap:
+                    self._cv.wait()
+                now = time.perf_counter()
+                fire_at, _seq, fn = self._heap[0]
+                if now < fire_at:
+                    self._cv.wait(timeout=fire_at - now)
+                    continue
+                heapq.heappop(self._heap)
+            try:
+                fn()
+            except Exception:
+                logger.debug("delay scheduler callback failed", exc_info=True)
+
+
+_DELAY_SCHEDULER = _DelayScheduler()
+
 
 class _ReplayState:
     """Tracks per-step timing for karaoke-style visual replay.
 
-    Thread-safe: spam chain timers call fire() from daemon threads;
+    Thread-safe: spam chain schedules fire() on the delay scheduler thread;
     the main playback thread calls it inline for non-chain steps.
-    The stop event is checked before each fire so late-firing timers
+    The stop event is checked before each fire so late callbacks
     are silently dropped after the macro has been stopped.
+
+    Delivery: timings are computed on the calling thread (aligned with pynput),
+    but the UI callback is enqueued so engine.replay_accept never blocks key I/O.
     """
 
     def __init__(
         self,
-        on_step: Callable[[str, float, float], None],
         start_time: float,
         stop: threading.Event,
+        deliver_queue: "queue.Queue[tuple[str, float, float]]",
     ):
-        self._on_step = on_step
         self._start_time = start_time
         self._last_time = start_time
         self._stop = stop
         self._lock = threading.Lock()
+        self._deliver_queue = deliver_queue
 
     def fire(self, key: str, at_time: float | None = None) -> None:
-        """Invoke on_step with wall-clock-accurate step/total timings.
+        """Enqueue on_step with wall-clock-accurate step/total timings.
 
         at_time: absolute perf_counter timestamp when this step logically fires.
         Defaults to now if not supplied (inline, non-timer calls).
@@ -136,9 +229,9 @@ class _ReplayState:
             total_ms = max(0.0, (now - self._start_time) * 1000.0)
             self._last_time = now
         try:
-            self._on_step(key, step_ms, total_ms)
+            self._deliver_queue.put((key, step_ms, total_ms))
         except Exception:
-            logger.debug("_ReplayState.fire: on_step raised for key %r", key, exc_info=True)
+            logger.debug("_ReplayState.fire: queue put failed for key %r", key, exc_info=True)
 
 
 def _resolve_key(name: str) -> keyboard.Key | keyboard.KeyCode | None:
@@ -153,23 +246,26 @@ def _resolve_key(name: str) -> keyboard.Key | keyboard.KeyCode | None:
 
 
 def _sleep_interruptible(seconds: float, stop: threading.Event) -> None:
-    """Sleep in 10ms slices so stop signals are honoured quickly."""
+    """Sleep until deadline or stop; coarse slices when far, 1ms when near."""
     end = time.perf_counter() + seconds
     while not stop.is_set():
         remaining = end - time.perf_counter()
         if remaining <= 0:
             break
-        time.sleep(min(0.01, remaining))
+        if remaining > _SLEEP_COARSE_THRESHOLD_S:
+            slice_s = min(0.01, remaining)
+        else:
+            slice_s = min(0.001, remaining)
+        time.sleep(slice_s)
 
 
-def _tap(name: str, stop: threading.Event, _pending_timers: list | None = None) -> None:
-    """Press a key (or mouse button) and schedule the release non-blocking.
-
-    The release fires after _TAP_HOLD_MS ms on a daemon timer so the playback
-    timeline is not stalled waiting for the hold to finish.  This keeps the
-    combo wait: windows accurate while still sending a realistic press duration
-    to the game.
-    """
+def _tap_once(
+    name: str,
+    stop: threading.Event,
+    *,
+    on_released: Callable[[], None] | None = None,
+) -> None:
+    """Single press + scheduled release. Optional callback runs after release (same scheduler thread)."""
     if stop.is_set():
         return
     n = (name or "").strip().lower()
@@ -180,16 +276,19 @@ def _tap(name: str, stop: threading.Event, _pending_timers: list | None = None) 
         except Exception:
             logger.debug("mouse tap press failed: %s", n, exc_info=True)
             return
-        def _release_mouse(b=btn):
+
+        def _release_mouse() -> None:
             try:
-                _MOUSE.release(b)
+                _MOUSE.release(btn)
             except Exception:
                 pass
-        t = threading.Timer(_TAP_HOLD_MS / 1000.0, _release_mouse)
-        t.daemon = True
-        t.start()
-        if _pending_timers is not None:
-            _pending_timers.append(t)
+            if on_released:
+                try:
+                    on_released()
+                except Exception:
+                    pass
+
+        _DELAY_SCHEDULER.schedule(_TAP_HOLD_MS / 1000.0, _release_mouse)
         return
     k = _resolve_key(n)
     if k is None:
@@ -200,16 +299,45 @@ def _tap(name: str, stop: threading.Event, _pending_timers: list | None = None) 
     except Exception:
         logger.debug("key tap press failed: %s", n, exc_info=True)
         return
-    def _release_key(kk=k):
+
+    def _release_key() -> None:
         try:
-            _KB.release(kk)
+            _KB.release(k)
         except Exception:
             pass
-    t = threading.Timer(_TAP_HOLD_MS / 1000.0, _release_key)
-    t.daemon = True
-    t.start()
-    if _pending_timers is not None:
-        _pending_timers.append(t)
+        if on_released:
+            try:
+                on_released()
+            except Exception:
+                pass
+
+    _DELAY_SCHEDULER.schedule(_TAP_HOLD_MS / 1000.0, _release_key)
+
+
+def _tap(name: str, stop: threading.Event, *, double_tap: bool = True) -> None:
+    """Press a key (or mouse button) and schedule the release non-blocking.
+
+    The release fires after _TAP_HOLD_MS ms on the delay scheduler so the playback
+    timeline is not stalled waiting for the hold to finish.  This keeps the
+    combo wait: windows accurate while still sending a realistic press duration
+    to the game.
+
+    When double_tap is True (default), a second identical tap runs right after
+    the first release — common for games that miss a lone synthetic press.
+    Chain spam passes double_tap=False so each interval is still one physical tap.
+    """
+    if stop.is_set():
+        return
+    if not double_tap:
+        _tap_once(name, stop)
+        return
+
+    def _second_tap() -> None:
+        if stop.is_set():
+            return
+        _tap_once(name, stop)
+
+    _tap_once(name, stop, on_released=_second_tap)
 
 
 def _hold(name: str, duration_ms: int, stop: threading.Event) -> None:
@@ -263,7 +391,6 @@ def _spam_tap_for_duration(
     total_duration_ms: int,
     interval_ms: int,
     stop: threading.Event,
-    pending_timers: list,
 ) -> None:
     """
     Spam taps every interval_ms (inclusive at t=0) until chain duration elapses.
@@ -281,7 +408,7 @@ def _spam_tap_for_duration(
     for i in range(tap_count):
         if stop.is_set():
             break
-        _tap(name, stop, pending_timers)
+        _tap(name, stop, double_tap=False)
         if stop.is_set():
             break
         if i >= tap_count - 1:
@@ -301,7 +428,6 @@ def _execute_node_list(
     nodes: list,
     stop: threading.Event,
     chain_spam_interval_ms: int | None,
-    pending_timers: list,
     replay: _ReplayState | None = None,
 ) -> None:
     """
@@ -313,13 +439,13 @@ def _execute_node_list(
     n = len(nodes)
     while i < n and not stop.is_set():
         if chain_spam_interval_ms is None:
-            _execute(nodes[i], stop, chain_spam_interval_ms, pending_timers, replay)
+            _execute(nodes[i], stop, chain_spam_interval_ms, replay)
             i += 1
             continue
 
         info = _extract_press_wait_info(nodes[i])
         if info is None:
-            _execute(nodes[i], stop, chain_spam_interval_ms, pending_timers, replay)
+            _execute(nodes[i], stop, chain_spam_interval_ms, replay)
             i += 1
             continue
 
@@ -344,23 +470,25 @@ def _execute_node_list(
                     node_key = node_info[0] if node_info else key
                     fire_at = spam_start + cumulative_s
                     if cumulative_s <= 0.0:
-                        # First node: fire inline so there is no timer thread overhead.
+                        # First node: fire inline so there is no scheduler delay.
                         replay.fire(node_key, fire_at)
                     else:
-                        t = threading.Timer(cumulative_s, replay.fire, args=[node_key, fire_at])
-                        t.daemon = True
-                        t.start()
-                        pending_timers.append(t)
+                        def _fire(
+                            nk: str = node_key, fa: float = fire_at
+                        ) -> None:
+                            replay.fire(nk, fa)
+
+                        _DELAY_SCHEDULER.schedule(cumulative_s, _fire)
                     if node_info:
                         cumulative_s += node_info[1] / 1000.0
 
-            _spam_tap_for_duration(key, total_wait_ms, chain_spam_interval_ms, stop, pending_timers)
+            _spam_tap_for_duration(key, total_wait_ms, chain_spam_interval_ms, stop)
             # After collapsing a chain, give the combo engine's tick loop time to
             # settle the last soft-wait before the next key is dispatched.
             if not stop.is_set() and j < n:
                 _sleep_interruptible(_POST_SPAM_PAD_MS / 1000.0, stop)
         else:
-            _execute(nodes[i], stop, chain_spam_interval_ms, pending_timers, replay)
+            _execute(nodes[i], stop, chain_spam_interval_ms, replay)
         i = j
 
 
@@ -368,14 +496,13 @@ def _execute(
     node,
     stop: threading.Event,
     chain_spam_interval_ms: int | None,
-    pending_timers: list,
     replay: _ReplayState | None = None,
 ) -> None:
     """Recursively execute one AST node, checking stop at each step."""
     if stop.is_set():
         return
     if isinstance(node, PressNode):
-        _tap(node.key, stop, pending_timers)
+        _tap(node.key, stop)
         if replay is not None:
             replay.fire(node.key)
     elif isinstance(node, HoldNode):
@@ -409,7 +536,7 @@ def _execute(
             replay.fire(node.key)
         # Execute inner body (waits + presses) while holder is down
         if not stop.is_set():
-            _execute_node_list(list(node.body), stop, None, pending_timers, replay)
+            _execute_node_list(list(node.body), stop, None, replay)
         # Sleep any remaining hold time beyond what body steps consumed
         if not stop.is_set():
             elapsed_s = time.perf_counter() - hold_start
@@ -434,10 +561,10 @@ def _execute(
     elif isinstance(node, WaitNode):
         _sleep_interruptible(node.duration_ms / 1000.0, stop)
     elif isinstance(node, SequenceNode):
-        _execute_node_list(list(node.steps), stop, chain_spam_interval_ms, pending_timers, replay)
+        _execute_node_list(list(node.steps), stop, chain_spam_interval_ms, replay)
     elif isinstance(node, GroupNode):
         # Execute group items in their defined (left-to-right) order for macro playback.
-        _execute_node_list(list(node.items), stop, chain_spam_interval_ms, pending_timers, replay)
+        _execute_node_list(list(node.items), stop, chain_spam_interval_ms, replay)
 
 
 class MacroPlayer:
@@ -462,9 +589,6 @@ class MacroPlayer:
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._chain_spam_interval_ms: int | None = _DEFAULT_CHAIN_SPAM_INTERVAL_MS
-        # Pending non-blocking release timers; let them fire even on stop (no stuck keys).
-        self._pending_timers: list[threading.Timer] = []
-        self._timers_lock = threading.Lock()
 
     def set_chain_spam_interval_ms(self, interval_ms: int | None) -> None:
         if interval_ms is None:
@@ -493,8 +617,6 @@ class MacroPlayer:
             if not tokens:
                 return False
             self._stop.clear()
-            with self._timers_lock:
-                self._pending_timers.clear()
             ast = expanded_ast_from_tokens(tokens)
             if not ast:
                 return False
@@ -505,35 +627,62 @@ class MacroPlayer:
             return True
 
     def stop(self) -> None:
-        """Signal playback to stop and let any pending tap-release timers fire naturally."""
+        """Signal playback to stop and let any pending tap-release callbacks run."""
         self._stop.set()
-        # Do not cancel pending release timers — let them fire so keys are not left pressed.
-        with self._timers_lock:
-            self._pending_timers.clear()
+        # Do not cancel scheduled releases — let them run so keys are not left pressed.
 
     def _run(self, ast: list) -> None:
         stopped_early = False
-        pending: list[threading.Timer] = []
+        end_period = _windows_timer_1ms_enter()
         try:
             with self._lock:
                 interval_ms = self._chain_spam_interval_ms
-            with self._timers_lock:
-                self._pending_timers = pending
             start_time = time.perf_counter()
-            replay = (
-                _ReplayState(self._on_step, start_time, self._stop)
-                if self._on_step is not None
-                else None
-            )
-            _execute_node_list(list(ast), self._stop, interval_ms, pending, replay)
+            replay = None
+            replay_q: queue.Queue[tuple[str, float, float]] | None = None
+            replay_worker_thread: threading.Thread | None = None
+            if self._on_step is not None:
+                replay_q = queue.Queue()
+                on_step = self._on_step
+                stop_ev = self._stop
+
+                def _replay_deliver_loop() -> None:
+                    while True:
+                        item = replay_q.get()
+                        if item is None:
+                            break
+                        if stop_ev.is_set():
+                            continue
+                        k, sm, tm = item
+                        try:
+                            on_step(k, sm, tm)
+                        except Exception:
+                            logger.debug(
+                                "_replay_deliver_loop: on_step raised for key %r",
+                                k,
+                                exc_info=True,
+                            )
+
+                replay_worker_thread = threading.Thread(
+                    target=_replay_deliver_loop, name="MacroReplayDeliver", daemon=True
+                )
+                replay_worker_thread.start()
+                replay = _ReplayState(start_time, self._stop, replay_q)
+
+            try:
+                _execute_node_list(list(ast), self._stop, interval_ms, replay)
+            finally:
+                if replay_q is not None:
+                    replay_q.put(None)
+                    if replay_worker_thread is not None:
+                        replay_worker_thread.join(timeout=5.0)
             if self._stop.is_set():
                 stopped_early = True
         except Exception:
             logger.exception("MacroPlayer: unhandled error during playback")
             stopped_early = True
         finally:
-            with self._timers_lock:
-                self._pending_timers = []
+            end_period()
             if stopped_early:
                 self._notify("Macro stopped.", "neutral")
             elif self._on_step is None:
