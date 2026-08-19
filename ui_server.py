@@ -373,7 +373,14 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
     transcribe_mouse_merging: set[str] = set()
 
     def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
+        event_time = time.perf_counter()
         input_name = engine.normalize_key(key)
+
+        # Macro output is matched by origin before hotkey handling. This prevents
+        # a synthetic Esc/F9 from stopping its own macro while physical stop keys
+        # remain responsive.
+        if macro_player.consume_synthetic_event(input_name, True):
+            return
 
         # Esc always hard-stops the macro and immediately resets the visual state.
         if input_name == TRANSCRIBE_ESC_KEY and macro_player.is_running():
@@ -389,11 +396,10 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                     transcribe_keys_held.clear()
                     transcribe_mouse_last_up.clear()
                     transcribe_mouse_merging.clear()
-                    now = time.perf_counter()
                     engine.new_combo()
                     transcriber.start()
-                    transcriber.key_down(input_name, now)
-                    transcriber.key_up(input_name, now)
+                    transcriber.key_down(input_name, event_time)
+                    transcriber.key_up(input_name, event_time)
                     _push_transcription_preview()
                 return
             if input_name == TRANSCRIBE_ESC_KEY:
@@ -406,7 +412,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                 if input_name in transcribe_keys_held:
                     return  # repeat key_down (Windows hold); ignore
                 transcribe_keys_held.add(input_name)
-                transcriber.key_down(input_name, time.perf_counter())
+                transcriber.key_down(input_name, event_time)
             return
         # Macro mode start/stop hotkeys (only active when not transcribing).
         if macro_mode_enabled:
@@ -427,28 +433,34 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
         if input_name == TRANSCRIBE_ESC_KEY:
             engine.cancel_attempt()
             return
-        engine.process_press(input_name)
+        engine.process_press(input_name, event_time=event_time)
 
     def on_key_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
+        event_time = time.perf_counter()
         input_name = engine.normalize_key(key)
+        if macro_player.consume_synthetic_event(input_name, False):
+            return
         if transcribe_mode_enabled:
             if transcriber.is_recording() and input_name != TRANSCRIBE_ESC_KEY and transcriber.is_valid_key(input_name):
                 if input_name in transcribe_keys_held:
                     transcribe_keys_held.discard(input_name)
-                    transcriber.key_up(input_name, time.perf_counter())
+                    transcriber.key_up(input_name, event_time)
                     _push_transcription_preview()
             return
         if input_name == TRANSCRIBE_ESC_KEY:
             return  # Esc cancel already handled on press
         if macro_player.is_running():
             return
-        engine.process_release(input_name)
+        engine.process_release(input_name, event_time=event_time)
 
     def on_mouse_click(_x: float, _y: float, button: mouse.Button, pressed: bool) -> None:
+        event_time = time.perf_counter()
         btn = engine.normalize_mouse(button)
+        if macro_player.consume_synthetic_event(btn, pressed):
+            return
         if transcribe_mode_enabled:
             if transcriber.is_recording() and transcriber.is_valid_key(btn):
-                now = time.perf_counter()
+                now = event_time
                 if pressed:
                     # Merge rapid same-button clicks: if this down is within MOUSE_CLICK_MERGE_S of last up, skip it (and the next up)
                     if btn in transcribe_mouse_last_up and (now - transcribe_mouse_last_up[btn]) < MOUSE_CLICK_MERGE_S:
@@ -466,9 +478,9 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
         if macro_player.is_running():
             return
         if pressed:
-            engine.process_press(btn)
+            engine.process_press(btn, event_time=event_time)
         else:
-            engine.process_release(btn)
+            engine.process_release(btn, event_time=event_time)
 
     kl = keyboard.Listener(on_press=on_key_press, on_release=on_key_release)
     ml = mouse.Listener(on_click=on_mouse_click)
@@ -481,8 +493,8 @@ engine = ComboTrackerEngine()
 
 
 def _on_macro_status(text: str, color: str) -> None:
-    if color == "neutral":
-        # Macro stopped early — reset visual combo state so the timeline doesn't
+    if color in ("neutral", "fail"):
+        # Macro stopped or output failed — reset visual combo state so the timeline doesn't
         # stay mid-progress forever.
         engine.cancel_attempt()
     engine._send({"type": "status", "text": text, "color": color})

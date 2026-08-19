@@ -1,0 +1,101 @@
+import threading
+import time
+import unittest
+
+from macro_player import MacroPlayer, _PlanBuilder, _SyntheticEventLedger
+from parser import expanded_ast_from_tokens, split_inputs
+
+
+def _plan(inputs: str, spam_interval_ms: int | None = 100):
+    ast = expanded_ast_from_tokens(split_inputs(inputs))
+    return _PlanBuilder(spam_interval_ms).build(list(ast))
+
+
+class FakeOutput:
+    def __init__(self, *, fail_press: str | None = None):
+        self.fail_press = fail_press
+        self.events: list[tuple[str, str, float]] = []
+
+    def press(self, name: str) -> bool:
+        self.events.append(("down", name, time.perf_counter()))
+        return name != self.fail_press
+
+    def release(self, name: str) -> bool:
+        self.events.append(("up", name, time.perf_counter()))
+        return True
+
+
+class MacroPlanTests(unittest.TestCase):
+    def test_plain_press_is_one_pulse_and_next_deadline_is_absolute(self):
+        plan = _plan("e, wait:0.1s, q", spam_interval_ms=None)
+        downs = [(event.key, event.at_s) for event in plan.events if event.kind == "down"]
+        ups = [(event.key, event.at_s) for event in plan.events if event.kind == "up"]
+
+        self.assertEqual(downs, [("e", 0.0), ("q", 0.1)])
+        self.assertEqual(ups, [("e", 0.03), ("q", 0.13)])
+
+    def test_chain_spam_excludes_end_deadline_and_has_no_fixed_pad(self):
+        plan = _plan("e, wait:0.1s, e, wait:0.1s, q", spam_interval_ms=50)
+        e_downs = [event.at_s for event in plan.events if event.kind == "down" and event.key == "e"]
+        q_down = next(event.at_s for event in plan.events if event.kind == "down" and event.key == "q")
+        replay_e = [event.at_s for event in plan.events if event.kind == "replay" and event.key == "e"]
+
+        self.assertEqual(e_downs, [0.0, 0.05, 0.1, 0.15])
+        self.assertAlmostEqual(q_down, 0.2)
+        self.assertEqual(replay_e, [0.0, 0.1])
+
+    def test_spam_interval_cannot_overlap_same_key_pulses(self):
+        plan = _plan("e, wait:0.05s, e, wait:0.05s, q", spam_interval_ms=5)
+        e_downs = [event.at_s for event in plan.events if event.kind == "down" and event.key == "e"]
+        self.assertEqual(e_downs, [0.0, 0.03, 0.06, 0.09])
+
+    def test_hold_with_body_keeps_holder_down_until_body_and_minimum_finish(self):
+        plan = _plan("hold(lmb, 0.2s, {wait:0.05s, q})", spam_interval_ms=None)
+        holder = [(event.kind, event.at_s) for event in plan.events if event.key == "lmb"]
+        q_down = next(event.at_s for event in plan.events if event.kind == "down" and event.key == "q")
+
+        self.assertEqual(holder, [("down", 0.0), ("replay", 0.0), ("up", 0.2), ("replay", 0.2)])
+        self.assertAlmostEqual(q_down, 0.05)
+
+
+class MacroPlayerTests(unittest.TestCase):
+    def test_output_failure_does_not_emit_replay_success(self):
+        output = FakeOutput(fail_press="f")
+        statuses: list[tuple[str, str]] = []
+        replayed: list[str] = []
+        player = MacroPlayer(
+            on_status=lambda text, color: statuses.append((text, color)),
+            on_step=lambda key, _step, _total: replayed.append(key),
+            output=output,
+        )
+
+        self.assertTrue(player.start(["f"]))
+        deadline = time.perf_counter() + 1.0
+        while player.is_running() and time.perf_counter() < deadline:
+            time.sleep(0.001)
+
+        self.assertFalse(player.is_running())
+        self.assertEqual(replayed, [])
+        self.assertTrue(any(color == "fail" for _text, color in statuses))
+
+    def test_unsupported_input_is_rejected_before_thread_starts(self):
+        statuses: list[tuple[str, str]] = []
+        player = MacroPlayer(on_status=lambda text, color: statuses.append((text, color)), output=FakeOutput())
+
+        self.assertFalse(player.start(["mouse_extra"]))
+        self.assertFalse(player.is_running())
+        self.assertTrue(any(color == "fail" for _text, color in statuses))
+
+
+class SyntheticEventLedgerTests(unittest.TestCase):
+    def test_event_is_consumed_once_by_origin_and_direction(self):
+        ledger = _SyntheticEventLedger()
+        ledger.expect("F9", True)
+
+        self.assertFalse(ledger.consume("f9", False))
+        self.assertTrue(ledger.consume("f9", True))
+        self.assertFalse(ledger.consume("f9", True))
+
+
+if __name__ == "__main__":
+    unittest.main()

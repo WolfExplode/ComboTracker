@@ -1040,7 +1040,7 @@ class ComboTrackerEngine:
             expected = self._get_expected_hold_key()
             if not expected or expected not in self.currently_pressed:
                 return
-            self._process_press_unlocked(expected)
+            self._process_press_unlocked(expected, now, allow_repeat=True)
         except Exception:
             return
 
@@ -1597,23 +1597,33 @@ class ComboTrackerEngine:
     # Input processing (called from pynput)
     # -------------------------
 
-    def process_press(self, input_name: str):
+    def process_press(self, input_name: str, *, event_time: float | None = None):
         # Thread-safe wrapper
         with self._lock:
-            return self._process_press_unlocked(input_name)
+            return self._process_press_unlocked(input_name, event_time)
 
-    def _process_press_unlocked(self, input_name: str):
+    def _process_press_unlocked(
+        self,
+        input_name: str,
+        now: float | None = None,
+        *,
+        allow_repeat: bool = False,
+    ):
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return
 
-        # Only a genuine key-down (new press) can end the combo; key repeat (already held) must not.
+        # Only a genuine key-down can advance detection. OS repeat-down events are
+        # coalesced until release; allow_repeat is reserved for re-processing the
+        # same physical event after a wait/optional transition and buffered holds.
         press_is_repeat = input_name in self.currently_pressed
         self.currently_pressed.add(input_name)
+        if press_is_repeat and not allow_repeat:
+            return
         if not self.runtime_steps:
             return
 
-        now = time.perf_counter()
+        now = time.perf_counter() if now is None else float(now)
 
         # During a nested mandatory wait (animation lock), ignore the key for progression.
         # currently_pressed already has it; when the wait ends and we advance,
@@ -1626,7 +1636,7 @@ class ComboTrackerEngine:
             result = self.wait.process_press(input_name, now)
             if isinstance(result, CompleteResult):
                 self._complete_wait(now, fail=False)
-                return self._process_press_unlocked(input_name)
+                return self._process_press_unlocked(input_name, now, allow_repeat=True)
             if isinstance(result, FailResult):
                 if self.no_fail_mode:
                     self._mark_step(int(self.current_index), "early")
@@ -1676,7 +1686,7 @@ class ComboTrackerEngine:
                 return
             if self.hold.check_complete(now):
                 self._complete_hold(now, auto=False)
-                return self._process_press_unlocked(input_name)
+                return self._process_press_unlocked(input_name, now, allow_repeat=True)
 
             if isinstance(self.hold, HoldWithBodyState):
                 # Route the press to the body sequence; no forgiving-hold ignore here.
@@ -1787,7 +1797,7 @@ class ComboTrackerEngine:
                 return
             if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
                 return
-            return self._process_press_unlocked(input_name)
+            return self._process_press_unlocked(input_name, now, allow_repeat=True)
         # During group mandatory wait (animation lock), ignore all keys including enders.
         if isinstance(step, GroupState) and step.wait_active:
             return
@@ -1806,7 +1816,7 @@ class ComboTrackerEngine:
                         step.completed = True
                         self._advance_step(now)
                         self._sync_wait_animation_ui(now)
-                        return self._process_press_unlocked(input_name)
+                        return self._process_press_unlocked(input_name, now, allow_repeat=True)
             # Optional sequence step (e.g. -e, wait:0.80s): pressing next step's key skips the whole sequence.
             if isinstance(step, SequenceState) and getattr(step, "optional", False):
                 next_idx = int(self.current_index) + 1
@@ -1817,7 +1827,7 @@ class ComboTrackerEngine:
                         step.was_skipped = True
                         self._advance_step(now)
                         self._sync_wait_animation_ui(now)
-                        return self._process_press_unlocked(input_name)
+                        return self._process_press_unlocked(input_name, now, allow_repeat=True)
             # Optional-key grace: optional key is valid in its own slot and through the entire next step.
             # If we're 1 or 2 steps past a skipped optional and user presses that optional's key, accept it (don't drop).
             for prev_idx in (self.current_index - 1, self.current_index - 2):
@@ -1847,12 +1857,12 @@ class ComboTrackerEngine:
         return
 
 
-    def process_release(self, input_name: str):
+    def process_release(self, input_name: str, *, event_time: float | None = None):
         # Thread-safe wrapper
         with self._lock:
-            return self._process_release_unlocked(input_name)
+            return self._process_release_unlocked(input_name, event_time)
 
-    def _process_release_unlocked(self, input_name: str):
+    def _process_release_unlocked(self, input_name: str, now: float | None = None):
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return
@@ -1866,7 +1876,7 @@ class ComboTrackerEngine:
         if step is None:
             return
 
-        now = time.perf_counter()
+        now = time.perf_counter() if now is None else float(now)
         result = step.process_release(input_name, now)
 
         # Track max hold duration when release was too short (for drop message later)
