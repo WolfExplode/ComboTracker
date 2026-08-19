@@ -40,7 +40,8 @@ const appState = {
     showFailCount: false,
     collapseChainedPresses: true,
     autoScrollEnabled: false,
-    stepEditMode: false,
+    stepEditMode: true,
+    editStepsUndoStack: [],
     targetGame: 'generic',
     wwAbilityImages: { "1": {}, "2": {}, "3": {} },
     wwSwapImages: { "1": "", "2": "", "3": "" },
@@ -1371,6 +1372,39 @@ function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
     return null;
 }
 
+/** Snapshot of the fields save_combo persists, used to restore prior state on undo. */
+function captureComboSnapshot() {
+    return {
+        name: (getEl('comboName')?.value || '').toString(),
+        inputs: (getEl('comboInputs')?.value || '').toString(),
+        enders: (getEl('comboEnders')?.value || '').toString(),
+        expected_time: (getEl('comboExpectedTime')?.value || '').toString(),
+        user_difficulty: (getEl('comboUserDifficulty')?.value || '').toString(),
+        step_display_mode: getEl('stepDisplayToggle')?.checked ? 'images' : 'icons',
+        key_images: { ...appState.keyImages },
+        demo_video: (getEl('comboDemoVideo')?.value || '').toString().trim(),
+        target_game: appState.targetGame,
+        ww_team_id: appState.wwTeamId || '',
+    };
+}
+
+const EDIT_STEPS_UNDO_LIMIT = 50;
+
+/** Call before applying an Edit Steps mutation (delete/reorder/inline edit) so it can be undone. */
+function pushEditStepsUndoSnapshot() {
+    appState.editStepsUndoStack.push(captureComboSnapshot());
+    if (appState.editStepsUndoStack.length > EDIT_STEPS_UNDO_LIMIT) appState.editStepsUndoStack.shift();
+}
+
+/** Ctrl/Cmd+Z while Edit Steps is on: restore the state captured before the last mutation. */
+function undoLastEditStep() {
+    const snapshot = appState.editStepsUndoStack.pop();
+    if (!snapshot) return false;
+    sendMessage('save_combo', snapshot);
+    updateStatus('Undid last step edit.', 'neutral');
+    return true;
+}
+
 /**
  * Commit an inline step field edit:
  *  1. Locate source token(s) via runtime_source_token_indices (runtime index → source indices).
@@ -1413,6 +1447,7 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     if (result.length === 0) return false;
 
     const newInputs = result.join(', ');
+    pushEditStepsUndoSnapshot();
     inputsEl.value = newInputs;
     if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
 
@@ -1634,6 +1669,7 @@ function updateTimeline(steps, opts) {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
+            pushEditStepsUndoSnapshot();
             sendMessage('delete_timeline_step', { step_indices: indices });
         });
         el.appendChild(btn);
@@ -1688,6 +1724,7 @@ function updateTimeline(steps, opts) {
             const draggedRuntimeIdx = Number.parseInt(ev.dataTransfer.getData('text/plain'), 10);
             el.classList.remove('step-drag-over-before', 'step-drag-over-after');
             if (!Number.isFinite(draggedRuntimeIdx) || draggedRuntimeIdx === fromRuntimeIdx) return;
+            pushEditStepsUndoSnapshot();
             const rect = el.getBoundingClientRect();
             const midX = rect.left + rect.width / 2;
             if (ev.clientX < midX) {
@@ -2386,6 +2423,23 @@ if (saveBtn) {
     });
 }
 
+// Ctrl/Cmd+S: save the current combo instead of triggering the browser's save-page dialog
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveBtn?.click();
+    }
+});
+
+// Ctrl/Cmd+Z: undo the last Edit Steps mutation (delete, reorder, or inline field edit)
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
+        if (!appState.stepEditMode || appState.editStepsUndoStack.length === 0) return;
+        e.preventDefault();
+        undoLastEditStep();
+    }
+});
+
 // Demo video input: update embed preview on change
 const comboDemoVideoEl = getEl('comboDemoVideo');
 if (comboDemoVideoEl) {
@@ -2510,6 +2564,7 @@ if (showFailCountEl) {
 
 const stepEditToggleEl = getEl('stepEditToggle');
 if (stepEditToggleEl) {
+    stepEditToggleEl.checked = !!appState.stepEditMode;
     stepEditToggleEl.addEventListener('change', () => {
         appState.stepEditMode = stepEditToggleEl.checked;
         refreshTimelineIfLoaded();
