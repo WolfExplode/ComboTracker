@@ -17,6 +17,7 @@ from pynput import keyboard, mouse
 
 from combo_engine import ComboTrackerEngine
 from macro_player import MacroPlayer
+from profiling.transcription_log import TranscriptionLogWriter
 from transcriber import Transcriber
 
 logger = logging.getLogger(__name__)
@@ -237,6 +238,8 @@ async def ws_handler(
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "set_transcribe_mode":
                 transcribe_mode_enabled = bool(msg.get("enabled", False))
+                if not transcribe_mode_enabled and transcriber.is_recording():
+                    transcriber.stop(time.perf_counter())
                 if transcribe_mode_enabled and macro_mode_enabled:
                     macro_mode_enabled = False
                     if macro_player.is_running():
@@ -257,7 +260,7 @@ async def ws_handler(
                 if macro_mode_enabled and transcribe_mode_enabled:
                     transcribe_mode_enabled = False
                     if transcriber.is_recording():
-                        transcriber.stop()
+                        transcriber.stop(time.perf_counter())
                 start_raw = str(msg.get("start_key") or "").strip().lower()
                 stop_raw = str(msg.get("stop_key") or "").strip().lower()
                 spam_raw = str(msg.get("spam_interval_ms") or "").strip()
@@ -360,18 +363,7 @@ def run_ws_server() -> None:
     loop.run_until_complete(_main())
 
 
-# Mouse: merge rapid same-button clicks (down/up/down/up within this window → one logical click)
-MOUSE_CLICK_MERGE_S = 0.2
-
-
 def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
-    # Windows: hold sends repeated key_down and one key_up on release. Coalesce so transcriber
-    # sees exactly one key_down and one key_up per physical key (ignore repeat key_downs).
-    transcribe_keys_held: set[str] = set()
-    # Mouse: merge rapid same-button clicks into one logical click
-    transcribe_mouse_last_up: dict[str, float] = {}
-    transcribe_mouse_merging: set[str] = set()
-
     def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         event_time = time.perf_counter()
         input_name = engine.normalize_key(key)
@@ -393,25 +385,15 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
                 if input_name == TRANSCRIBE_ESC_KEY:
                     return
                 if input_name == _normalized_transcribe_start_key():
-                    transcribe_keys_held.clear()
-                    transcribe_mouse_last_up.clear()
-                    transcribe_mouse_merging.clear()
-                    engine.new_combo()
-                    transcriber.start()
+                    transcriber.start(event_time)
                     transcriber.key_down(input_name, event_time)
-                    transcriber.key_up(input_name, event_time)
+                    engine.new_combo()
                     _push_transcription_preview()
                 return
             if input_name == TRANSCRIBE_ESC_KEY:
-                transcriber.stop()
-                transcribe_keys_held.clear()
-                transcribe_mouse_last_up.clear()
-                transcribe_mouse_merging.clear()
+                transcriber.stop(event_time)
                 return
             if transcriber.is_valid_key(input_name):
-                if input_name in transcribe_keys_held:
-                    return  # repeat key_down (Windows hold); ignore
-                transcribe_keys_held.add(input_name)
                 transcriber.key_down(input_name, event_time)
             return
         # Macro mode start/stop hotkeys (only active when not transcribing).
@@ -442,10 +424,8 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
             return
         if transcribe_mode_enabled:
             if transcriber.is_recording() and input_name != TRANSCRIBE_ESC_KEY and transcriber.is_valid_key(input_name):
-                if input_name in transcribe_keys_held:
-                    transcribe_keys_held.discard(input_name)
-                    transcriber.key_up(input_name, event_time)
-                    _push_transcription_preview()
+                transcriber.key_up(input_name, event_time)
+                _push_transcription_preview()
             return
         if input_name == TRANSCRIBE_ESC_KEY:
             return  # Esc cancel already handled on press
@@ -460,19 +440,10 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
             return
         if transcribe_mode_enabled:
             if transcriber.is_recording() and transcriber.is_valid_key(btn):
-                now = event_time
                 if pressed:
-                    # Merge rapid same-button clicks: if this down is within MOUSE_CLICK_MERGE_S of last up, skip it (and the next up)
-                    if btn in transcribe_mouse_last_up and (now - transcribe_mouse_last_up[btn]) < MOUSE_CLICK_MERGE_S:
-                        transcribe_mouse_merging.add(btn)
-                        return
-                    transcriber.key_down(btn, now)
+                    transcriber.key_down(btn, event_time)
                 else:
-                    if btn in transcribe_mouse_merging:
-                        transcribe_mouse_merging.discard(btn)
-                        return
-                    transcribe_mouse_last_up[btn] = now
-                    transcriber.key_up(btn, now)
+                    transcriber.key_up(btn, event_time)
                     _push_transcription_preview()
             return
         if macro_player.is_running():
@@ -529,6 +500,11 @@ def _start_macro(*, requested_at: float | None = None) -> None:
 
 
 def _on_transcription_done(transcript: str) -> None:
+    recording = transcriber.last_recording()
+    if recording is not None:
+        written_path = transcription_log.write(recording)
+        if written_path is not None:
+            logger.info("Transcription recording saved: %s", written_path)
     engine.send_transcription_result(transcript)
 
 
@@ -539,6 +515,7 @@ def _push_transcription_preview() -> None:
     engine.send_transcription_result(transcriber.current_transcript())
 
 
+transcription_log = TranscriptionLogWriter(engine.data_dir / "logs" / "transcriptions")
 transcriber = Transcriber(on_stop=_on_transcription_done)
 # Sync transcriber with persisted transcribe settings (engine.load_combos in ComboTrackerEngine.__init__)
 _sync_transcriber_from_engine()

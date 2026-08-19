@@ -16,6 +16,7 @@ This file contains the longer-form docs that don’t need to live in `README.md`
 - **Combo enders**: [Combo enders](#combo-enders)
 - **Difficulty + APM**: [Difficulty--apm](#difficulty--apm)
 - **Troubleshooting**: [Troubleshooting](#troubleshooting)
+- **Auto transcription**: [Accurate auto transcription](#accurate-auto-transcription)
 - **Developer / architecture**: [Architecture](#architecture)
 
 ---
@@ -201,6 +202,33 @@ Make sure you’re running `ui_server.py` from `ComboTracker/`, or just run it n
 
 ---
 
+## Accurate auto transcription
+
+Auto transcription records timestamped key-down and key-up edges before creating
+combo syntax. Distinct rapid clicks are preserved, keyboard repeat-down messages
+are ignored, and each key is tracked independently so inputs performed inside a
+hold can become `hold(key, duration, {body})`.
+
+Waits and holds are formatted at millisecond precision. **Strip waits under** is
+an optional post-recording simplification policy: omitted waits remain present in
+the raw recording even when they are not included in the generated combo text.
+
+Starting transcription records the real start-key press and release. Stopping
+with Esc closes any still-held inputs at the Esc timestamp.
+
+Every stopped recording is saved beside `combos.json`:
+
+```text
+logs/transcriptions/latest.json
+logs/transcriptions/transcription-YYYYMMDD-HHMMSS-xxxxxxxx.json
+```
+
+The files contain the generated transcript, compiler settings, diagnostics, and
+the complete raw event timeline. They are useful for investigating dropped or
+misclassified inputs without re-recording the combo.
+
+---
+
 ## Architecture
 
 ComboTracker is a small local web UI + Python backend. Roughly:
@@ -238,6 +266,11 @@ ComboTracker is a small local web UI + Python backend. Roughly:
   - `step_introspection.py`: step labeling and key-introspection helpers
   - `format_utils.py`: duration parsing and ms formatting
   - `stats_recording.py`: success/fail stat mutation and fail event recording
+
+- **Input recording and transcription**: `transcriber.py`
+  - Captures raw multi-key input edges under a lock
+  - Compiles taps, waits, holds, and contained hold bodies after recording
+  - Preserves raw evidence through `profiling/transcription_log.py`
 
 - **Game-specific state / helpers**: `Game_Wuthering_Waves.py`
   - Stores WW-specific metadata (teams, target game, active character slot)
