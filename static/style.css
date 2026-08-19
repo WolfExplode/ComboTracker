@@ -619,6 +619,108 @@ button.danger:hover {
     max-width: 200px;
 }
 
+/* Portrait-aware character picker (native select menus cannot display images). */
+.ww-char-picker {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+    max-width: 280px;
+}
+
+.ww-char-picker-trigger,
+.ww-char-picker-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    text-align: left;
+}
+
+.ww-char-picker-trigger {
+    min-height: 42px;
+    padding: 4px 9px 4px 5px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid #444;
+}
+
+.ww-char-picker-trigger:hover {
+    background: #242424;
+}
+
+.ww-char-picker-trigger:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.ww-char-picker-label {
+    flex: 1;
+}
+
+.ww-char-picker-chevron {
+    margin-left: auto;
+    width: 8px;
+    height: 8px;
+    margin-right: 3px;
+    margin-top: -4px;
+    border-right: 2px solid var(--text-secondary);
+    border-bottom: 2px solid var(--text-secondary);
+    transform: rotate(45deg);
+}
+
+.ww-char-picker-menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #555;
+    border-radius: 5px;
+    background: var(--bg-primary);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.ww-char-picker-option {
+    min-height: 40px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-primary);
+}
+
+.ww-char-picker-option:hover,
+.ww-char-picker-option[aria-selected="true"] {
+    background: rgba(74, 158, 255, 0.22);
+}
+
+.ww-char-picker-portrait {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.ww-char-picker-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ww-char-picker-portrait span {
+    font-size: 19px;
+    line-height: 1;
+}
+
 /* Team slot rows */
 .ww-team-slots {
     display: flex;
@@ -652,6 +754,34 @@ button.danger:hover {
     color: var(--text-secondary);
     white-space: nowrap;
     min-width: 48px;
+}
+
+.ww-slot-portrait {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.ww-slot-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ww-slot-portrait span {
+    font-size: 26px;
+    line-height: 1;
+}
+
+.ww-slot-portrait-empty {
+    opacity: 0.35;
 }
 
 .ww-slot-char-select {

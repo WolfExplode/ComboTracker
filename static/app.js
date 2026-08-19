@@ -209,6 +209,28 @@ function wwSetPreview(el, val) {
     }
 }
 
+function wwSetSlotPortrait(el, char) {
+    el.replaceChildren();
+    const value = (char?.swap_image || '').toString().trim();
+    el.classList.toggle('ww-slot-portrait-empty', !value);
+    el.title = char?.name ? `${char.name} portrait` : 'Empty character slot';
+
+    if (!value) return;
+    if (/^https?:\/\//i.test(value)) {
+        const img = document.createElement('img');
+        img.src = value;
+        img.alt = char?.name ? `${char.name} portrait` : 'Character portrait';
+        img.loading = 'lazy';
+        img.referrerPolicy = 'no-referrer';
+        img.draggable = false;
+        el.appendChild(img);
+    } else {
+        const emoji = document.createElement('span');
+        emoji.textContent = value;
+        el.appendChild(emoji);
+    }
+}
+
 /** Team display names that still reference this character (by name_key, case-insensitive). */
 function wwTeamNamesReferencingCharacter(nameKey) {
     const key = (nameKey || '').toString().trim().toLowerCase();
@@ -278,6 +300,10 @@ function renderWwTeamEditor() {
         label.className = 'ww-slot-label';
         label.textContent = `Slot ${idx + 1}`;
 
+        const portrait = document.createElement('div');
+        portrait.className = 'ww-slot-portrait';
+        wwSetSlotPortrait(portrait, charKey ? appState.wwCharacters[charKey] : null);
+
         const sel = document.createElement('select');
         sel.className = 'ww-slot-char-select';
         sel.innerHTML = charOptions();
@@ -285,10 +311,14 @@ function renderWwTeamEditor() {
 
         sel.addEventListener('change', () => {
             appState.wwTeamSlots[idx] = sel.value;
+            wwSetSlotPortrait(portrait, sel.value ? appState.wwCharacters[sel.value] : null);
+            _resolveTeamImagesToState();
+            refreshTimelineIfLoaded();
         });
 
         row.appendChild(handle);
         row.appendChild(label);
+        row.appendChild(portrait);
         row.appendChild(sel);
         slotsContainer.appendChild(row);
 
@@ -372,24 +402,79 @@ function _buildCharRow(labelText, inputValue, onInput) {
     return row;
 }
 
+function renderWwCharacterPicker(chars) {
+    const picker = getEl('wwCharPicker');
+    if (!picker) return;
+    picker.replaceChildren();
+
+    const selectedKey = appState.wwCurrentChar || '';
+    const selectedChar = selectedKey ? appState.wwCharacters[selectedKey] : null;
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'ww-char-picker-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const triggerPortrait = document.createElement('span');
+    triggerPortrait.className = 'ww-char-picker-portrait';
+    wwSetSlotPortrait(triggerPortrait, selectedChar);
+    const triggerLabel = document.createElement('span');
+    triggerLabel.className = 'ww-char-picker-label';
+    triggerLabel.textContent = selectedChar?.name || '— New Character —';
+    const chevron = document.createElement('span');
+    chevron.className = 'ww-char-picker-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    trigger.append(triggerPortrait, triggerLabel, chevron);
+
+    const menu = document.createElement('div');
+    menu.className = 'ww-char-picker-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+
+    const choose = (key) => {
+        appState.wwCurrentChar = key || null;
+        renderWwCharacterEditor();
+    };
+    const addOption = (char) => {
+        const key = char ? (char.name_key || char.name.toLowerCase()) : '';
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'ww-char-picker-option';
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', String(key === selectedKey));
+
+        const portrait = document.createElement('span');
+        portrait.className = 'ww-char-picker-portrait';
+        wwSetSlotPortrait(portrait, char);
+        const label = document.createElement('span');
+        label.textContent = char?.name || '— New Character —';
+        option.append(portrait, label);
+        option.addEventListener('click', () => choose(key));
+        menu.appendChild(option);
+    };
+
+    addOption(null);
+    chars.forEach(addOption);
+    trigger.addEventListener('click', () => {
+        const isOpen = menu.hidden;
+        menu.hidden = !isOpen;
+        trigger.setAttribute('aria-expanded', String(isOpen));
+    });
+    trigger.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    picker.append(trigger, menu);
+}
+
 function renderWwCharacterEditor() {
-    // Populate character select dropdown
-    const charSelect = getEl('wwCharSelect');
-    if (charSelect) {
-        const prev = charSelect.value;
-        charSelect.innerHTML = '<option value="">— New Character —</option>';
-        Object.values(appState.wwCharacters)
-            .filter(c => c && c.name)
-            .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-            .forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.name_key || c.name.toLowerCase();
-                opt.textContent = c.name;
-                charSelect.appendChild(opt);
-            });
-        // Restore selection or keep current
-        charSelect.value = (appState.wwCurrentChar !== null ? appState.wwCurrentChar : prev) || '';
-    }
+    const chars = Object.values(appState.wwCharacters)
+        .filter(c => c && c.name)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    renderWwCharacterPicker(chars);
 
     const container = getEl('wwCharEditor');
     if (!container) return;
@@ -2746,14 +2831,6 @@ if (deleteTeamBtn) {
         }
     });
 }
-
-// WW: character select dropdown — load character into editor
-document.addEventListener('change', e => {
-    if (e.target && e.target.id === 'wwCharSelect') {
-        appState.wwCurrentChar = e.target.value || null;
-        renderWwCharacterEditor();
-    }
-});
 
 // WW: dash input
 document.addEventListener('input', e => {

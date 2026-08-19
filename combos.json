@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "test",
+  "last_active_combo": "Hiyuki Lucilla Suisui",
   "no_fail_mode": false,
   "macro_start_key": "f",
   "macro_stop_key": "esc",
@@ -329,70 +329,32 @@
       "hold(r, 0.2s)",
       "wait(lmb, 4.1s)"
     ],
-    "test": [
-      "f",
-      "hold(lmb, 1.35s)"
-    ],
     "test2": [
       "f",
-      "wait:0.11s",
+      "wait:0.11s"
+    ],
+    "Hiyuki Lucilla Suisui": [
+      "f",
+      "wait:0.1s",
+      "hold(lmb, 2.25s)",
       "e",
-      "wait:0.2s",
-      "lmb",
-      "wait:0.1s",
-      "2",
-      "hold(e, 0.45s)",
-      "wait(r, 3.7s)",
+      "hold(lmb, 2.8s)",
       "e",
-      "wait:0.05s",
-      "3",
-      "[wait(r, 2s), q, wait:0.15s]",
-      "2",
-      "[lmb, wait:0.1s, rmb, wait:0.5s, lmb, q, rmb, hold(lmb, 0.30), rmb, wait:0.5s, lmb]",
-      "wait(1, 0.5)",
-      "[wait(e, 0.5), q]",
-      "wait(r, 3.2s)",
-      "hold(e, 0.3s)",
-      "3",
-      "hold(lmb, 0.3s)",
-      "lmb",
+      "hold(lmb, 1s)",
+      "1",
       "wait:0.1s",
       "lmb",
-      "wait:0.1s",
-      "2",
+      "wait:0.5s",
+      "lmb",
+      "wait:0.7s",
       "e",
-      "rmb",
-      "wait:0.1s",
-      "lmb",
-      "wait:0.1s",
-      "lmb",
-      "wait:0.1s",
-      "rmb",
-      "wait:0.1s",
-      "hold(lmb, 0.30s)",
-      "1",
-      "lmb",
-      "wait:0.1s",
-      "lmb",
-      "wait:0.1s",
-      "lmb",
       "3",
-      "wait(f, 1s)",
-      "1",
-      "lmb",
       "wait:0.1s",
-      "lmb",
-      "wait:0.1s",
-      "lmb",
-      "wait(3, 1.22s)",
-      "[wait(r, 2s), e, q]",
-      "wait(2, 1.63s)",
-      "1",
-      "lmb",
-      "wait:0.1s",
-      "lmb",
-      "wait:0.1s",
-      "r"
+      "wait(r, 3.9s)",
+      "wait(2, 0.9s)",
+      "hold(e, 1.2s)",
+      "q",
+      "wait(r, 2.9s)"
     ]
   },
   "combo_enders": {
@@ -481,50 +443,83 @@
       "fail_by_reason": {},
       "fail_events": []
     },
-    "test": {
-      "success": 0,
-      "fail": 2,
-      "best_ms": null,
-      "total_success_ms": 0,
-      "fail_by_step": {
-        "1": 2
-      },
-      "fail_by_expected": {
-        "hold(lmb,\u22651350ms)": 2
-      },
-      "fail_by_reason": {
-        "expected hold(lmb,\u22651350ms)": 2
-      },
-      "fail_events": [
-        {
-          "ts": 1787110758,
-          "attempt": 1,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651350ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u22651350ms)",
-          "elapsed_ms": 240
-        },
-        {
-          "ts": 1787110782,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "hold(lmb,\u22651350ms)",
-          "actual": "e",
-          "reason": "expected hold(lmb,\u22651350ms)",
-          "elapsed_ms": 186
-        }
-      ]
-    },
     "test2": {
-      "success": 0,
+      "success": 1,
       "fail": 0,
-      "best_ms": null,
-      "total_success_ms": 0,
+      "best_ms": 128,
+      "total_success_ms": 128,
       "fail_by_step": {},
       "fail_by_expected": {},
       "fail_by_reason": {},
       "fail_events": []
+    },
+    "Hiyuki Lucilla Suisui": {
+      "success": 1,
+      "fail": 5,
+      "best_ms": 16481,
+      "total_success_ms": 16481,
+      "fail_by_step": {
+        "3": 1,
+        "0": 2,
+        "1": 2
+      },
+      "fail_by_expected": {
+        "hold(lmb,\u22652800ms)": 1,
+        "seq(f \u2192 wait(100ms))": 2,
+        "hold(lmb,\u22652250ms)": 2
+      },
+      "fail_by_reason": {
+        "combo ended by e": 1,
+        "expected seq(f \u2192 wait(100ms))": 2,
+        "expected hold(lmb,\u22652250ms)": 2
+      },
+      "fail_events": [
+        {
+          "ts": 1787114067,
+          "attempt": 3,
+          "step_index": 3,
+          "expected": "hold(lmb,\u22652800ms)",
+          "actual": "e",
+          "reason": "combo ended by e",
+          "elapsed_ms": 5232
+        },
+        {
+          "ts": 1787114101,
+          "attempt": 4,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(100ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(100ms))",
+          "elapsed_ms": 45
+        },
+        {
+          "ts": 1787114110,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "hold(lmb,\u22652250ms)",
+          "actual": "e",
+          "reason": "expected hold(lmb,\u22652250ms)",
+          "elapsed_ms": 283
+        },
+        {
+          "ts": 1787114111,
+          "attempt": 6,
+          "step_index": 1,
+          "expected": "hold(lmb,\u22652250ms)",
+          "actual": "space",
+          "reason": "expected hold(lmb,\u22652250ms)",
+          "elapsed_ms": 234
+        },
+        {
+          "ts": 1787114126,
+          "attempt": 7,
+          "step_index": 0,
+          "expected": "seq(f \u2192 wait(100ms))",
+          "actual": "space",
+          "reason": "expected seq(f \u2192 wait(100ms))",
+          "elapsed_ms": 62
+        }
+      ]
     }
   },
   "combo_expected_ms": {
@@ -534,8 +529,7 @@
     "Zani Pheobe Rover Rotation": 30000,
     "Agusta, Iuno, Shorekeeper Double intro": 24000,
     "Aemeath, Lynae, Mornye": 42500,
-    "Agusta, Iuno, Shorekeeper Double vs monkey": 21000,
-    "test": 24500
+    "Agusta, Iuno, Shorekeeper Double vs monkey": 21000
   },
   "combo_user_difficulty": {
     "Zani 1": 8.0,
@@ -551,8 +545,8 @@
     "Agusta, Iuno, Shorekeeper Double intro": "images",
     "Aemeath, Lynae, Mornye": "images",
     "Agusta, Iuno, Shorekeeper Double vs monkey": "images",
-    "test": "images",
-    "test2": "images"
+    "test2": "images",
+    "Hiyuki Lucilla Suisui": "images"
   },
   "combo_key_images": {},
   "combo_demo_video": {
@@ -566,8 +560,8 @@
     "Agusta, Iuno, Shorekeeper Double intro": "wuthering_waves",
     "Aemeath, Lynae, Mornye": "wuthering_waves",
     "Agusta, Iuno, Shorekeeper Double vs monkey": "wuthering_waves",
-    "test": "wuthering_waves",
-    "test2": "wuthering_waves"
+    "test2": "wuthering_waves",
+    "Hiyuki Lucilla Suisui": "wuthering_waves"
   },
   "ww_characters": {
     "aemeath": {
@@ -750,9 +744,8 @@
       "slot3": "suisui"
     }
   },
-  "ww_active_team_id": "18d2a3510a",
+  "ww_active_team_id": "8f6a67b57d",
   "combo_ww_team": {
-    "test": "65d147f85c",
     "Aemeath, Lynae, Mornye": "3fab25fc2a",
     "Agusta, Iuno, Shorekeeper Double intro": "a8e3fa33e9",
     "Agusta, Iuno, Shorekeeper Double vs monkey": "a8e3fa33e9",
@@ -760,6 +753,7 @@
     "Zani 2": "cc9555e2d9",
     "Zani 3": "cc9555e2d9",
     "Zani Pheobe Rover Rotation": "cc9555e2d9",
-    "test2": "cc9555e2d9"
+    "test2": "8f6a67b57d",
+    "Hiyuki Lucilla Suisui": "8f6a67b57d"
   }
 }
