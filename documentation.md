@@ -243,6 +243,27 @@ ComboTracker is a small local web UI + Python backend. Roughly:
   - Stores WW-specific metadata (teams, target game, active character slot)
   - Provides WW ender policy used by the engine
 
+### Macro timing profiler
+
+Every completed macro run records a low-overhead timing profile and logs a one-line
+summary at `INFO` level. The profile measures the part ComboTracker can observe:
+
+- start request to playback-clock startup
+- planned deadline to output-call start (dispatch lateness)
+- time spent inside the `pynput` output call
+- planned deadline to output-call completion
+- error between planned and actual event intervals
+
+The complete most-recent trace is available from
+`macro_player.last_profile()`. Pass `include_events=False` for only the summary.
+Per-event records include key-down and key-up events. Set
+`COMBOTRACKER_LOG_LEVEL=DEBUG` before starting the app to print those records;
+the default `INFO` level prints only the compact run summary.
+
+These measurements end when the operating-system injection call returns. They do
+not prove when the game consumes the input; measuring that would require telemetry
+from the game or an external visual/audio response measurement.
+
 ### Running tests
 
 ```bash
@@ -252,4 +273,3 @@ python -m pytest tests\ -v
 ### Logging
 
 Set `COMBOTRACKER_LOG_LEVEL` (e.g. `DEBUG`, `INFO`, `WARNING`) to control app logging.
-

@@ -3,6 +3,7 @@ import time
 import unittest
 
 from macro_player import MacroPlayer, _PlanBuilder, _SyntheticEventLedger
+from macro_timing import MacroTimingCollector
 from parser import expanded_ast_from_tokens, split_inputs
 
 
@@ -91,6 +92,53 @@ class MacroPlayerTests(unittest.TestCase):
         self.assertFalse(player.start(["mouse_extra"]))
         self.assertFalse(player.is_running())
         self.assertTrue(any(color == "fail" for _text, color in statuses))
+
+    def test_completed_run_exposes_dispatch_profile(self):
+        player = MacroPlayer(output=FakeOutput())
+
+        self.assertTrue(player.start(["f"]))
+        deadline = time.perf_counter() + 1.0
+        while player.is_running() and time.perf_counter() < deadline:
+            time.sleep(0.001)
+
+        profile = player.last_profile()
+        self.assertIsNotNone(profile)
+        self.assertEqual(profile["event_count"], 2)
+        self.assertEqual([event["kind"] for event in profile["events"]], ["down", "up"])
+        self.assertIn("dispatch_start_lateness_ms", profile)
+
+
+class MacroTimingCollectorTests(unittest.TestCase):
+    def test_summary_reports_lateness_output_cost_and_interval_error(self):
+        collector = MacroTimingCollector(requested_at=9.998, clock_started_at=10.0)
+        collector.record(
+            order=1,
+            kind="down",
+            key="f",
+            planned_offset_s=0.0,
+            woke_ns=10_000_500_000,
+            dispatch_started_ns=10_001_000_000,
+            dispatch_completed_ns=10_001_250_000,
+        )
+        collector.record(
+            order=2,
+            kind="up",
+            key="f",
+            planned_offset_s=0.03,
+            woke_ns=10_030_700_000,
+            dispatch_started_ns=10_032_000_000,
+            dispatch_completed_ns=10_032_500_000,
+        )
+
+        summary = collector.finish().summary()
+
+        self.assertEqual(summary["event_count"], 2)
+        self.assertAlmostEqual(summary["request_to_clock_start_ms"], 2.0)
+        self.assertAlmostEqual(summary["request_to_first_dispatch_ms"], 3.0)
+        self.assertAlmostEqual(summary["dispatch_start_lateness_ms"]["max"], 2.0)
+        self.assertAlmostEqual(summary["output_duration_ms"]["max"], 0.5)
+        self.assertAlmostEqual(summary["interval_error_ms"]["max"], 1.0)
+        self.assertEqual(summary["late_event_counts"]["over_1ms"], 1)
 
 
 class SyntheticEventLedgerTests(unittest.TestCase):

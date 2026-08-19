@@ -4,7 +4,7 @@
   "no_fail_mode": false,
   "macro_start_key": "f",
   "macro_stop_key": "esc",
-  "macro_spam_interval_ms": 50,
+  "macro_spam_interval_ms": 30,
   "combos": {
     "Zani 1": [
       "f",
@@ -357,14 +357,14 @@
       "1",
       "hold(lmb, 1.05s)",
       "2",
-      "hold(lmb, 3.6s)",
+      "hold(lmb, 3.5s)",
       "1",
       "hold(lmb, 2.9s)",
       "wait(r, 3.95s)",
       "lmb",
-      "wait:0.7s",
+      "wait:0.6s",
       "lmb",
-      "wait:0.7s",
+      "wait:0.6s",
       "lmb",
       "wait:0.1s",
       "rmb",
@@ -376,14 +376,14 @@
       "lmb",
       "wait:0.1s",
       "space",
-      "hold(e, 0.7s)",
+      "hold(e, 0.8s)",
       "lmb",
-      "wait:0.7s",
+      "wait:0.5s",
       "lmb",
-      "wait:0.6s",
-      "f",
+      "wait:0.5s",
+      "wait(f, 1.75s)",
       "lmb",
-      "wait:0.6s",
+      "wait:0.2s",
       "rmb",
       "wait:0.2s",
       "lmb",
@@ -393,7 +393,7 @@
       "lmb",
       "wait:0.1s",
       "space",
-      "hold(e, 0.7s)",
+      "hold(e, 0.8s)",
       "lmb",
       "wait:0.7s",
       "lmb",
@@ -505,13 +505,65 @@
     },
     "Hiyuki Lucilla Suisui": {
       "success": 0,
-      "fail": 0,
+      "fail": 5,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {},
-      "fail_by_expected": {},
-      "fail_by_reason": {},
-      "fail_events": []
+      "fail_by_step": {
+        "1": 5
+      },
+      "fail_by_expected": {
+        "seq(3 \u2192 wait(150ms))": 5
+      },
+      "fail_by_reason": {
+        "expected seq(3 \u2192 wait(150ms))": 5
+      },
+      "fail_events": [
+        {
+          "ts": 1787120350,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "seq(3 \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(3 \u2192 wait(150ms))",
+          "elapsed_ms": 358
+        },
+        {
+          "ts": 1787120435,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "seq(3 \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(3 \u2192 wait(150ms))",
+          "elapsed_ms": 62
+        },
+        {
+          "ts": 1787120436,
+          "attempt": 3,
+          "step_index": 1,
+          "expected": "seq(3 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(3 \u2192 wait(150ms))",
+          "elapsed_ms": 406
+        },
+        {
+          "ts": 1787120448,
+          "attempt": 4,
+          "step_index": 1,
+          "expected": "seq(3 \u2192 wait(150ms))",
+          "actual": "space",
+          "reason": "expected seq(3 \u2192 wait(150ms))",
+          "elapsed_ms": 76
+        },
+        {
+          "ts": 1787120829,
+          "attempt": 5,
+          "step_index": 1,
+          "expected": "seq(3 \u2192 wait(150ms))",
+          "actual": "e",
+          "reason": "expected seq(3 \u2192 wait(150ms))",
+          "elapsed_ms": 522
+        }
+      ]
     }
   },
   "combo_expected_ms": {

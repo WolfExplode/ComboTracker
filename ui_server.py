@@ -419,7 +419,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
             start_k = _normalized_macro_start_key()
             stop_k = _normalized_macro_stop_key()
             if input_name == start_k and not macro_player.is_running():
-                _start_macro()
+                _start_macro(requested_at=event_time)
                 return  # swallow the start key so it doesn't advance the combo
             if stop_k and input_name == stop_k and macro_player.is_running():
                 macro_player.stop()
@@ -509,13 +509,13 @@ macro_player = MacroPlayer(on_status=_on_macro_status, on_step=_on_macro_step)
 macro_player.set_chain_spam_interval_ms(getattr(engine, "macro_spam_interval_ms", 100))
 
 
-def _start_macro() -> None:
+def _start_macro(*, requested_at: float | None = None) -> None:
     """Begin macro playback using the current active combo tokens."""
     tokens = list(getattr(engine, "active_combo_tokens", []) or [])
     if not tokens:
         engine._send({"type": "status", "text": "No combo loaded — select or save a combo first.", "color": "fail"})
         return
-    started = macro_player.start(tokens)
+    started = macro_player.start(tokens, requested_at=requested_at)
     if not started:
         pass  # already running — silently ignore per spec
 

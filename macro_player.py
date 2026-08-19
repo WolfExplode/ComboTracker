@@ -38,6 +38,7 @@ from parser import (
     SequenceNode,
     WaitNode,
 )
+from macro_timing import MacroTimingCollector, MacroTimingProfile
 
 logger = logging.getLogger(__name__)
 
@@ -478,6 +479,7 @@ class MacroPlayer:
         self._chain_spam_interval_ms: int | None = _DEFAULT_CHAIN_SPAM_INTERVAL_MS
         self._synthetic_events = _SyntheticEventLedger()
         self._output: _OutputAdapter = output or _PynputOutput(self._synthetic_events)
+        self._last_profile: MacroTimingProfile | None = None
 
     def set_chain_spam_interval_ms(self, interval_ms: int | None) -> None:
         if interval_ms is None:
@@ -499,7 +501,13 @@ class MacroPlayer:
         """True when a listener callback matches an event emitted by this macro."""
         return self._synthetic_events.consume(input_name, pressed)
 
-    def start(self, tokens: list[str]) -> bool:
+    def last_profile(self, *, include_events: bool = True) -> dict | None:
+        """Return a snapshot of the most recently completed playback timing profile."""
+        with self._lock:
+            profile = self._last_profile
+        return profile.to_dict(include_events=include_events) if profile is not None else None
+
+    def start(self, tokens: list[str], *, requested_at: float | None = None) -> bool:
         """
         Begin macro playback from a list of normalized combo tokens.
         Returns False (and does nothing) if playback is already in progress.
@@ -519,8 +527,13 @@ class MacroPlayer:
                 self._notify(f"Macro cannot start: {exc}", "fail")
                 return False
             self._stop.clear()
+            request_time = time.perf_counter() if requested_at is None else float(requested_at)
+            self._last_profile = None
             self._thread = threading.Thread(
-                target=self._run, args=(plan,), name="MacroPlayer", daemon=True
+                target=self._run,
+                args=(plan, request_time),
+                name="MacroPlayer",
+                daemon=True,
             )
             self._thread.start()
             return True
@@ -529,13 +542,17 @@ class MacroPlayer:
         """Signal playback to stop; the playback thread releases held inputs."""
         self._stop.set()
 
-    def _run(self, plan: _ExecutionPlan) -> None:
+    def _run(self, plan: _ExecutionPlan, requested_at: float) -> None:
         stopped_early = False
         failure: str | None = None
         end_period = _windows_timer_1ms_enter()
         held: set[str] = set()
         try:
             start_time = time.perf_counter()
+            timing = MacroTimingCollector(
+                requested_at=requested_at,
+                clock_started_at=start_time,
+            )
             replay = None
             replay_q: queue.Queue[tuple[str, float, float, bool] | None] | None = None
             replay_worker_thread: threading.Thread | None = None
@@ -573,8 +590,20 @@ class MacroPlayer:
                     if not _wait_until(start_time + event.at_s, self._stop):
                         stopped_early = True
                         break
+                    woke_ns = time.perf_counter_ns()
                     if event.kind == "down":
+                        dispatch_started_ns = time.perf_counter_ns()
                         ok = self._output.press(event.key)
+                        dispatch_completed_ns = time.perf_counter_ns()
+                        timing.record(
+                            order=event.order,
+                            kind=event.kind,
+                            key=event.key,
+                            planned_offset_s=event.at_s,
+                            woke_ns=woke_ns,
+                            dispatch_started_ns=dispatch_started_ns,
+                            dispatch_completed_ns=dispatch_completed_ns,
+                        )
                         action_ok[event.action_id] = ok
                         if not ok:
                             raise RuntimeError(f"could not press {event.key}")
@@ -582,7 +611,18 @@ class MacroPlayer:
                     elif event.kind == "up":
                         if not action_ok.get(event.action_id, False):
                             continue
+                        dispatch_started_ns = time.perf_counter_ns()
                         ok = self._output.release(event.key)
+                        dispatch_completed_ns = time.perf_counter_ns()
+                        timing.record(
+                            order=event.order,
+                            kind=event.kind,
+                            key=event.key,
+                            planned_offset_s=event.at_s,
+                            woke_ns=woke_ns,
+                            dispatch_started_ns=dispatch_started_ns,
+                            dispatch_completed_ns=dispatch_completed_ns,
+                        )
                         action_ok[event.action_id] = ok
                         if not ok:
                             raise RuntimeError(f"could not release {event.key}")
@@ -615,6 +655,31 @@ class MacroPlayer:
             stopped_early = True
         finally:
             end_period()
+            if "timing" in locals():
+                profile = timing.finish()
+                with self._lock:
+                    self._last_profile = profile
+                summary = profile.summary()
+                lateness = summary["dispatch_start_lateness_ms"]
+                output = summary["output_duration_ms"]
+                interval = summary["interval_error_ms"]
+                logger.info(
+                    "Macro timing: events=%d start=%.3fms first=%.3fms "
+                    "lateness[p50=%.3f p95=%.3f p99=%.3f max=%.3f]ms "
+                    "output[p95=%.3f max=%.3f]ms interval_error[p95=%.3f max=%.3f]ms",
+                    summary["event_count"],
+                    summary["request_to_clock_start_ms"],
+                    summary["request_to_first_dispatch_ms"] or 0.0,
+                    lateness["p50"],
+                    lateness["p95"],
+                    lateness["p99"],
+                    lateness["max"],
+                    output["p95"],
+                    output["max"],
+                    interval["p95"],
+                    interval["max"],
+                )
+                logger.debug("Macro timing events: %s", profile.to_dict()["events"])
             if failure:
                 self._notify(f"Macro failed: {failure}", "fail")
             elif stopped_early:
