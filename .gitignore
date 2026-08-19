@@ -6,3 +6,6 @@ __pycache__/
 /build/
 /dist/
 *.spec.bak
+
+# Runtime state recovery file
+combos.json.bak
