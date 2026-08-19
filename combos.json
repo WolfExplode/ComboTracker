@@ -331,70 +331,7 @@
     ],
     "test": [
       "f",
-      "wait:0.2s",
-      "lmb",
-      "wait:0.4s",
-      "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.9s",
-      "lmb",
-      "wait:0.1s",
-      "-q",
-      "wait:0.05s",
-      "2",
-      "wait:0.15s",
-      "e",
-      "wait:0.05s",
-      "3",
-      "wait:0.25s",
-      "lmb",
-      "wait:0.8s",
-      "lmb",
-      "wait:0.2s",
-      "2",
-      "wait(r, 4.25s)",
-      "3",
-      "hold(lmb, 1.35s)",
-      "wait(r, 4.8s)",
-      "hold(lmb, 1.55s)",
-      "e",
-      "wait:1s",
-      "hold(lmb, 1.75s)",
-      "wait(2, 0.8s)",
-      "hold(lmb, 1.7s)",
-      "wait:0.47s",
-      "space",
-      "wait:0.66s",
-      "space",
-      "wait:0.65s",
-      "space",
-      "wait:0.81s",
-      "lmb",
-      "wait:0.77s",
-      "q",
-      "wait:0.2s",
-      "wait(1, 0.9s)",
-      "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.85s",
-      "lmb",
-      "wait:0.77s",
-      "wait(f, 1.73s)",
-      "wait(r, 4.2s)",
-      "wait(e, 2.8s)",
-      "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.9s",
-      "lmb",
-      "wait:0.5s",
-      "lmb",
-      "wait:0.5s",
-      "wait(e, 3s)",
-      "hold(lmb, 1.1s)",
-      "wait(r, 4.2s)"
+      "hold(lmb, 1.35s)"
     ],
     "test2": [
       "f",
@@ -485,10 +422,10 @@
       "fail_events": []
     },
     "Zani 3": {
-      "success": 1,
+      "success": 0,
       "fail": 0,
-      "best_ms": 8013,
-      "total_success_ms": 8013,
+      "best_ms": null,
+      "total_success_ms": 0,
       "fail_by_step": {},
       "fail_by_expected": {},
       "fail_by_reason": {},
@@ -515,10 +452,10 @@
       "fail_events": []
     },
     "Agusta, Iuno, Shorekeeper Double intro": {
-      "success": 1,
+      "success": 0,
       "fail": 0,
-      "best_ms": 22475,
-      "total_success_ms": 22475,
+      "best_ms": null,
+      "total_success_ms": 0,
       "fail_by_step": {},
       "fail_by_expected": {},
       "fail_by_reason": {},
@@ -526,29 +463,13 @@
     },
     "Aemeath, Lynae, Mornye": {
       "success": 0,
-      "fail": 1,
+      "fail": 0,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {
-        "1": 1
-      },
-      "fail_by_expected": {
-        "seq(lmb \u2192 wait(400ms))": 1
-      },
-      "fail_by_reason": {
-        "expected seq(lmb \u2192 wait(400ms))": 1
-      },
-      "fail_events": [
-        {
-          "ts": 1778385762,
-          "attempt": 2,
-          "step_index": 1,
-          "expected": "seq(lmb \u2192 wait(400ms))",
-          "actual": "space",
-          "reason": "expected seq(lmb \u2192 wait(400ms))",
-          "elapsed_ms": 916
-        }
-      ]
+      "fail_by_step": {},
+      "fail_by_expected": {},
+      "fail_by_reason": {},
+      "fail_events": []
     },
     "Agusta, Iuno, Shorekeeper Double vs monkey": {
       "success": 0,
@@ -562,13 +483,38 @@
     },
     "test": {
       "success": 0,
-      "fail": 0,
+      "fail": 2,
       "best_ms": null,
       "total_success_ms": 0,
-      "fail_by_step": {},
-      "fail_by_expected": {},
-      "fail_by_reason": {},
-      "fail_events": []
+      "fail_by_step": {
+        "1": 2
+      },
+      "fail_by_expected": {
+        "hold(lmb,\u22651350ms)": 2
+      },
+      "fail_by_reason": {
+        "expected hold(lmb,\u22651350ms)": 2
+      },
+      "fail_events": [
+        {
+          "ts": 1787110758,
+          "attempt": 1,
+          "step_index": 1,
+          "expected": "hold(lmb,\u22651350ms)",
+          "actual": "e",
+          "reason": "expected hold(lmb,\u22651350ms)",
+          "elapsed_ms": 240
+        },
+        {
+          "ts": 1787110782,
+          "attempt": 2,
+          "step_index": 1,
+          "expected": "hold(lmb,\u22651350ms)",
+          "actual": "e",
+          "reason": "expected hold(lmb,\u22651350ms)",
+          "elapsed_ms": 186
+        }
+      ]
     },
     "test2": {
       "success": 0,
@@ -733,6 +679,36 @@
         "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconZhujueB1.png",
         "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconZhujueC1.png"
       }
+    },
+    "lucilla": {
+      "name": "Lucilla",
+      "swap_image": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_66_UI.png",
+      "lmb_image": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorMagic.png",
+      "ability_images": {
+        "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34027_UI.png",
+        "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_SkillIconLuoselaB1.png",
+        "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_SkillIconLuoselaC1.png"
+      }
+    },
+    "suisui": {
+      "name": "Suisui",
+      "swap_image": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_71_UI.png",
+      "lmb_image": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorMagic.png",
+      "ability_images": {
+        "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34031_UI.png",
+        "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconSuisuiB1.png",
+        "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconSuisuiC1.png"
+      }
+    },
+    "yangyang xuanling": {
+      "name": "Yangyang Xuanling",
+      "swap_image": "https://wuthering.gg/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_70_UI.png",
+      "lmb_image": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconNorKnife.png",
+      "ability_images": {
+        "q": "https://wuthering.gg/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_34031_UI.png",
+        "e": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconXuanLingB1.png",
+        "r": "https://wuthering.gg/_ipx/q_70&s_32x32/images/iconskill/SP_IconXuanLingC1.png"
+      }
     }
   },
   "ww_dash_image": "\ud83d\udca8",
@@ -760,9 +736,21 @@
       "slot1": "agusta",
       "slot2": "iuno",
       "slot3": "shorekeeper"
+    },
+    "8f6a67b57d": {
+      "name": "Hiyuki Lucilla Suisui",
+      "slot1": "hiyuki",
+      "slot2": "lucilla",
+      "slot3": "suisui"
+    },
+    "18d2a3510a": {
+      "name": "Xuanling, Chisa, SuiSui",
+      "slot1": "yangyang xuanling",
+      "slot2": "chisa",
+      "slot3": "suisui"
     }
   },
-  "ww_active_team_id": "65d147f85c",
+  "ww_active_team_id": "18d2a3510a",
   "combo_ww_team": {
     "test": "65d147f85c",
     "Aemeath, Lynae, Mornye": "3fab25fc2a",
