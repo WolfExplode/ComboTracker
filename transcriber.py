@@ -55,8 +55,8 @@ class Transcriber:
         on_stop: Callable[[str], None] | None = None,
     ):
         self.start_key = start_key.lower()
-        # Retained for configuration compatibility. Accurate capture no longer
-        # merges distinct physical clicks; repeat-downs are filtered per key.
+        # Maximum start-to-start gap used only to recognize compact spam runs.
+        # Accurate capture still preserves every physical edge in the raw log.
         self.merge_threshold_s = merge_threshold_s
         self.hold_threshold_s = hold_threshold_s
         self.min_wait_s = min_wait_s
@@ -299,10 +299,21 @@ class Transcriber:
         cursor: float,
     ) -> tuple[list[str], float]:
         tokens: list[str] = []
-        for action in actions:
+        index = 0
+        while index < len(actions):
+            action = actions[index]
             wait_s = max(0.0, action.started_at - cursor)
             if wait_s > 0 and wait_s + 1e-9 >= self.min_wait_s:
                 tokens.append(f"wait:{_format_seconds(wait_s)}s")
+
+            spam_end = self._spam_run_end(actions, index)
+            if spam_end - index >= 3:
+                last = actions[spam_end - 1]
+                duration = _format_seconds(last.started_at - action.started_at)
+                tokens.append(f"spam({action.key}, {duration}s)")
+                cursor = max(cursor, last.started_at)
+                index = spam_end
+                continue
 
             if action.is_hold:
                 duration = _format_seconds(action.ended_at - action.started_at)
@@ -315,7 +326,29 @@ class Transcriber:
             else:
                 tokens.append(action.key)
                 cursor = max(cursor, action.started_at)
+            index += 1
         return tokens, cursor
+
+    def _spam_run_end(self, actions: list[_RecordedAction], start: int) -> int:
+        """Return the exclusive end of a tight same-key tap run."""
+        first = actions[start]
+        if first.is_hold or first.children:
+            return start + 1
+        end = start + 1
+        previous = first
+        while end < len(actions):
+            candidate = actions[end]
+            gap_s = candidate.started_at - previous.started_at
+            if (
+                candidate.is_hold
+                or candidate.children
+                or candidate.key != first.key
+                or gap_s > self.merge_threshold_s + 1e-9
+            ):
+                break
+            previous = candidate
+            end += 1
+        return end
 
     def _recording_payload(
         self,

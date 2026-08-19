@@ -31,11 +31,18 @@ class HoldNode:
 class HoldWithBodyNode:
     """Hold key for minimum duration while executing an inner sequence of presses/waits.
     Syntax: hold(lmb, 1.75s, {wait:0.15s, q, wait:0.15s, e, wait:0.35s})
-    Body may contain PressNode and WaitNode only (no nested holds/groups).
+    Body may contain PressNode, SpamNode, and WaitNode only (no nested holds/groups).
     Fail immediately on early release of the holder key."""
     key: str
     duration_ms: int
-    body: tuple["StepNode", ...]  # PressNode and WaitNode only
+    body: tuple["StepNode", ...]  # PressNode, SpamNode, and WaitNode only
+
+
+@dataclass(frozen=True)
+class SpamNode:
+    """Repeated taps of one key over a fixed span. Syntax: spam(lmb, 4.4s)."""
+    key: str
+    duration_ms: int
 
 
 @dataclass(frozen=True)
@@ -62,7 +69,7 @@ class GroupNode:
     items: tuple[GroupItemNode, ...]
 
 
-StepNode = PressNode | HoldNode | HoldWithBodyNode | WaitNode | SequenceNode | GroupNode
+StepNode = PressNode | HoldNode | HoldWithBodyNode | SpamNode | WaitNode | SequenceNode | GroupNode
 
 
 # ---------------------------------------------------------------------------
@@ -272,6 +279,15 @@ def parse_step(token: str) -> StepNode | None:
         if wait_ms is not None:
             return WaitNode(wait_ms, "soft", None)
 
+    # Repeated taps over a duration: spam(lmb, 4.4s)
+    if tl.startswith("spam(") and tl.endswith(")"):
+        inner = tl[len("spam("):-1]
+        parts = [p.strip() for p in split_inputs(inner) if p.strip()]
+        if len(parts) == 2 and parts[0]:
+            spam_ms = _parse_duration(parts[1])
+            if spam_ms is not None:
+                return SpamNode(parts[0].strip().lower(), spam_ms)
+
     # Hold: hold(e, 0.35) or hold(e, 0.5s, 2s) for hold + animation lock
     #       or hold(e, 1.75s, {wait:0.15s, q, ...}) for hold-with-body
     if tl.startswith("hold(") and tl.endswith(")"):
@@ -288,7 +304,7 @@ def parse_step(token: str) -> StepNode | None:
                     ok = True
                     for bp in body_parts:
                         bn = parse_step(bp)
-                        if bn is None or not isinstance(bn, (PressNode, WaitNode)):
+                        if bn is None or not isinstance(bn, (PressNode, SpamNode, WaitNode)):
                             ok = False
                             break
                         body_nodes.append(bn)
@@ -363,6 +379,14 @@ def build_state(node: StepNode) -> dict[str, Any]:
                 "wait_ms": None,
                 "hold_with_body": True,
                 "body_steps": [build_state(s) for s in body_steps],
+            }
+
+        case SpamNode(key=key, duration_ms=ms):
+            return {
+                "input": key,
+                "hold_ms": None,
+                "wait_ms": None,
+                "spam_ms": ms,
             }
 
         case WaitNode(duration_ms=ms, mode=mode, wait_for=wf):
@@ -543,6 +567,8 @@ def expanded_ast_from_tokens(tokens: list[str]) -> list[StepNode]:
         elif isinstance(node, HoldWithBodyNode):
             # hold-with-body is a single step; no expansion
             ast_list.append(node)
+        elif isinstance(node, SpamNode):
+            ast_list.append(node)
         else:
             ast_list.append(node)
         i += 1
@@ -584,6 +610,8 @@ def runtime_source_token_indices_from_tokens(tokens: list[str]) -> list[list[int
             source_map.append([i])
         elif isinstance(node, HoldWithBodyNode):
             # hold-with-body is a single runtime step
+            source_map.append([i])
+        elif isinstance(node, SpamNode):
             source_map.append([i])
         else:
             source_map.append([i])

@@ -78,8 +78,21 @@ Use when a key must remain held while you press one or more other buttons inside
 - The `{body}` is a sequence of **presses** (`q`, `e`, …) and **`wait:` delay gates** that must be completed while the holder key is down. Waits in the body encode the relative timing from hold-start (useful for replay / macro playback).
 - **Both** conditions must be true before the step advances: holder held for ≥ `hold_time` AND all body steps completed.
 - Releasing the holder key **before** either condition is met **immediately fails** the combo (no forgiving hold).
-- Body steps may only be plain presses or `wait:` delays — no nested `hold(...)`, groups, or optional steps.
+- Body steps may only be plain presses, `spam(...)`, or `wait:` delays — no nested `hold(...)`, groups, or optional steps.
 - **This notation is mutually exclusive with the anim-lock form:** `hold(key, a, b, {…})` (four arguments) is not valid.
+
+### Repeated buffered input: `spam(key, duration)`
+
+`spam(lmb, 4.4s)` repeatedly taps LMB over a 4.4-second span. Macro playback uses
+the configured **Spam keys delay in ms** cadence and includes a tap at the end of
+the span. Auto transcription emits this compact form for three or more consecutive
+same-key taps whose start times are no more than 200ms apart. Two taps remain
+expanded. This is a transcription convenience: it records the observed buffering
+region and does not claim to know when the game accepted an input or ended an
+animation lock.
+
+`spam(...)` is also valid inside a hold body, for example
+`hold(lmb, 1.5s, {wait:0.3s, spam(r, 0.8s)})`.
 
 **Replay / macro:** the inner body steps are executed in order while the holder is held; any remaining `hold_time` after the body finishes is slept before the holder is released.
 

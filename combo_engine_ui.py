@@ -12,6 +12,7 @@ from states import (
     HoldWithBodyState,
     PressState,
     SequenceState,
+    SpamState,
     WaitState,
 )
 
@@ -355,6 +356,20 @@ def _render_sequence_items(
                     "body": {"items": body_items},
                 }
             )
+        elif isinstance(sub, SpamState):
+            spam_item = {
+                "type": "spam",
+                "input": sub.expected,
+                "duration": sub.required_ms,
+                "active": is_active,
+                "completed": is_completed,
+            }
+            if sub.in_progress and now is not None:
+                elapsed_ms = max(0.0, (now - sub.started_at) * 1000.0)
+                spam_item["progress"] = int(
+                    max(0, min(100, (elapsed_ms / max(1, sub.required_ms)) * 100))
+                )
+            seq_items.append(spam_item)
         else:
             inp = sub.expected if isinstance(sub, PressState) else ""
             d = {
@@ -572,6 +587,25 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                 i += 1
                 continue
 
+            case SpamState():
+                spam_payload = {
+                    "type": "spam",
+                    "input": step.expected,
+                    "duration": step.required_ms,
+                    "active": idx == cur,
+                    "completed": idx < cur,
+                    "mark": mark,
+                    "step_indices": [idx],
+                }
+                if step.in_progress and now is not None:
+                    elapsed_ms = max(0.0, (now - step.started_at) * 1000.0)
+                    spam_payload["progress"] = int(
+                        max(0, min(100, (elapsed_ms / max(1, step.required_ms)) * 100))
+                    )
+                steps.append(spam_payload)
+                i += 1
+                continue
+
             case WaitState():
                 w = {
                     "type": "wait",
@@ -680,7 +714,7 @@ def init_payload(engine) -> dict[str, Any]:
 # UI-only helpers for the engine (kept here to avoid polluting core engine logic)
 # ---------------------------------------------------------------------------
 
-def find_active_in_progress_wait(step: Any) -> WaitState | None:
+def find_active_in_progress_wait(step: Any) -> WaitState | SpamState | None:
     """
     Return the currently-active WaitState (including nested) if it is in progress.
     Used for client-side wait progress animation (wait_begin/wait_end).
@@ -690,6 +724,10 @@ def find_active_in_progress_wait(step: Any) -> WaitState | None:
             return None
         if isinstance(step, WaitState):
             return step if (step.in_progress and not step.completed) else None
+        if isinstance(step, SpamState):
+            return step if (step.in_progress and not step.completed) else None
+        if isinstance(step, HoldWithBodyState):
+            return find_active_in_progress_wait(getattr(step, "body", None))
         if isinstance(step, SequenceState):
             try:
                 idx = int(getattr(step, "current_index", 0) or 0)
@@ -728,7 +766,8 @@ def wait_animation_events(engine, *, active_step: Any, prev_sig: tuple | None) -
         ws = find_active_in_progress_wait(active_step)
         if ws is None:
             if prev_sig is not None:
-                return None, [{"type": "wait_end"}]
+                end_type = "spam_end" if prev_sig[0] == "spam" else "wait_end"
+                return None, [{"type": end_type}]
             return None, []
 
         # If this is the engine's top-level wait, the engine already manages wait_begin/end.
@@ -738,7 +777,9 @@ def wait_animation_events(engine, *, active_step: Any, prev_sig: tuple | None) -
         except Exception:
             pass
 
+        kind = "spam" if isinstance(ws, SpamState) else "wait"
         sig = (
+            kind,
             id(ws),
             float(getattr(ws, "started_at", 0.0) or 0.0),
             int(getattr(ws, "required_ms", 0) or 0),
@@ -746,15 +787,23 @@ def wait_animation_events(engine, *, active_step: Any, prev_sig: tuple | None) -
         if sig == prev_sig:
             return prev_sig, []
 
-        mode = str(getattr(ws, "mode", "soft") or "soft").strip().lower() or "soft"
+        mode = (
+            "spam"
+            if isinstance(ws, SpamState)
+            else str(getattr(ws, "mode", "soft") or "soft").strip().lower() or "soft"
+        )
         wait_for = str(getattr(ws, "wait_for", "") or "")
+        events: list[dict[str, Any]] = []
+        if prev_sig is not None and prev_sig[0] != kind:
+            events.append({"type": "spam_end" if prev_sig[0] == "spam" else "wait_end"})
         ev = {
-            "type": "wait_begin",
+            "type": "spam_begin" if kind == "spam" else "wait_begin",
             "required_ms": int(getattr(ws, "required_ms", 0) or 0),
             "mode": mode,
             "wait_for": wait_for,
         }
-        return sig, [ev]
+        events.append(ev)
+        return sig, events
     except Exception:
         return prev_sig, []
 
@@ -791,6 +840,15 @@ def ui_signature_for_step(step: Any) -> Any:
                 bool(getattr(step, "body_done", False)),
                 bool(getattr(step, "completed", False)),
                 ui_signature_for_step(getattr(step, "body", None)),
+            )
+
+        if isinstance(step, SpamState):
+            return (
+                "spam",
+                str(step.expected or ""),
+                int(getattr(step, "required_ms", 0) or 0),
+                bool(getattr(step, "in_progress", False)),
+                bool(getattr(step, "completed", False)),
             )
 
         if isinstance(step, WaitState):

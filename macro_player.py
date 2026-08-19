@@ -37,6 +37,7 @@ from parser import (
     HoldWithBodyNode,
     PressNode,
     SequenceNode,
+    SpamNode,
     WaitNode,
 )
 from profiling.macro_profile_log import MacroProfileLogWriter
@@ -234,6 +235,7 @@ class _PlanBuilder:
 
     def __init__(self, chain_spam_interval_ms: int | None) -> None:
         self.cursor_s = 0.0
+        self._configured_spam_interval_ms = chain_spam_interval_ms
         self._spam_interval_ms = chain_spam_interval_ms
         self._events: list[_PlanEvent] = []
         self._order = 0
@@ -348,6 +350,28 @@ class _PlanBuilder:
                 cumulative_s += info[1] / 1000.0
         self.cursor_s = chain_start + total_ms / 1000.0
 
+    def _spam(self, name: str, duration_ms: int) -> None:
+        """Emit cadence-controlled taps from the start through the recorded endpoint."""
+        interval_ms = max(
+            _TAP_HOLD_MS,
+            int(self._configured_spam_interval_ms or _DEFAULT_CHAIN_SPAM_INTERVAL_MS),
+        )
+        pulse_ms = min(_TAP_HOLD_MS, max(1, interval_ms - _SPAM_RELEASE_GAP_MS))
+        chain_start = self.cursor_s
+        offsets = list(range(0, max(1, duration_ms), interval_ms))
+        while len(offsets) > 1 and offsets[-1] + pulse_ms > duration_ms:
+            offsets.pop()
+        if not offsets or offsets[-1] != duration_ms:
+            offsets.append(duration_ms)
+        for offset_ms in offsets:
+            self._tap_at(
+                name,
+                chain_start + offset_ms / 1000.0,
+                replay=True,
+                hold_ms=pulse_ms,
+            )
+        self.cursor_s = chain_start + duration_ms / 1000.0
+
     def _node_list(self, nodes: list, chain_spam_interval_ms: int | None) -> None:
         previous = self._spam_interval_ms
         self._spam_interval_ms = chain_spam_interval_ms
@@ -381,6 +405,8 @@ class _PlanBuilder:
             self._hold(node.key, node.duration_ms)
         elif isinstance(node, HoldWithBodyNode):
             self._hold_with_body(node)
+        elif isinstance(node, SpamNode):
+            self._spam(node.key, node.duration_ms)
         elif isinstance(node, WaitNode):
             self.cursor_s += max(0, node.duration_ms) / 1000.0
         elif isinstance(node, SequenceNode):

@@ -30,6 +30,21 @@ class FakeOutput:
 
 
 class MacroPlanTests(unittest.TestCase):
+    def test_explicit_spam_uses_configured_cadence_and_includes_endpoint(self):
+        plan = _plan("spam(lmb, 0.16s)", spam_interval_ms=50)
+        downs = [event.at_s for event in plan.events if event.kind == "down"]
+        self.assertEqual(downs, [0.0, 0.05, 0.1, 0.16])
+
+    def test_spam_inside_hold_body_keeps_configured_cadence(self):
+        plan = _plan(
+            "hold(lmb, 0.3s, {wait:0.05s, spam(r, 0.1s)})",
+            spam_interval_ms=50,
+        )
+        r_downs = [event.at_s for event in plan.events if event.kind == "down" and event.key == "r"]
+        self.assertEqual(len(r_downs), 3)
+        for actual, expected in zip(r_downs, (0.05, 0.1, 0.15)):
+            self.assertAlmostEqual(actual, expected)
+
     def test_plain_press_is_one_pulse_and_next_deadline_is_absolute(self):
         plan = _plan("e, wait:0.1s, q", spam_interval_ms=None)
         downs = [(event.key, event.at_s) for event in plan.events if event.kind == "down"]

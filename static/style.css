@@ -1785,13 +1785,23 @@ button.danger:hover {
 }
 
 .step.wait.completed,
-.step.press-wait.completed {
+.step.press-wait.completed,
+.step.spam.completed {
     border-color: var(--accent-green);
     background: rgba(74, 255, 136, 0.1);
 }
 
 .step.press-wait {
     border-color: rgba(255, 236, 149, 0.5);
+    --wait-pct: 0%;
+    max-width: 800px;
+    background: linear-gradient(to right,
+            rgba(255, 221, 74, 0.9) var(--wait-pct),
+            var(--bg-primary) var(--wait-pct));
+}
+
+.step.spam {
+    border-color: rgba(255, 236, 149, 0.7);
     --wait-pct: 0%;
     max-width: 800px;
     background: linear-gradient(to right,

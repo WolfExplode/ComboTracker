@@ -62,6 +62,27 @@ class TranscriberAccuracyTests(unittest.TestCase):
 
         self.assertEqual(transcriber.stop(1.1), "lmb, wait:0.03s, lmb")
 
+    def test_compacts_three_or_more_same_key_taps_as_spam(self):
+        transcriber = _transcriber()
+        for started_at in (1.0, 1.15, 1.3, 1.45):
+            transcriber.key_down("lmb", started_at)
+            transcriber.key_up("lmb", started_at + 0.025)
+
+        self.assertEqual(transcriber.stop(1.6), "spam(lmb, 0.45s)")
+
+    def test_compacts_spam_inside_hold_body(self):
+        transcriber = _transcriber()
+        transcriber.key_down("lmb", 1.0)
+        for started_at in (1.1, 1.25, 1.4):
+            transcriber.key_down("r", started_at)
+            transcriber.key_up("r", started_at + 0.025)
+        transcriber.key_up("lmb", 1.6)
+
+        self.assertEqual(
+            transcriber.stop(1.7),
+            "hold(lmb, 0.6s, {wait:0.1s, spam(r, 0.3s)})",
+        )
+
     def test_formats_waits_at_millisecond_precision(self):
         transcriber = _transcriber()
         transcriber.key_down("e", 1.0)
@@ -107,6 +128,8 @@ class TranscriberAccuracyTests(unittest.TestCase):
             transcriber.key_down("lmb", started_at)
             transcriber.key_up("lmb", started_at + 0.025)
         transcript = transcriber.stop(1.1)
+
+        self.assertEqual(transcript, "spam(lmb, 0.06s)")
 
         plan = _PlanBuilder(30).build(
             list(expanded_ast_from_tokens(split_inputs(transcript)))

@@ -39,6 +39,7 @@ from states import (
     IgnoreResult,
     PressState,
     SequenceState,
+    SpamState,
     WaitState,
     build_runtime_state,
 )
@@ -1739,6 +1740,13 @@ class ComboTrackerEngine:
         if not pressed:
             return
         result = step.process_press(key, now)
+        if isinstance(result, AcceptResult) and not result.advance:
+            if result.record_hit:
+                self.record_hit(key, step_ms, total_ms, at_time=now)
+                self.last_input_time = now
+                self._sync_wait_animation_ui(now)
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            return
         if not isinstance(result, AcceptResult) or not result.advance:
             return
 
@@ -1938,6 +1946,8 @@ class ComboTrackerEngine:
             if isinstance(step, (HoldState, HoldWithBodyState)):
                 self._start_hold(step.expected, step.required_ms, now)
             elif isinstance(step, GroupState):
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            elif isinstance(step, SpamState) and result.record_hit:
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
             return
         if isinstance(result, FailResult):
