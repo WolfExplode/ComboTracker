@@ -48,23 +48,53 @@ class MacroTimingProfile:
         completion_lateness = [s.dispatch_complete_lateness_ms for s in self.samples]
         output_duration = [s.output_duration_ms for s in self.samples]
         interval_error = [
-            abs(
-                (current.dispatch_start_lateness_ms - previous.dispatch_start_lateness_ms)
-            )
+            abs(current.dispatch_start_lateness_ms - previous.dispatch_start_lateness_ms)
             for previous, current in zip(self.samples, self.samples[1:])
         ]
+
+        deadline_groups: dict[float, list[MacroTimingSample]] = {}
+        output_groups: dict[str, list[float]] = {}
+        for sample in self.samples:
+            deadline_groups.setdefault(round(sample.planned_offset_ms, 6), []).append(sample)
+            output_groups.setdefault(f"{sample.key}.{sample.kind}", []).append(
+                sample.output_duration_ms
+            )
+
+        first_at_deadline = [group[0] for group in deadline_groups.values()]
+        later_at_deadline = [sample for group in deadline_groups.values() for sample in group[1:]]
+        scheduler_lateness = [sample.dispatch_start_lateness_ms for sample in first_at_deadline]
+        collision_lateness = [sample.dispatch_start_lateness_ms for sample in later_at_deadline]
+        output_by_input = {
+            name: {"event_count": len(values), **_distribution(values)}
+            for name, values in sorted(output_groups.items())
+        }
         return {
             "event_count": len(self.samples),
             "request_to_clock_start_ms": self.request_to_clock_start_ms,
             "request_to_first_dispatch_ms": self.request_to_first_dispatch_ms,
             "dispatch_start_lateness_ms": _distribution(start_lateness),
+            "scheduler_lateness_ms": _distribution(scheduler_lateness),
+            "same_deadline_lateness_ms": _distribution(collision_lateness),
             "dispatch_complete_lateness_ms": _distribution(completion_lateness),
             "output_duration_ms": _distribution(output_duration),
+            "output_duration_by_input_ms": output_by_input,
             "interval_error_ms": _distribution(interval_error),
+            "deadline_analysis": {
+                "deadline_count": len(deadline_groups),
+                "collision_deadline_count": sum(
+                    len(group) > 1 for group in deadline_groups.values()
+                ),
+                "later_collision_event_count": len(later_at_deadline),
+            },
             "late_event_counts": {
                 "over_1ms": sum(value > 1.0 for value in start_lateness),
                 "over_2ms": sum(value > 2.0 for value in start_lateness),
                 "over_5ms": sum(value > 5.0 for value in start_lateness),
+            },
+            "scheduler_late_event_counts": {
+                "over_1ms": sum(value > 1.0 for value in scheduler_lateness),
+                "over_2ms": sum(value > 2.0 for value in scheduler_lateness),
+                "over_5ms": sum(value > 5.0 for value in scheduler_lateness),
             },
         }
 
@@ -118,8 +148,7 @@ class MacroTimingCollector:
                 + first.dispatch_start_lateness_ms
             )
         return MacroTimingProfile(
-            request_to_clock_start_ms=(self._clock_started_ns - self._requested_ns)
-            / 1_000_000.0,
+            request_to_clock_start_ms=(self._clock_started_ns - self._requested_ns) / 1_000_000.0,
             request_to_first_dispatch_ms=first_dispatch_ms,
             samples=tuple(self._samples),
         )

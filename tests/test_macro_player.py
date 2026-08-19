@@ -1,9 +1,12 @@
+import json
+import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 
 from macro_player import MacroPlayer, _PlanBuilder, _SyntheticEventLedger
-from macro_timing import MacroTimingCollector
+from profiling.macro_timing import MacroTimingCollector
 from parser import expanded_ast_from_tokens, split_inputs
 
 
@@ -45,10 +48,14 @@ class MacroPlanTests(unittest.TestCase):
         self.assertAlmostEqual(q_down, 0.2)
         self.assertEqual(replay_e, [0.0, 0.1])
 
-    def test_spam_interval_cannot_overlap_same_key_pulses(self):
+    def test_spam_interval_has_a_released_gap_between_same_key_pulses(self):
         plan = _plan("e, wait:0.05s, e, wait:0.05s, q", spam_interval_ms=5)
         e_downs = [event.at_s for event in plan.events if event.kind == "down" and event.key == "e"]
+        e_ups = [event.at_s for event in plan.events if event.kind == "up" and event.key == "e"]
         self.assertEqual(e_downs, [0.0, 0.03, 0.06, 0.09])
+        self.assertEqual(len(e_ups), 4)
+        for actual, expected in zip(e_ups, [0.025, 0.055, 0.085, 0.115]):
+            self.assertAlmostEqual(actual, expected)
 
     def test_hold_with_body_keeps_holder_down_until_body_and_minimum_finish(self):
         plan = _plan("hold(lmb, 0.2s, {wait:0.05s, q})", spam_interval_ms=None)
@@ -107,6 +114,23 @@ class MacroPlayerTests(unittest.TestCase):
         self.assertEqual([event["kind"] for event in profile["events"]], ["down", "up"])
         self.assertIn("dispatch_start_lateness_ms", profile)
 
+    def test_completed_run_writes_profile_artifacts_when_configured(self):
+        with tempfile.TemporaryDirectory() as directory:
+            profile_dir = Path(directory) / "macro_profiles"
+            player = MacroPlayer(output=FakeOutput(), profile_log_dir=profile_dir)
+
+            self.assertTrue(player.start(["f"], combo_name="Profile test"))
+            deadline = time.perf_counter() + 1.0
+            while player.is_running() and time.perf_counter() < deadline:
+                time.sleep(0.001)
+
+            latest = profile_dir / "latest.json"
+            self.assertTrue(latest.exists())
+            payload = json.loads(latest.read_text(encoding="utf-8"))
+            self.assertEqual(payload["outcome"], "completed")
+            self.assertEqual(payload["combo_name"], "Profile test")
+            self.assertEqual(payload["profile"]["event_count"], 2)
+
 
 class MacroTimingCollectorTests(unittest.TestCase):
     def test_summary_reports_lateness_output_cost_and_interval_error(self):
@@ -139,6 +163,45 @@ class MacroTimingCollectorTests(unittest.TestCase):
         self.assertAlmostEqual(summary["output_duration_ms"]["max"], 0.5)
         self.assertAlmostEqual(summary["interval_error_ms"]["max"], 1.0)
         self.assertEqual(summary["late_event_counts"]["over_1ms"], 1)
+
+    def test_summary_separates_scheduler_and_same_deadline_lateness(self):
+        collector = MacroTimingCollector(requested_at=10.0, clock_started_at=10.0)
+        collector.record(
+            order=1,
+            kind="down",
+            key="f",
+            planned_offset_s=0.0,
+            woke_ns=10_000_100_000,
+            dispatch_started_ns=10_000_200_000,
+            dispatch_completed_ns=10_000_300_000,
+        )
+        collector.record(
+            order=2,
+            kind="up",
+            key="f",
+            planned_offset_s=0.03,
+            woke_ns=10_030_100_000,
+            dispatch_started_ns=10_030_200_000,
+            dispatch_completed_ns=10_030_300_000,
+        )
+        collector.record(
+            order=3,
+            kind="down",
+            key="q",
+            planned_offset_s=0.03,
+            woke_ns=10_030_400_000,
+            dispatch_started_ns=10_030_500_000,
+            dispatch_completed_ns=10_030_600_000,
+        )
+
+        summary = collector.finish().summary()
+
+        self.assertEqual(summary["deadline_analysis"]["deadline_count"], 2)
+        self.assertEqual(summary["deadline_analysis"]["collision_deadline_count"], 1)
+        self.assertEqual(summary["deadline_analysis"]["later_collision_event_count"], 1)
+        self.assertAlmostEqual(summary["scheduler_lateness_ms"]["max"], 0.2)
+        self.assertAlmostEqual(summary["same_deadline_lateness_ms"]["max"], 0.5)
+        self.assertEqual(summary["output_duration_by_input_ms"]["q.down"]["event_count"], 1)
 
 
 class SyntheticEventLedgerTests(unittest.TestCase):

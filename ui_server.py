@@ -505,7 +505,11 @@ def _on_macro_step(key: str, step_ms: float, total_ms: float, pressed: bool) -> 
     engine.replay_accept(key, step_ms, total_ms, pressed=pressed)
 
 
-macro_player = MacroPlayer(on_status=_on_macro_status, on_step=_on_macro_step)
+macro_player = MacroPlayer(
+    on_status=_on_macro_status,
+    on_step=_on_macro_step,
+    profile_log_dir=engine.data_dir / "logs" / "macro_profiles",
+)
 macro_player.set_chain_spam_interval_ms(getattr(engine, "macro_spam_interval_ms", 100))
 
 
@@ -515,7 +519,11 @@ def _start_macro(*, requested_at: float | None = None) -> None:
     if not tokens:
         engine._send({"type": "status", "text": "No combo loaded — select or save a combo first.", "color": "fail"})
         return
-    started = macro_player.start(tokens, requested_at=requested_at)
+    started = macro_player.start(
+        tokens,
+        requested_at=requested_at,
+        combo_name=engine.active_combo_name,
+    )
     if not started:
         pass  # already running — silently ignore per spec
 

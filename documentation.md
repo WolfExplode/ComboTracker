@@ -253,12 +253,29 @@ summary at `INFO` level. The profile measures the part ComboTracker can observe:
 - time spent inside the `pynput` output call
 - planned deadline to output-call completion
 - error between planned and actual event intervals
+- scheduler lateness using only the first dispatch at each deadline
+- same-deadline serialization and output duration grouped by input
+
+Repeated same-key spam keeps the configured cadence, but uses a pulse up to 5ms
+shorter than that cadence. At the default 30ms interval this means 25ms pressed
+and 5ms released, preventing each release from sharing a deadline with the next
+press.
 
 The complete most-recent trace is available from
 `macro_player.last_profile()`. Pass `include_events=False` for only the summary.
 Per-event records include key-down and key-up events. Set
 `COMBOTRACKER_LOG_LEVEL=DEBUG` before starting the app to print those records;
 the default `INFO` level prints only the compact run summary.
+
+Each completed, stopped, or failed playback is also written beside `combos.json`:
+
+```text
+logs/macro_profiles/latest.json
+logs/macro_profiles/macro-YYYYMMDD-HHMMSS-xxxxxxxx.json
+```
+
+`latest.json` is replaced after every run; timestamped files retain the complete
+run history. These runtime diagnostics are ignored by Git.
 
 These measurements end when the operating-system injection call returns. They do
 not prove when the game consumes the input; measuring that would require telemetry

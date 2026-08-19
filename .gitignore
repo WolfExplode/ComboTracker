@@ -9,3 +9,6 @@ __pycache__/
 
 # Runtime state recovery file
 combos.json.bak
+
+# Runtime profiler artifacts
+/logs/

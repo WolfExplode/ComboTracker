@@ -25,6 +25,7 @@ import threading
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, Protocol
 
 from pynput import keyboard, mouse
@@ -38,16 +39,19 @@ from parser import (
     SequenceNode,
     WaitNode,
 )
-from macro_timing import MacroTimingCollector, MacroTimingProfile
+from profiling.macro_profile_log import MacroProfileLogWriter
+from profiling.macro_timing import MacroTimingCollector, MacroTimingProfile
 
 logger = logging.getLogger(__name__)
 
-# Duration (ms) a "tap" key is held before its non-blocking release fires.
-# Must be well below any realistic spam interval to avoid the next press
-# arriving before the previous release, which would make it look like a
-# key-repeat and get silently ignored by the combo engine.
-# The plan compiler enforces this as the minimum same-key spam interval.
+# Duration (ms) a normal tap is held before its non-blocking release fires.
 _TAP_HOLD_MS = 30
+
+# Repeated same-key taps need a real released phase. Without this gap, a 30ms
+# pulse at a 30ms spam cadence schedules release and the next press at the same
+# deadline, forcing two synchronous OS calls to serialize and making the second
+# event late by construction.
+_SPAM_RELEASE_GAP_MS = 5
 
 _KB = keyboard.Controller()
 _MOUSE = mouse.Controller()
@@ -266,11 +270,18 @@ class _PlanBuilder:
         self._action_id += 1
         return self._action_id
 
-    def _tap_at(self, name: str, at_s: float, *, replay: bool = True) -> tuple[int, float]:
+    def _tap_at(
+        self,
+        name: str,
+        at_s: float,
+        *,
+        replay: bool = True,
+        hold_ms: int = _TAP_HOLD_MS,
+    ) -> tuple[int, float]:
         key = self._validate_key(name)
         # A repeated physical key cannot be pressed again before its prior release.
         actual_at = max(at_s, self._key_busy_until[key])
-        release_at = actual_at + (_TAP_HOLD_MS / 1000.0)
+        release_at = actual_at + (max(1, int(hold_ms)) / 1000.0)
         action_id = self._next_action()
         self._event(actual_at, "down", key, action_id)
         if replay:
@@ -307,10 +318,19 @@ class _PlanBuilder:
 
     def _spam_chain(self, nodes: list, start: int, end: int, key: str, total_ms: int) -> None:
         interval_ms = max(_TAP_HOLD_MS, int(self._spam_interval_ms or _DEFAULT_CHAIN_SPAM_INTERVAL_MS))
+        pulse_ms = min(
+            _TAP_HOLD_MS,
+            max(1, interval_ms - _SPAM_RELEASE_GAP_MS),
+        )
         chain_start = self.cursor_s
         physical: list[tuple[float, int]] = []
         for offset_ms in range(0, max(1, total_ms), interval_ms):
-            action_id, actual_at = self._tap_at(key, chain_start + offset_ms / 1000.0, replay=False)
+            action_id, actual_at = self._tap_at(
+                key,
+                chain_start + offset_ms / 1000.0,
+                replay=False,
+                hold_ms=pulse_ms,
+            )
             physical.append((actual_at, action_id))
 
         cumulative_s = 0.0
@@ -465,6 +485,7 @@ class MacroPlayer:
         on_step: Callable[[str, float, float, bool], None] | None = None,
         *,
         output: _OutputAdapter | None = None,
+        profile_log_dir: Path | None = None,
     ):
         """
         on_status(text, color): optional callback on the playback thread for start/complete/stop.
@@ -480,6 +501,9 @@ class MacroPlayer:
         self._synthetic_events = _SyntheticEventLedger()
         self._output: _OutputAdapter = output or _PynputOutput(self._synthetic_events)
         self._last_profile: MacroTimingProfile | None = None
+        self._profile_log = (
+            MacroProfileLogWriter(profile_log_dir) if profile_log_dir is not None else None
+        )
 
     def set_chain_spam_interval_ms(self, interval_ms: int | None) -> None:
         if interval_ms is None:
@@ -507,7 +531,13 @@ class MacroPlayer:
             profile = self._last_profile
         return profile.to_dict(include_events=include_events) if profile is not None else None
 
-    def start(self, tokens: list[str], *, requested_at: float | None = None) -> bool:
+    def start(
+        self,
+        tokens: list[str],
+        *,
+        requested_at: float | None = None,
+        combo_name: str | None = None,
+    ) -> bool:
         """
         Begin macro playback from a list of normalized combo tokens.
         Returns False (and does nothing) if playback is already in progress.
@@ -531,7 +561,7 @@ class MacroPlayer:
             self._last_profile = None
             self._thread = threading.Thread(
                 target=self._run,
-                args=(plan, request_time),
+                args=(plan, request_time, combo_name),
                 name="MacroPlayer",
                 daemon=True,
             )
@@ -542,7 +572,12 @@ class MacroPlayer:
         """Signal playback to stop; the playback thread releases held inputs."""
         self._stop.set()
 
-    def _run(self, plan: _ExecutionPlan, requested_at: float) -> None:
+    def _run(
+        self,
+        plan: _ExecutionPlan,
+        requested_at: float,
+        combo_name: str | None,
+    ) -> None:
         stopped_early = False
         failure: str | None = None
         end_period = _windows_timer_1ms_enter()
@@ -660,26 +695,42 @@ class MacroPlayer:
                 with self._lock:
                     self._last_profile = profile
                 summary = profile.summary()
-                lateness = summary["dispatch_start_lateness_ms"]
+                scheduler = summary["scheduler_lateness_ms"]
+                collision = summary["same_deadline_lateness_ms"]
+                deadline_analysis = summary["deadline_analysis"]
                 output = summary["output_duration_ms"]
                 interval = summary["interval_error_ms"]
                 logger.info(
                     "Macro timing: events=%d start=%.3fms first=%.3fms "
-                    "lateness[p50=%.3f p95=%.3f p99=%.3f max=%.3f]ms "
+                    "scheduler[p50=%.3f p95=%.3f p99=%.3f max=%.3f]ms "
+                    "same_deadline[count=%d p95=%.3f max=%.3f]ms "
                     "output[p95=%.3f max=%.3f]ms interval_error[p95=%.3f max=%.3f]ms",
                     summary["event_count"],
                     summary["request_to_clock_start_ms"],
                     summary["request_to_first_dispatch_ms"] or 0.0,
-                    lateness["p50"],
-                    lateness["p95"],
-                    lateness["p99"],
-                    lateness["max"],
+                    scheduler["p50"],
+                    scheduler["p95"],
+                    scheduler["p99"],
+                    scheduler["max"],
+                    deadline_analysis["later_collision_event_count"],
+                    collision["p95"],
+                    collision["max"],
                     output["p95"],
                     output["max"],
                     interval["p95"],
                     interval["max"],
                 )
                 logger.debug("Macro timing events: %s", profile.to_dict()["events"])
+                outcome = "failed" if failure else "stopped" if stopped_early else "completed"
+                if self._profile_log is not None:
+                    written_path = self._profile_log.write(
+                        profile,
+                        outcome=outcome,
+                        combo_name=combo_name,
+                        plan_duration_ms=plan.duration_s * 1000.0,
+                    )
+                    if written_path is not None:
+                        logger.info("Macro timing profile saved: %s", written_path)
             if failure:
                 self._notify(f"Macro failed: {failure}", "fail")
             elif stopped_early:
