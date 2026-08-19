@@ -2,11 +2,12 @@ import unittest
 
 from combo_engine import ComboTrackerEngine
 from parser import expanded_ast_from_tokens, split_inputs
+from state_store import MemoryStateStore
 from states import build_runtime_state
 
 
 def _engine_with_combo(inputs: str) -> ComboTrackerEngine:
-    engine = ComboTrackerEngine()
+    engine = ComboTrackerEngine(state_store=MemoryStateStore())
     engine.active_combo_name = "_input_test"
     engine.active_combo_tokens = split_inputs(inputs)
     engine.runtime_steps = [
@@ -18,6 +19,15 @@ def _engine_with_combo(inputs: str) -> ComboTrackerEngine:
 
 
 class InputDetectionTests(unittest.TestCase):
+    def test_tick_runtime_errors_are_observable(self):
+        engine = ComboTrackerEngine(state_store=MemoryStateStore())
+        engine.runtime_steps = [object()]
+        engine.start_time = 1.0
+        engine.last_input_time = 1.0
+
+        with self.assertRaisesRegex(RuntimeError, "tick transition failed"):
+            engine.tick()
+
     def test_os_repeat_down_cannot_complete_two_identical_steps(self):
         engine = _engine_with_combo("e, e, q")
 

@@ -500,9 +500,9 @@ def _on_macro_status(text: str, color: str) -> None:
     engine._send({"type": "status", "text": text, "color": color})
 
 
-def _on_macro_step(key: str, step_ms: float, total_ms: float) -> None:
+def _on_macro_step(key: str, step_ms: float, total_ms: float, pressed: bool) -> None:
     """Karaoke callback: advance the visual combo state for each replayed step."""
-    engine.replay_accept(key, step_ms, total_ms)
+    engine.replay_accept(key, step_ms, total_ms, pressed=pressed)
 
 
 macro_player = MacroPlayer(on_status=_on_macro_status, on_step=_on_macro_step)

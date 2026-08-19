@@ -6,11 +6,12 @@ import unittest
 from combo_engine import ComboTrackerEngine
 from parser import split_inputs, expanded_ast_from_tokens
 from macro_player import MacroPlayer, _PlanBuilder
-from states import GroupState, HoldState, SequenceState, build_runtime_state
+from state_store import MemoryStateStore
+from states import GroupState, HoldState, PressState, SequenceState, build_runtime_state
 
 
 def _engine_with_combo(inputs: str) -> ComboTrackerEngine:
-    e = ComboTrackerEngine()
+    e = ComboTrackerEngine(state_store=MemoryStateStore())
     e.active_combo_name = "_test"
     e.active_combo_tokens = split_inputs(inputs)
     ast_steps = expanded_ast_from_tokens(e.active_combo_tokens)
@@ -27,8 +28,14 @@ def _replay_plan(e: ComboTrackerEngine, inputs: str, *, through_key: str | None 
     for event in plan.events:
         if event.kind != "replay":
             continue
+        assert event.pressed is not None
         total_ms = event.at_s * 1000.0
-        e.replay_accept(event.key, total_ms - previous_ms, total_ms)
+        e.replay_accept(
+            event.key,
+            total_ms - previous_ms,
+            total_ms,
+            pressed=event.pressed,
+        )
         previous_ms = total_ms
         if through_key is not None and event.key == through_key:
             return
@@ -43,6 +50,33 @@ class _SuccessfulOutput:
 
 
 class ReplayAcceptTests(unittest.TestCase):
+    def test_plain_replay_press_completes_runtime_state(self):
+        e = _engine_with_combo("f, q")
+
+        e.replay_accept("f", 0.0, 0.0)
+
+        first = e.runtime_steps[0]
+        self.assertIsInstance(first, PressState)
+        self.assertTrue(first.completed)
+        self.assertTrue(e.timeline_steps()[0]["completed"])
+
+    def test_live_and_replay_plain_press_timelines_match(self):
+        live = _engine_with_combo("f, q, r")
+        replay = _engine_with_combo("f, q, r")
+
+        for index, key in enumerate(("f", "q")):
+            now = 100.0 + index
+            live.process_press(key, event_time=now)
+            live.process_release(key, event_time=now + 0.01)
+            replay.replay_accept(key, 10.0, index * 10.0)
+
+            self.assertEqual(replay.current_index, live.current_index)
+            self.assertEqual(
+                replay.runtime_steps[index].to_dict(),
+                live.runtime_steps[index].to_dict(),
+            )
+            self.assertEqual(replay.timeline_steps(), live.timeline_steps())
+
     def test_press_soft_wait_sequence_advances_inner_not_top_level(self):
         """`e, wait:Xs` merges to SequenceState; replay must not bump past the whole sequence on `e` alone."""
         e = _engine_with_combo("f, e, wait:0.4s, lmb")
@@ -148,7 +182,7 @@ class ReplayAcceptTests(unittest.TestCase):
         self.assertEqual(e.current_index, 1)
         self.assertTrue(hold.in_progress)
 
-        e.replay_accept("e", 100.0, 110.0)
+        e.replay_accept("e", 100.0, 110.0, pressed=False)
         self.assertEqual(e.current_index, 2)
 
     def test_replay_tick_finishes_trailing_press_wait(self):
@@ -178,10 +212,12 @@ class ReplayAcceptTests(unittest.TestCase):
             "f, e, wait:0.05s, q",
             "f, wait(r, 0.05s), q",
             "f, hold(e, 0.05s), q",
+            "f, {hold(e, 0.05s), q}, r",
             "f, hold(lmb, 0.08s, {wait:0.02s, q}), e",
             "f, [q, e], 2",
             "f, [wait(r, 0.05s), q, e], 2",
             "f, [q, hold(e, 0.05s)], 2",
+            "f, [{hold(e, 0.05s), q}, r], 2",
             "f, [{e, wait:0.02s, e, wait:0.03s}, wait(r, 0.04s)], 2",
         ]
 

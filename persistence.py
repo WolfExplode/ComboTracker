@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 from uuid import uuid4
@@ -45,16 +44,15 @@ def _clean_counter_dict(obj: Any, *, key_norm) -> dict[str, int]:
 
 def load_engine_state(engine) -> None:
     """
-    Load persisted state from `engine.save_path` into the engine instance.
+    Load persisted state from `engine.state_store` into the engine instance.
 
     This function owns JSON schema compatibility, sanitization, and migrations.
     (Keeping it here avoids bloating `ComboTrackerEngine` with persistence concerns.)
     """
     try:
-        if not engine.save_path.exists():
+        data = engine.state_store.load()
+        if data is None:
             return
-
-        data = json.loads(engine.save_path.read_text(encoding="utf-8"))
 
         # Combos
         combos = data.get("combos", {})
@@ -479,12 +477,11 @@ def load_engine_state(engine) -> None:
         engine.runtime_steps = []
 
 
-def save_engine_state(engine) -> None:
+def save_engine_state(engine) -> bool:
     """
-    Persist the engine state to `engine.save_path`.
+    Persist the engine state through `engine.state_store`.
     """
     try:
-        engine.data_dir.mkdir(parents=True, exist_ok=True)
         payload = {
             "version": 1,
             "last_active_combo": engine.active_combo_name,
@@ -526,7 +523,8 @@ def save_engine_state(engine) -> None:
             "ww_active_team_id": engine.ww.ww_active_team_id,
             "combo_ww_team": dict(engine.ww.combo_ww_team),
         }
-        engine.save_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        engine.state_store.save(payload)
+        return True
     except Exception:
         logger.exception("Failed to save engine state")
-
+        return False

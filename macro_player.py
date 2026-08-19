@@ -148,7 +148,7 @@ class _ReplayState:
         self,
         start_time: float,
         stop: threading.Event,
-        deliver_queue: "queue.Queue[tuple[str, float, float]]",
+        deliver_queue: "queue.Queue[tuple[str, float, float, bool]]",
     ):
         self._start_time = start_time
         self._last_time = start_time
@@ -156,7 +156,7 @@ class _ReplayState:
         self._lock = threading.Lock()
         self._deliver_queue = deliver_queue
 
-    def fire(self, key: str, at_time: float | None = None) -> None:
+    def fire(self, key: str, pressed: bool, at_time: float | None = None) -> None:
         """Enqueue on_step with wall-clock-accurate step/total timings.
 
         at_time: absolute perf_counter timestamp when this step logically fires.
@@ -170,7 +170,7 @@ class _ReplayState:
             total_ms = max(0.0, (now - self._start_time) * 1000.0)
             self._last_time = now
         try:
-            self._deliver_queue.put((key, step_ms, total_ms))
+            self._deliver_queue.put((key, step_ms, total_ms, pressed))
         except Exception:
             logger.debug("_ReplayState.fire: queue put failed for key %r", key, exc_info=True)
 
@@ -215,6 +215,7 @@ class _PlanEvent:
     kind: str = field(compare=False)
     key: str = field(compare=False)
     action_id: int = field(compare=False)
+    pressed: bool | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -246,9 +247,19 @@ class _PlanBuilder:
             return key
         raise ValueError(f"Unsupported macro input: {name!r}")
 
-    def _event(self, at_s: float, kind: str, key: str, action_id: int) -> None:
+    def _event(
+        self,
+        at_s: float,
+        kind: str,
+        key: str,
+        action_id: int,
+        *,
+        pressed: bool | None = None,
+    ) -> None:
         self._order += 1
-        self._events.append(_PlanEvent(max(0.0, at_s), self._order, kind, key, action_id))
+        self._events.append(
+            _PlanEvent(max(0.0, at_s), self._order, kind, key, action_id, pressed)
+        )
 
     def _next_action(self) -> int:
         self._action_id += 1
@@ -262,7 +273,7 @@ class _PlanBuilder:
         action_id = self._next_action()
         self._event(actual_at, "down", key, action_id)
         if replay:
-            self._event(actual_at, "replay", key, action_id)
+            self._event(actual_at, "replay", key, action_id, pressed=True)
         self._event(release_at, "up", key, action_id)
         self._key_busy_until[key] = release_at
         return action_id, actual_at
@@ -273,9 +284,9 @@ class _PlanBuilder:
         end = start + max(0, duration_ms) / 1000.0
         action_id = self._next_action()
         self._event(start, "down", key, action_id)
-        self._event(start, "replay", key, action_id)
+        self._event(start, "replay", key, action_id, pressed=True)
         self._event(end, "up", key, action_id)
-        self._event(end, "replay", key, action_id)
+        self._event(end, "replay", key, action_id, pressed=False)
         self._key_busy_until[key] = end
         self.cursor_s = end
 
@@ -285,11 +296,11 @@ class _PlanBuilder:
         self.cursor_s = start
         action_id = self._next_action()
         self._event(start, "down", key, action_id)
-        self._event(start, "replay", key, action_id)
+        self._event(start, "replay", key, action_id, pressed=True)
         self._node_list(list(node.body), None)
         end = max(start + max(0, node.duration_ms) / 1000.0, self.cursor_s)
         self._event(end, "up", key, action_id)
-        self._event(end, "replay", key, action_id)
+        self._event(end, "replay", key, action_id, pressed=False)
         self._key_busy_until[key] = end
         self.cursor_s = end
 
@@ -311,7 +322,7 @@ class _PlanBuilder:
                     action_id = candidate_id
                 else:
                     break
-            self._event(logical_at, "replay", key, action_id)
+            self._event(logical_at, "replay", key, action_id, pressed=True)
             if info:
                 cumulative_s += info[1] / 1000.0
         self.cursor_s = chain_start + total_ms / 1000.0
@@ -450,14 +461,14 @@ class MacroPlayer:
     def __init__(
         self,
         on_status: Callable[[str, str], None] | None = None,
-        on_step: Callable[[str, float, float], None] | None = None,
+        on_step: Callable[[str, float, float, bool], None] | None = None,
         *,
         output: _OutputAdapter | None = None,
     ):
         """
         on_status(text, color): optional callback on the playback thread for start/complete/stop.
-        on_step(key, step_ms, total_ms): optional karaoke callback, fired once per logical combo
-            step at the wall-clock moment the key is dispatched.  Must be thread-safe.
+        on_step(key, step_ms, total_ms, pressed): optional karaoke callback, fired once
+            per logical combo input phase at its planned time. Must be thread-safe.
         """
         self._on_status = on_status
         self._on_step = on_step
@@ -526,7 +537,7 @@ class MacroPlayer:
         try:
             start_time = time.perf_counter()
             replay = None
-            replay_q: queue.Queue[tuple[str, float, float]] | None = None
+            replay_q: queue.Queue[tuple[str, float, float, bool] | None] | None = None
             replay_worker_thread: threading.Thread | None = None
             if self._on_step is not None:
                 replay_q = queue.Queue()
@@ -540,9 +551,9 @@ class MacroPlayer:
                             break
                         if stop_ev.is_set():
                             continue
-                        k, sm, tm = item
+                        k, sm, tm, pressed = item
                         try:
-                            on_step(k, sm, tm)
+                            on_step(k, sm, tm, pressed)
                         except Exception:
                             logger.debug(
                                 "_replay_deliver_loop: on_step raised for key %r",
@@ -578,7 +589,13 @@ class MacroPlayer:
                         held.discard(event.key)
                     elif event.kind == "replay" and replay is not None:
                         if action_ok.get(event.action_id, False):
-                            replay.fire(event.key, start_time + event.at_s)
+                            if event.pressed is None:
+                                raise RuntimeError("replay event is missing its input phase")
+                            replay.fire(
+                                event.key,
+                                event.pressed,
+                                start_time + event.at_s,
+                            )
             finally:
                 for key in tuple(held):
                     try:

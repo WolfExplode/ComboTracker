@@ -3,12 +3,13 @@ import unittest
 
 from combo_engine import ComboTrackerEngine
 from parser import split_inputs, expanded_ast_from_tokens
+from state_store import MemoryStateStore
 from states import HoldState, SequenceState, WaitState, build_runtime_state
 import combo_engine_ui as ui
 
 
 def _build_engine_for_inputs(inputs: str) -> ComboTrackerEngine:
-    e = ComboTrackerEngine()
+    e = ComboTrackerEngine(state_store=MemoryStateStore())
     e.active_combo_name = "_test"
     e.active_combo_tokens = split_inputs(inputs)
     ast_steps = expanded_ast_from_tokens(e.active_combo_tokens)

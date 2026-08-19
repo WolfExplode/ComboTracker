@@ -52,9 +52,15 @@ class MacroPlanTests(unittest.TestCase):
     def test_hold_with_body_keeps_holder_down_until_body_and_minimum_finish(self):
         plan = _plan("hold(lmb, 0.2s, {wait:0.05s, q})", spam_interval_ms=None)
         holder = [(event.kind, event.at_s) for event in plan.events if event.key == "lmb"]
+        replay_phases = [
+            event.pressed
+            for event in plan.events
+            if event.kind == "replay" and event.key == "lmb"
+        ]
         q_down = next(event.at_s for event in plan.events if event.kind == "down" and event.key == "q")
 
         self.assertEqual(holder, [("down", 0.0), ("replay", 0.0), ("up", 0.2), ("replay", 0.2)])
+        self.assertEqual(replay_phases, [True, False])
         self.assertAlmostEqual(q_down, 0.05)
 
 
@@ -65,7 +71,7 @@ class MacroPlayerTests(unittest.TestCase):
         replayed: list[str] = []
         player = MacroPlayer(
             on_status=lambda text, color: statuses.append((text, color)),
-            on_step=lambda key, _step, _total: replayed.append(key),
+            on_step=lambda key, _step, _total, _pressed: replayed.append(key),
             output=output,
         )
 
