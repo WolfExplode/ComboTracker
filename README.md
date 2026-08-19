@@ -38,7 +38,9 @@ https://github.com/user-attachments/assets/e32ac3e1-9fc6-40bf-ac14-98cb3224156d
 </details>
 
 ## Getting started
-You can simply run ComboTracker.exe or run the code via python:
+If you downloaded a packaged release, keep the release folder intact and run
+`ComboTracker.exe` from inside it. To run from source, use Python as described
+below.
 
 ### Requirements
 - Python 3.10+ recommended
@@ -64,8 +66,8 @@ Notes:
 - The backend also runs a WebSocket server at `ws://localhost:8765`.
 - The app listens to global keyboard/mouse via `pynput` (you may need accessibility permissions on some OSes).
 
-### Building a standalone .exe (Windows)
-You can package ComboTracker as a single executable so others can run it without installing Python.
+### Building the Windows release
+You can package ComboTracker so others can run it without installing Python.
 
 1. Install build tooling (once):
    ```bash
@@ -73,13 +75,13 @@ You can package ComboTracker as a single executable so others can run it without
    ```
 2. From the project root, build:
    ```bash
-   pyinstaller ComboTracker.spec
+   python -m PyInstaller --noconfirm --clean ComboTracker.spec
    ```
-3. Release artifact: **`dist/ComboTracker.exe`**. Double-click or run from a terminal. Windows will prompt for **Administrator** approval once per launch; this matches elevated games so global input capture works in-game.
+3. Release artifact: **`dist/ComboTracker/`**. Keep the entire folder together and launch **`dist/ComboTracker/ComboTracker.exe`**. Windows will prompt for **Administrator** approval once per launch; this matches elevated games so global input capture works in-game.
 4. Open **`http://localhost:8080`** in your browser. A console window stays open with the server URL (close it or press Ctrl+C to stop).
-5. **`combos.json`** (saved combos and settings) is written **next to the .exe**. Move both together if you relocate the app; otherwise a new `combos.json` is created on first run.
+5. **`combos.json`** (saved combos and settings) is written **next to the .exe**. Keep it in the release folder if you want saved data to move with the app; otherwise a new `combos.json` is created on first run.
 
-**Publishing a release:** ship `dist/ComboTracker.exe` (optionally zip it for GitHub Releases). Build on a **normal (non-elevated)** terminal; PyInstaller may warn if you run it from an elevated shell.
+**Publishing a release:** zip and ship the complete `dist/ComboTracker/` folder. The one-folder, non-UPX layout avoids the self-extracting executable pattern that commonly triggers antivirus heuristics. Build on a **normal (non-elevated)** terminal; PyInstaller may warn if you run it from an elevated shell. Code-signing the executable is recommended for public releases.
 
 ---
 

@@ -1,6 +1,9 @@
 # PyInstaller spec for ComboTracker
 # Build: pyinstaller ComboTracker.spec
-# Output: dist/ComboTracker.exe (one-file bundle)
+# Output: dist/ComboTracker/ComboTracker.exe (one-folder bundle)
+#
+# Keep this as a one-folder, non-UPX build. Self-extracting one-file executables
+# that install global input hooks are prone to antivirus heuristic detections.
 #
 # Windows: uac_admin=True embeds a manifest so the exe requests Administrator elevation.
 # That matches elevated games so global keyboard/mouse capture (pynput) works in-game.
@@ -35,7 +38,7 @@ _exe_options = dict(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,
@@ -51,9 +54,16 @@ if sys.platform == "win32":
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     **_exe_options,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    name="ComboTracker",
 )
