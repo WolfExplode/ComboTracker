@@ -16,6 +16,7 @@ This file contains the longer-form docs that don’t need to live in `README.md`
 - **Combo enders**: [Combo enders](#combo-enders)
 - **Difficulty + APM**: [Difficulty--apm](#difficulty--apm)
 - **Troubleshooting**: [Troubleshooting](#troubleshooting)
+- **Auto transcription**: [Accurate auto transcription](#accurate-auto-transcription)
 - **Developer / architecture**: [Architecture](#architecture)
 
 ---
@@ -77,8 +78,21 @@ Use when a key must remain held while you press one or more other buttons inside
 - The `{body}` is a sequence of **presses** (`q`, `e`, …) and **`wait:` delay gates** that must be completed while the holder key is down. Waits in the body encode the relative timing from hold-start (useful for replay / macro playback).
 - **Both** conditions must be true before the step advances: holder held for ≥ `hold_time` AND all body steps completed.
 - Releasing the holder key **before** either condition is met **immediately fails** the combo (no forgiving hold).
-- Body steps may only be plain presses or `wait:` delays — no nested `hold(...)`, groups, or optional steps.
+- Body steps may only be plain presses, `spam(...)`, or `wait:` delays — no nested `hold(...)`, groups, or optional steps.
 - **This notation is mutually exclusive with the anim-lock form:** `hold(key, a, b, {…})` (four arguments) is not valid.
+
+### Repeated buffered input: `spam(key, duration)`
+
+`spam(lmb, 4.4s)` repeatedly taps LMB over a 4.4-second span. Macro playback uses
+the configured **Spam keys delay in ms** cadence and includes a tap at the end of
+the span. Auto transcription emits this compact form for three or more consecutive
+same-key taps whose start times are no more than 200ms apart. Two taps remain
+expanded. This is a transcription convenience: it records the observed buffering
+region and does not claim to know when the game accepted an input or ended an
+animation lock.
+
+`spam(...)` is also valid inside a hold body, for example
+`hold(lmb, 1.5s, {wait:0.3s, spam(r, 0.8s)})`.
 
 **Replay / macro:** the inner body steps are executed in order while the holder is held; any remaining `hold_time` after the body finishes is slept before the holder is released.
 
@@ -201,6 +215,33 @@ Make sure you’re running `ui_server.py` from `ComboTracker/`, or just run it n
 
 ---
 
+## Accurate auto transcription
+
+Auto transcription records timestamped key-down and key-up edges before creating
+combo syntax. Distinct rapid clicks are preserved, keyboard repeat-down messages
+are ignored, and each key is tracked independently so inputs performed inside a
+hold can become `hold(key, duration, {body})`.
+
+Waits and holds are formatted at millisecond precision. **Strip waits under** is
+an optional post-recording simplification policy: omitted waits remain present in
+the raw recording even when they are not included in the generated combo text.
+
+Starting transcription records the real start-key press and release. Stopping
+with Esc closes any still-held inputs at the Esc timestamp.
+
+Every stopped recording is saved beside `combos.json`:
+
+```text
+logs/transcriptions/latest.json
+logs/transcriptions/transcription-YYYYMMDD-HHMMSS-xxxxxxxx.json
+```
+
+The files contain the generated transcript, compiler settings, diagnostics, and
+the complete raw event timeline. They are useful for investigating dropped or
+misclassified inputs without re-recording the combo.
+
+---
+
 ## Architecture
 
 ComboTracker is a small local web UI + Python backend. Roughly:
@@ -239,9 +280,52 @@ ComboTracker is a small local web UI + Python backend. Roughly:
   - `format_utils.py`: duration parsing and ms formatting
   - `stats_recording.py`: success/fail stat mutation and fail event recording
 
+- **Input recording and transcription**: `transcriber.py`
+  - Captures raw multi-key input edges under a lock
+  - Compiles taps, waits, holds, and contained hold bodies after recording
+  - Preserves raw evidence through `profiling/transcription_log.py`
+
 - **Game-specific state / helpers**: `Game_Wuthering_Waves.py`
   - Stores WW-specific metadata (teams, target game, active character slot)
   - Provides WW ender policy used by the engine
+
+### Macro timing profiler
+
+Every completed macro run records a low-overhead timing profile and logs a one-line
+summary at `INFO` level. The profile measures the part ComboTracker can observe:
+
+- start request to playback-clock startup
+- planned deadline to output-call start (dispatch lateness)
+- time spent inside the `pynput` output call
+- planned deadline to output-call completion
+- error between planned and actual event intervals
+- scheduler lateness using only the first dispatch at each deadline
+- same-deadline serialization and output duration grouped by input
+
+Repeated same-key spam keeps the configured cadence, but uses a pulse up to 5ms
+shorter than that cadence. At the default 30ms interval this means 25ms pressed
+and 5ms released, preventing each release from sharing a deadline with the next
+press.
+
+The complete most-recent trace is available from
+`macro_player.last_profile()`. Pass `include_events=False` for only the summary.
+Per-event records include key-down and key-up events. Set
+`COMBOTRACKER_LOG_LEVEL=DEBUG` before starting the app to print those records;
+the default `INFO` level prints only the compact run summary.
+
+Each completed, stopped, or failed playback is also written beside `combos.json`:
+
+```text
+logs/macro_profiles/latest.json
+logs/macro_profiles/macro-YYYYMMDD-HHMMSS-xxxxxxxx.json
+```
+
+`latest.json` is replaced after every run; timestamped files retain the complete
+run history. These runtime diagnostics are ignored by Git.
+
+These measurements end when the operating-system injection call returns. They do
+not prove when the game consumes the input; measuring that would require telemetry
+from the game or an external visual/audio response measurement.
 
 ### Running tests
 
@@ -252,4 +336,3 @@ python -m pytest tests\ -v
 ### Logging
 
 Set `COMBOTRACKER_LOG_LEVEL` (e.g. `DEBUG`, `INFO`, `WARNING`) to control app logging.
-

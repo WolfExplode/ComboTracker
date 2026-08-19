@@ -3,12 +3,13 @@ import unittest
 
 from combo_engine import ComboTrackerEngine
 from parser import split_inputs, expanded_ast_from_tokens
-from states import HoldState, SequenceState, WaitState, build_runtime_state
+from state_store import MemoryStateStore
+from states import HoldState, SequenceState, SpamState, WaitState, build_runtime_state
 import combo_engine_ui as ui
 
 
 def _build_engine_for_inputs(inputs: str) -> ComboTrackerEngine:
-    e = ComboTrackerEngine()
+    e = ComboTrackerEngine(state_store=MemoryStateStore())
     e.active_combo_name = "_test"
     e.active_combo_tokens = split_inputs(inputs)
     ast_steps = expanded_ast_from_tokens(e.active_combo_tokens)
@@ -20,6 +21,34 @@ def _build_engine_for_inputs(inputs: str) -> ComboTrackerEngine:
 
 
 class TimelineViewModelTests(unittest.TestCase):
+    def test_spam_renders_as_one_compact_timeline_step(self):
+        e = _build_engine_for_inputs("f, spam(lmb, 4.4s), q")
+        steps = ui.timeline_steps(e, time.perf_counter())
+        self.assertEqual([step["type"] for step in steps], ["press", "spam", "press"])
+        self.assertEqual(steps[1]["input"], "lmb")
+        self.assertEqual(steps[1]["duration"], 4400)
+
+        spam = e.runtime_steps[1]
+        self.assertIsInstance(spam, SpamState)
+        spam.in_progress = True
+        spam.started_at = 10.0
+        e.current_index = 1
+        steps = ui.timeline_steps(e, 12.2)
+        self.assertIn(steps[1]["progress"], (49, 50))
+
+        _sig, events = ui.wait_animation_events(e, active_step=spam, prev_sig=None)
+        self.assertEqual(events[0]["type"], "spam_begin")
+        self.assertEqual(events[0]["mode"], "spam")
+        self.assertEqual(events[0]["required_ms"], 4400)
+
+    def test_spam_renders_inside_hold_body(self):
+        e = _build_engine_for_inputs("hold(lmb, 1s, {wait:0.2s, spam(r, 0.6s)})")
+        steps = ui.timeline_steps(e, time.perf_counter())
+        body_items = steps[0]["body"]["items"]
+        self.assertEqual([item["type"] for item in body_items], ["wait", "spam"])
+        self.assertEqual(body_items[1]["input"], "r")
+        self.assertEqual(body_items[1]["duration"], 600)
+
     def test_sequence_collapses_plain_press_wait(self):
         # inside { ... } we should not emit separate press then wait tiles for plain waits
         combo = "[q, {lmb, wait:0.40s, rmb, wait:0.30s}]"

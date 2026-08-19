@@ -14,6 +14,7 @@ from states import (
     HoldWithBodyState,
     PressState,
     SequenceState,
+    SpamState,
     WaitState,
 )
 
@@ -42,6 +43,8 @@ def _step_time_ms(s: Any) -> int:
         return max(int(s.required_ms or 0), body_ms)
     if isinstance(s, PressState):
         return 0
+    if isinstance(s, SpamState):
+        return int(s.required_ms or 0)
     if isinstance(s, SequenceState):
         return sum(_step_time_ms(x) for x in s.steps)
     if isinstance(s, GroupState):
@@ -61,6 +64,8 @@ def min_combo_time_ms(engine) -> int:
 def _count_step_actions(s: Any) -> tuple[int, int]:
     """(press_count, hold_count) for one StepState."""
     if isinstance(s, PressState):
+        return (1, 0)
+    if isinstance(s, SpamState):
         return (1, 0)
     if isinstance(s, HoldState):
         return (0, 1)
@@ -196,6 +201,8 @@ def _timing_variation_points(engine) -> int:
             for sub in s.body.steps:
                 process_step(sub)
         elif isinstance(s, PressState):
+            pass
+        elif isinstance(s, SpamState):
             pass
         elif isinstance(s, SequenceState):
             for sub in s.steps:

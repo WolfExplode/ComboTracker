@@ -108,7 +108,7 @@ def record_combo_success(engine: Any, completion_ms: float | int | None = None) 
     engine.combo_stats[name]["success"] += 1
 
     if completion_ms is None and getattr(engine, "start_time", 0):
-        completion_ms = (time.perf_counter() - engine.start_time) * 1000.0
+        completion_ms = (engine._now() - engine.start_time) * 1000.0
     try:
         ms = int(round(float(completion_ms))) if completion_ms is not None else None
     except Exception:

@@ -40,7 +40,8 @@ const appState = {
     showFailCount: false,
     collapseChainedPresses: true,
     autoScrollEnabled: false,
-    stepEditMode: false,
+    stepEditMode: true,
+    editStepsUndoStack: [],
     targetGame: 'generic',
     wwAbilityImages: { "1": {}, "2": {}, "3": {} },
     wwSwapImages: { "1": "", "2": "", "3": "" },
@@ -1132,6 +1133,9 @@ let holdRafId = null;
 let waitAnim = { active: false, requiredMs: 0, startedAt: 0 };
 let waitRafId = null;
 
+let spamAnim = { active: false, requiredMs: 0, startedAt: 0 };
+let spamRafId = null;
+
 function stopHoldAnimation() {
     holdAnim.active = false;
     if (holdRafId !== null) {
@@ -1186,8 +1190,11 @@ function tickWaitAnimation() {
         waitRafId = null;
         return;
     }
-    // Select active wait steps (including press_wait which has .press-wait class)
-    const stepEl = document.querySelector('.step.wait.active, .step.press-wait.active');
+    // Select active wait steps, including hold-body wait chips.
+    const stepEl = document.querySelector(
+        '.step.wait.active, .step.press-wait.active, ' +
+        '.hold-body-chip.wait.active, .hold-body-chip.press-wait.active .hold-body-inline-wait'
+    );
     if (!stepEl) {
         waitRafId = requestAnimationFrame(tickWaitAnimation);
         return;
@@ -1196,7 +1203,11 @@ function tickWaitAnimation() {
     const elapsed = performance.now() - waitAnim.startedAt;
     const req = Math.max(1, Number(waitAnim.requiredMs) || 1);
     const pct = Math.max(0, Math.min(100, (elapsed / req) * 100));
-    stepEl.style.setProperty('--wait-pct', `${pct}%`);
+    const progressProperty = stepEl.classList.contains('hold-body-chip')
+        || stepEl.classList.contains('hold-body-inline-wait')
+        ? '--chip-wait-pct'
+        : '--wait-pct';
+    stepEl.style.setProperty(progressProperty, `${pct}%`);
     updateStatus(`Waiting... ${Math.round(pct)}%`, 'wait');
 
     if (pct >= 100) {
@@ -1212,6 +1223,51 @@ function startWaitAnimation(requiredMs) {
     waitAnim.requiredMs = Math.max(1, Number(requiredMs) || 1);
     waitAnim.startedAt = performance.now();
     waitRafId = requestAnimationFrame(tickWaitAnimation);
+}
+
+function stopSpamAnimation() {
+    spamAnim.active = false;
+    if (spamRafId !== null) {
+        cancelAnimationFrame(spamRafId);
+        spamRafId = null;
+    }
+}
+
+function tickSpamAnimation() {
+    if (!spamAnim.active) {
+        spamRafId = null;
+        return;
+    }
+    const stepEl = document.querySelector(
+        '.step.spam.active, .hold-body-chip.spam.active .hold-body-inline-wait'
+    );
+    if (!stepEl) {
+        spamRafId = requestAnimationFrame(tickSpamAnimation);
+        return;
+    }
+
+    const elapsed = performance.now() - spamAnim.startedAt;
+    const req = Math.max(1, Number(spamAnim.requiredMs) || 1);
+    const pct = Math.max(0, Math.min(100, (elapsed / req) * 100));
+    const progressProperty = stepEl.classList.contains('hold-body-inline-wait')
+        ? '--chip-wait-pct'
+        : '--wait-pct';
+    stepEl.style.setProperty(progressProperty, `${pct}%`);
+    updateStatus(`Spamming... ${Math.round(pct)}%`, 'wait');
+
+    if (pct >= 100) {
+        spamRafId = null;
+        return;
+    }
+    spamRafId = requestAnimationFrame(tickSpamAnimation);
+}
+
+function startSpamAnimation(requiredMs) {
+    stopSpamAnimation();
+    spamAnim.active = true;
+    spamAnim.requiredMs = Math.max(1, Number(requiredMs) || 1);
+    spamAnim.startedAt = performance.now();
+    spamRafId = requestAnimationFrame(tickSpamAnimation);
 }
 
 // ---------------------------------------------------------------------------
@@ -1336,6 +1392,14 @@ function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
         return [`hold(${key}, ${formatDurationToken(durMs)})`];
     }
 
+    if (s.type === 'spam') {
+        const key = field === 'key' ? val : (s.input || '').toLowerCase();
+        if (!key) return null;
+        const durMs = field === 'duration' ? parseDurationToMs(val) : s.duration;
+        if (!durMs) return null;
+        return [`spam(${key}, ${formatDurationToken(durMs)})`];
+    }
+
     if (s.type === 'hold_with_body') {
         const parts = extractHoldWithBodyParts(oldSourceToken);
         if (!parts) return null;
@@ -1369,6 +1433,39 @@ function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
     }
 
     return null;
+}
+
+/** Snapshot of the fields save_combo persists, used to restore prior state on undo. */
+function captureComboSnapshot() {
+    return {
+        name: (getEl('comboName')?.value || '').toString(),
+        inputs: (getEl('comboInputs')?.value || '').toString(),
+        enders: (getEl('comboEnders')?.value || '').toString(),
+        expected_time: (getEl('comboExpectedTime')?.value || '').toString(),
+        user_difficulty: (getEl('comboUserDifficulty')?.value || '').toString(),
+        step_display_mode: getEl('stepDisplayToggle')?.checked ? 'images' : 'icons',
+        key_images: { ...appState.keyImages },
+        demo_video: (getEl('comboDemoVideo')?.value || '').toString().trim(),
+        target_game: appState.targetGame,
+        ww_team_id: appState.wwTeamId || '',
+    };
+}
+
+const EDIT_STEPS_UNDO_LIMIT = 50;
+
+/** Call before applying an Edit Steps mutation (delete/reorder/inline edit) so it can be undone. */
+function pushEditStepsUndoSnapshot() {
+    appState.editStepsUndoStack.push(captureComboSnapshot());
+    if (appState.editStepsUndoStack.length > EDIT_STEPS_UNDO_LIMIT) appState.editStepsUndoStack.shift();
+}
+
+/** Ctrl/Cmd+Z while Edit Steps is on: restore the state captured before the last mutation. */
+function undoLastEditStep() {
+    const snapshot = appState.editStepsUndoStack.pop();
+    if (!snapshot) return false;
+    sendMessage('save_combo', snapshot);
+    updateStatus('Undid last step edit.', 'neutral');
+    return true;
 }
 
 /**
@@ -1413,6 +1510,7 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     if (result.length === 0) return false;
 
     const newInputs = result.join(', ');
+    pushEditStepsUndoSnapshot();
     inputsEl.value = newInputs;
     if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
 
@@ -1446,7 +1544,7 @@ function buildRuntimeToSourceMap(tokens) {
         if (!tok) { i++; continue; }
 
         // press + following soft/hard wait -> one runtime SequenceNode (press_wait tile)
-        if (!tok.startsWith('wait') && !tok.startsWith('hold(') && !tok.startsWith('[') && !tok.startsWith('{')) {
+        if (!tok.startsWith('wait') && !tok.startsWith('hold(') && !tok.startsWith('spam(') && !tok.startsWith('[') && !tok.startsWith('{')) {
             // Could be a plain press followed by wait:Xs
             if (i + 1 < tokens.length) {
                 const nxt = tokens[i + 1].trim().toLowerCase();
@@ -1634,6 +1732,7 @@ function updateTimeline(steps, opts) {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
+            pushEditStepsUndoSnapshot();
             sendMessage('delete_timeline_step', { step_indices: indices });
         });
         el.appendChild(btn);
@@ -1688,6 +1787,7 @@ function updateTimeline(steps, opts) {
             const draggedRuntimeIdx = Number.parseInt(ev.dataTransfer.getData('text/plain'), 10);
             el.classList.remove('step-drag-over-before', 'step-drag-over-after');
             if (!Number.isFinite(draggedRuntimeIdx) || draggedRuntimeIdx === fromRuntimeIdx) return;
+            pushEditStepsUndoSnapshot();
             const rect = el.getBoundingClientRect();
             const midX = rect.left + rect.width / 2;
             if (ev.clientX < midX) {
@@ -1720,8 +1820,9 @@ function updateTimeline(steps, opts) {
             const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
             el.style.setProperty('--wait-pct', `${pct}%`);
             applyWaitWidth(el, it.duration);
-        } else if (it.type === 'press_wait') {
+        } else if (it.type === 'press_wait' || it.type === 'spam') {
             el.classList.add('press-wait');
+            if (it.type === 'spam') el.classList.add('spam');
             if (it.duration <= SHORT_WAIT_MS) el.classList.add('short-wait');
             const pct = (it.progress !== undefined && it.progress !== null) ? it.progress : (it.completed ? 100 : 0);
             el.style.setProperty('--wait-pct', `${pct}%`);
@@ -1882,7 +1983,7 @@ function updateTimeline(steps, opts) {
         if (s.optional) tile.classList.add('optional');
         if (s.optional && s.completed && !s.was_skipped) tile.classList.add('was-pressed');
         let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
-        if (s.type === 'wait' || s.type === 'press_wait') {
+        if (s.type === 'wait' || s.type === 'press_wait' || s.type === 'spam') {
             tile.style.setProperty('--wait-pct', `${pct}%`);
             if (s.duration <= SHORT_WAIT_MS) tile.classList.add('short-wait');
             if (s.duration) applyWaitWidth(tile, s.duration);
@@ -2026,6 +2127,7 @@ function renderStepLabel(s) {
     }
     if (s.type === 'hold') return `Hold ${inp} ${dur}ms`;
     if (s.type === 'hold_with_body') return `Hold ${inp} ${dur}ms (+body)`;
+    if (s.type === 'spam') return `Spam ${inp} ${dur}ms`;
     if (s.type === 'press_wait') return `${inp} + ${dur}ms`;
     return inp;
 }
@@ -2150,11 +2252,14 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
                 }
                 // Body sequences often arrive as press_wait (collapsed press + following wait).
                 // Render the wait timing inline so all hold-body waits stay visible.
-                if (itemType === 'press_wait') {
+                if (itemType === 'press_wait' || itemType === 'spam') {
                     chip.classList.add('press-wait');
+                    if (itemType === 'spam') chip.classList.add('spam');
                     const inlineWait = document.createElement('span');
                     inlineWait.className = 'hold-body-inline-wait';
-                    inlineWait.textContent = `${Number(it.duration || 0)}ms`;
+                    inlineWait.textContent = itemType === 'spam'
+                        ? `spam ${Number(it.duration || 0)}ms`
+                        : `${Number(it.duration || 0)}ms`;
                     const waitPct = Number(it.progress);
                     if (Number.isFinite(waitPct)) {
                         inlineWait.style.setProperty('--chip-wait-pct', `${Math.max(0, Math.min(100, waitPct))}%`);
@@ -2174,6 +2279,9 @@ function appendStepContent(parent, s, characterId, ctx, runtimeIdx) {
     } else if (s.type === 'hold') {
         appendPrimary(inp, label);
         appendDuration(`hold ${s.duration}ms`);
+    } else if (s.type === 'spam') {
+        appendPrimary(inp, label);
+        appendDuration(`spam ${s.duration}ms`);
     } else if (s.type === 'press_wait') {
         const chainCount = Number(s.chain_count || 0);
         if (chainCount > 1) {
@@ -2386,6 +2494,23 @@ if (saveBtn) {
     });
 }
 
+// Ctrl/Cmd+S: save the current combo instead of triggering the browser's save-page dialog
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveBtn?.click();
+    }
+});
+
+// Ctrl/Cmd+Z: undo the last Edit Steps mutation (delete, reorder, or inline field edit)
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
+        if (!appState.stepEditMode || appState.editStepsUndoStack.length === 0) return;
+        e.preventDefault();
+        undoLastEditStep();
+    }
+});
+
 // Demo video input: update embed preview on change
 const comboDemoVideoEl = getEl('comboDemoVideo');
 if (comboDemoVideoEl) {
@@ -2510,6 +2635,7 @@ if (showFailCountEl) {
 
 const stepEditToggleEl = getEl('stepEditToggle');
 if (stepEditToggleEl) {
+    stepEditToggleEl.checked = !!appState.stepEditMode;
     stepEditToggleEl.addEventListener('change', () => {
         appState.stepEditMode = stepEditToggleEl.checked;
         refreshTimelineIfLoaded();
@@ -2877,9 +3003,12 @@ const MESSAGE_HANDLERS = {
     hold_end: () => stopHoldAnimation(),
     wait_begin: (msg) => startWaitAnimation(msg.required_ms),
     wait_end: () => stopWaitAnimation(),
+    spam_begin: (msg) => startSpamAnimation(msg.required_ms),
+    spam_end: () => stopSpamAnimation(),
     hit: (msg) => addResultRow(msg),
     combo_dropped: (msg) => {
         stopWaitAnimation();
+        stopSpamAnimation();
         stopHoldAnimation();
         updateStatus(msg.input, msg.color || 'fail');
         addResultRow(msg);

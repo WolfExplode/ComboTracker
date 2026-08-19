@@ -47,7 +47,13 @@ class WutheringWavesGame:
     # Ender / combo-end policy (engine delegates here to avoid game-specific branches)
     # -------------------------
 
-    def can_ender_drop_combo(self, engine: Any, input_name: str) -> bool:
+    def can_ender_drop_combo(
+        self,
+        engine: Any,
+        input_name: str,
+        *,
+        now: float | None = None,
+    ) -> bool:
         """
         True iff this key is allowed to end the combo.
         Only combo enders can end combos, and only when off cooldown.
@@ -57,7 +63,7 @@ class WutheringWavesGame:
             return False
         if not engine._is_combo_ender(input_name):
             return False
-        if engine._ender_on_cooldown(input_name):
+        if engine._ender_on_cooldown(input_name, now=now):
             return False
         if not getattr(engine, "last_input_time", None) and getattr(engine, "current_index", 0) == 0:
             return False

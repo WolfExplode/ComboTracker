@@ -61,6 +61,7 @@
                         <span id="input-help-tooltip" class="input-help-tooltip" role="tooltip">
                             <strong>Mouse:</strong> LMB, RMB, MMB<br>
                             <strong>Hold:</strong> <code>hold(space,0.2)</code><br>
+                            <strong>Spam:</strong> <code>spam(lmb,4.4s)</code> repeatedly taps for that span<br>
                             <strong>Animation lock:</strong> <code>wait(r, 1.5)</code> for the key and its non-interruptible animation<br>
                             <strong>Key + wait:</strong> <code>f, wait:0.23s</code> for the key and its interruptible animation<br>
                             <strong>Any-order:</strong> <code>[q, e, lmb, 1]</code> can press in any order<br>
@@ -225,7 +226,7 @@
                     <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
 
                     <span class="toggle-label">Edit steps</span>
-                    <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps">
+                    <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps" checked>
 
                     <span class="toggle-label">Collapse chains</span>
                     <input type="checkbox" id="collapseChainsToggle" class="toggle-switch" title="Show adjacent LMB press+wait steps as one chained tile">

@@ -15,6 +15,7 @@ from parser import (
     HoldWithBodyNode,
     PressNode,
     SequenceNode,
+    SpamNode,
     StepNode,
     WaitNode,
     _is_composite_mandatory,
@@ -119,6 +120,56 @@ class PressState:
     def reset(self) -> None:
         self.completed = False
         self.was_skipped = False
+
+    def skip_and_advance(self, now: float) -> bool:
+        return True
+
+
+@dataclass
+class SpamState:
+    """Accept repeated presses of one key until the recorded spam span elapses."""
+    expected: str
+    required_ms: int
+    in_progress: bool = False
+    started_at: float = 0.0
+    completed: bool = False
+
+    def process_press(self, key: str, now: float) -> ProcessResult:
+        if key != self.expected:
+            return IgnoreResult()
+        if not self.in_progress:
+            self.in_progress = True
+            self.started_at = now
+            return AcceptResult(advance=False)
+        if (now - self.started_at) * 1000 + 1e-6 >= self.required_ms:
+            self.in_progress = False
+            self.completed = True
+            return AcceptResult(advance=True)
+        return AcceptResult(record_hit=False, advance=False)
+
+    def process_release(self, key: str, now: float) -> ProcessResult:
+        return IgnoreResult()
+
+    def tick(self, now: float) -> ProcessResult:
+        if self.in_progress and (now - self.started_at) * 1000 + 1e-6 >= self.required_ms:
+            self.in_progress = False
+            self.completed = True
+            return CompleteResult(auto=True)
+        return IgnoreResult()
+
+    def to_dict(self) -> dict:
+        return {
+            "type": "spam",
+            "input": self.expected,
+            "duration": self.required_ms,
+            "in_progress": self.in_progress,
+            "completed": self.completed,
+        }
+
+    def reset(self) -> None:
+        self.in_progress = False
+        self.started_at = 0.0
+        self.completed = False
 
     def skip_and_advance(self, now: float) -> bool:
         return True
@@ -732,6 +783,9 @@ def build_runtime_state(node: StepNode) -> StepState:
             body_state_steps: list[StepState] = [build_runtime_state(s) for s in body_steps]
             body_seq = SequenceState(steps=body_state_steps)
             return HoldWithBodyState(expected=key, required_ms=ms, body=body_seq)
+
+        case SpamNode(key=key, duration_ms=ms):
+            return SpamState(expected=key, required_ms=ms)
 
         case WaitNode(duration_ms=ms, mode=mode, wait_for=wf):
             return WaitState(required_ms=ms, mode=mode, wait_for=wf)

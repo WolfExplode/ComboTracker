@@ -20,6 +20,7 @@ import combo_analytics
 import combo_engine_ui as ui
 from combo_engine_ui import Status
 from persistence import load_engine_state, save_engine_state
+from state_store import JsonStateStore, StateStore
 
 import _combo_commands as combo_commands
 import input_normalization
@@ -38,6 +39,7 @@ from states import (
     IgnoreResult,
     PressState,
     SequenceState,
+    SpamState,
     WaitState,
     build_runtime_state,
 )
@@ -53,11 +55,17 @@ class ComboTrackerEngine:
     - Emits UI events via a callback (WebSocket, etc.)
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        state_store: StateStore | None = None,
+        monotonic_now: Callable[[], float] | None = None,
+    ):
         # Engine is mutated from multiple threads:
         # - pynput keyboard/mouse callbacks
         # - ui_server tick thread (wait completion without input)
         self._lock = threading.RLock()
+        self._now: Callable[[], float] = monotonic_now or time.perf_counter
         # --- Data & State ---
         self.combos: dict[str, list[str]] = {}
         self.active_combo_name: str | None = None
@@ -77,6 +85,9 @@ class ComboTrackerEngine:
         # Wall-clock anchor for macro-style row deltas (replay + hold_with_body manual)
         self._attempt_hit_clock: float | None = None
         self.attempt_counter = 0
+        # Replay owns time-based advancement while active. The normal 50 Hz tick
+        # must not race confirmed macro markers for holds and nested waits.
+        self._replay_active = False
 
         self.hold_in_progress = False
         self.hold_expected_input: str | None = None
@@ -116,7 +127,7 @@ class ComboTrackerEngine:
         self.transcribe_strip_wait_under_enabled: bool = False
         self.transcribe_strip_wait_under_ms: str = "0"
         self.last_success_input: str | None = None
-        # Per-ender cooldown: key -> time.perf_counter() when that key's cooldown ends.
+        # Per-ender cooldown: key -> monotonic time when that key's cooldown ends.
         # When the user correctly presses an ender key, we set cooldown for that key so
         # re-pressing it during a wait/hold doesn't drop the combo until cooldown expires.
         self._ender_cooldown_until: dict[str, float] = {}
@@ -159,6 +170,7 @@ class ComboTrackerEngine:
         # Persistence
         self.data_dir = self._get_data_dir()
         self.save_path = self.data_dir / "combos.json"
+        self.state_store: StateStore = state_store or JsonStateStore(self.save_path)
 
         # Load persisted state
         self.load_combos()
@@ -361,8 +373,8 @@ class ComboTrackerEngine:
     def load_combos(self):
         load_engine_state(self)
 
-    def save_combos(self):
-        save_engine_state(self)
+    def save_combos(self) -> bool:
+        return save_engine_state(self)
 
     # -------------------------
     # Stats helpers
@@ -439,7 +451,7 @@ class ComboTrackerEngine:
         return ui.get_status(self)
 
     def timeline_steps(self) -> list[dict[str, Any]]:
-        return ui.timeline_steps(self, time.perf_counter())
+        return ui.timeline_steps(self, self._now())
 
     def init_payload(self) -> dict[str, Any]:
         return ui.init_payload(self)
@@ -467,11 +479,11 @@ class ComboTrackerEngine:
             return
         self._ender_cooldown_until[(input_name or "").strip().lower()] = now + (ms / 1000.0)
 
-    def _ender_on_cooldown(self, input_name: str) -> bool:
+    def _ender_on_cooldown(self, input_name: str, *, now: float | None = None) -> bool:
         """True if this ender key was recently used correctly and is still on cooldown (ignore press)."""
         if not (input_name or "").strip() or not self._is_combo_ender(input_name):
             return False
-        now = time.perf_counter()
+        now = self._now() if now is None else float(now)
         until = self._ender_cooldown_until.get((input_name or "").strip().lower(), 0.0)
         return now <= until
 
@@ -786,6 +798,7 @@ class ComboTrackerEngine:
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
         self._attempt_hit_clock = None
+        self._replay_active = False
         self.attempt_counter = 0
         self.last_success_input = None
         self._ender_cooldown_until.clear()
@@ -817,7 +830,14 @@ class ComboTrackerEngine:
         self._ui_last_success_steps_len = 0
         self._send({"type": "attempt_start", "name": name, "attempt": self.attempt_counter})
 
-    def record_hit(self, label: str, step_ms: float | str, total_ms: float | str):
+    def record_hit(
+        self,
+        label: str,
+        step_ms: float | str,
+        total_ms: float | str,
+        *,
+        at_time: float | None = None,
+    ):
         # Keep formatting consistent with HTML table
         if isinstance(step_ms, (float, int)):
             step_s = f"{float(step_ms):.1f}"
@@ -829,7 +849,7 @@ class ComboTrackerEngine:
             total = str(total_ms)
         # Keep split_ms temporarily for compatibility with older clients.
         self._send({"type": "hit", "input": label, "step_ms": step_s, "split_ms": step_s, "total_ms": total})
-        self._attempt_hit_clock = time.perf_counter()
+        self._attempt_hit_clock = self._now() if at_time is None else float(at_time)
 
     def _attempt_hit_delta_ms(self, now: float) -> float:
         """Milliseconds since last attempt-log row (matches macro replay karaoke deltas)."""
@@ -845,7 +865,7 @@ class ComboTrackerEngine:
             return
         step_ms = max(0.0, (now - self.pending_step_started_at) * 1000.0)
         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
-        self.record_hit(self.pending_step_label, step_ms, total_ms)
+        self.record_hit(self.pending_step_label, step_ms, total_ms, at_time=now)
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
 
@@ -853,14 +873,14 @@ class ComboTrackerEngine:
         """Log one attempt row with split = wall time since last hit (replay-compatible)."""
         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
         step_ms = self._attempt_hit_delta_ms(now)
-        self.record_hit(label, step_ms, total_ms)
+        self.record_hit(label, step_ms, total_ms, at_time=now)
 
     def _record_step_timing(self, label: str, now: float) -> None:
         """Finalize previous step timing and queue current accepted step."""
         if self.pending_step_label is not None and self.pending_step_started_at > 0:
             step_ms = max(0.0, (now - self.pending_step_started_at) * 1000.0)
             total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
-            self.record_hit(self.pending_step_label, step_ms, total_ms)
+            self.record_hit(self.pending_step_label, step_ms, total_ms, at_time=now)
         self.pending_step_label = str(label or "")
         self.pending_step_started_at = float(now)
 
@@ -870,7 +890,7 @@ class ComboTrackerEngine:
             return
         step_ms = max(0.0, (now - self.pending_step_started_at) * 1000.0)
         total_ms = (now - self.start_time) * 1000.0 if self.start_time else 0.0
-        self.record_hit(self.pending_step_label, step_ms, total_ms)
+        self.record_hit(self.pending_step_label, step_ms, total_ms, at_time=now)
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
 
@@ -923,6 +943,7 @@ class ComboTrackerEngine:
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
         self._attempt_hit_clock = None
+        self._replay_active = False
         try:
             self.currently_pressed.clear()
         except Exception:
@@ -936,7 +957,7 @@ class ComboTrackerEngine:
 
     def _on_combo_completed(self, total_ms: float) -> None:
         """Record success, reset to start, and notify UI. Single place for combo completion."""
-        flush_now = (self.start_time + (float(total_ms) / 1000.0)) if self.start_time else time.perf_counter()
+        flush_now = (self.start_time + (float(total_ms) / 1000.0)) if self.start_time else self._now()
         self._flush_pending_step_timing(flush_now)
         self.record_combo_success(total_ms)
         # Snapshot timeline while steps are still in completed state; after _reset_to_start()
@@ -972,6 +993,7 @@ class ComboTrackerEngine:
         self.pending_step_label = None
         self.pending_step_started_at = 0.0
         self._attempt_hit_clock = None
+        self._replay_active = False
         self._ender_cooldown_until.clear()
         self.ww.ww_active_character = None
         self._hold_max_held_ms = 0.0
@@ -1040,7 +1062,7 @@ class ComboTrackerEngine:
             expected = self._get_expected_hold_key()
             if not expected or expected not in self.currently_pressed:
                 return
-            self._process_press_unlocked(expected)
+            self._process_press_unlocked(expected, now, allow_repeat=True)
         except Exception:
             return
 
@@ -1056,7 +1078,7 @@ class ComboTrackerEngine:
         """Advance to next step; update shortcuts, maybe start wait, send timeline."""
         self.current_index += 1
         self._update_shortcuts()
-        self._maybe_start_wait_step()
+        self._maybe_start_wait_step(now)
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
         self.ui_adapter.set_active_step_signature(self)
 
@@ -1136,16 +1158,16 @@ class ComboTrackerEngine:
         )
         self._reset_after_fail()
 
-    def _only_ender_can_drop(self, input_name: str) -> bool:
-        return self.ww.can_ender_drop_combo(self, input_name)
+    def _only_ender_can_drop(self, input_name: str, *, now: float | None = None) -> bool:
+        return self.ww.can_ender_drop_combo(self, input_name, now=now)
 
     def _is_soft_ender(self, input_name: str) -> bool:
         """True if this key is a soft ender (~key:2s); does not drop combo when pressed during hold."""
         return (input_name or "").strip().lower() in getattr(self, "combo_enders_soft", set())
 
-    def _ender_can_drop_now(self, input_name: str) -> bool:
+    def _ender_can_drop_now(self, input_name: str, *, now: float | None = None) -> bool:
         """True if this key can drop the combo in the current context. Soft enders do not drop during hold."""
-        if not self._only_ender_can_drop(input_name):
+        if not self._only_ender_can_drop(input_name, now=now):
             return False
         if self.hold_in_progress and self._is_soft_ender(input_name):
             return False
@@ -1153,7 +1175,7 @@ class ComboTrackerEngine:
 
     def _check_ender_fail(self, input_name: str, now: float) -> None:
         """If key is a combo ender (and not on cooldown), drop the combo."""
-        if not self._ender_can_drop_now(input_name):
+        if not self._ender_can_drop_now(input_name, now=now):
             return
         self._mark_step(int(self.current_index), "missed")
         expected = str(self._expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
@@ -1179,9 +1201,9 @@ class ComboTrackerEngine:
         self._send({"type": "status", "text": st.text, "color": st.color})
         self._send({"type": "timeline_update", "steps": self.timeline_steps()})
 
-    def _start_wait(self, required_ms: int):
+    def _start_wait(self, required_ms: int, *, started_at: float):
         self.wait_in_progress = True
-        self.wait_started_at = float(self.last_input_time or time.perf_counter())
+        self.wait_started_at = float(started_at)
         self.wait_required_ms = required_ms
         self.wait_until = self.wait_started_at + (required_ms / 1000.0)
         # Tell the UI to animate a visible wait progress bar (similar to holds).
@@ -1249,13 +1271,13 @@ class ComboTrackerEngine:
             self._on_combo_completed(total_ms)
         return True
 
-    def _maybe_start_wait_step(self):
+    def _maybe_start_wait_step(self, now: float):
         step = self._active_runtime_step()
         if not step or not isinstance(step, WaitState):
             return
         if not self.wait_in_progress:
-            step.start(time.perf_counter())
-            self._start_wait(int(step.required_ms))
+            step.start(now)
+            self._start_wait(int(step.required_ms), started_at=now)
 
     def _sync_wait_animation_ui(self, now: float) -> None:
         """UI hook: nested wait begin/end (delegated to UI adapter)."""
@@ -1377,10 +1399,11 @@ class ComboTrackerEngine:
         complete unconditionally — no elapsed-time check — so a few-millisecond
         rounding difference in the macro sleep can never leave the display stuck.
 
-        Handles two shapes:
+        Handles these shapes:
         - Top-level standalone WaitState  (e.g. `wait:1.4s` compiled to its own runtime step)
         - SequenceState where the inner cursor is sitting on a WaitState
           (e.g. `e, wait:1.4s` merged into one SequenceState; press fired, wait in progress)
+        - GroupState animation waits and active sequences containing waits
         """
         for _ in range(len(self.runtime_steps) + 1):
             step = self._active_runtime_step()
@@ -1417,9 +1440,61 @@ class ComboTrackerEngine:
                         # Sequence has more inner steps; the incoming key will be
                         # dispatched to them normally below.
                         self._sync_wait_animation_ui(now)
+            # Group replay can be blocked by either an animation-lock wait or a
+            # wait inside its active sequence. The macro plan has already elapsed
+            # that deadline before delivering the incoming key, so finish the wait
+            # without consuming the key.
+            if isinstance(step, GroupState):
+                if step.wait_active:
+                    wait_item = next(
+                        (
+                            item
+                            for item in step.items
+                            if item.kind == "anim_wait"
+                            and isinstance(item.state, WaitState)
+                            and item.state.in_progress
+                        ),
+                        None,
+                    )
+                    if wait_item is not None:
+                        wait_item.state.in_progress = False
+                        wait_item.state.completed = True
+                        wait_item.completed_count = wait_item.required_count
+                        step.wait_active = False
+                        self._sync_wait_animation_ui(now)
+                        if step._is_complete():
+                            self._advance_step(now)
+                            continue
+                    break
+
+                active_item = step.active_item
+                if active_item is not None and isinstance(active_item.state, SequenceState):
+                    sequence = active_item.state
+                    inner_idx = sequence.current_index
+                    if 0 <= inner_idx < len(sequence.steps):
+                        inner = sequence.steps[inner_idx]
+                        if isinstance(inner, WaitState) and not inner.completed:
+                            inner.in_progress = False
+                            inner.completed = True
+                            sequence_finished = sequence._advance_inner(now)
+                            self._sync_wait_animation_ui(now)
+                            if sequence_finished:
+                                active_item.completed_count += 1
+                                step.active_item = None
+                                if step._is_complete():
+                                    self._advance_step(now)
+                                    continue
+                    break
+
             break
 
-    def replay_accept(self, key: str, step_ms: float, total_ms: float) -> None:
+    def replay_accept(
+        self,
+        key: str,
+        step_ms: float,
+        total_ms: float,
+        pressed: bool = True,
+    ) -> None:
         """Advance the visual combo state for one replayed step.
 
         Called by MacroPlayer's on_step callback; completely bypasses the
@@ -1428,27 +1503,45 @@ class ComboTrackerEngine:
         own wall-clock timing.
         """
         with self._lock:
-            self._replay_accept_unlocked(key, step_ms, total_ms)
+            self._replay_accept_unlocked(key, step_ms, total_ms, pressed=pressed)
 
-    def _replay_accept_unlocked(self, key: str, step_ms: float, total_ms: float) -> None:
+    def _replay_accept_unlocked(
+        self,
+        key: str,
+        step_ms: float,
+        total_ms: float,
+        *,
+        pressed: bool,
+    ) -> None:
         if not self.runtime_steps:
             return
 
         key = (key or "").strip().lower()
-        now = time.perf_counter()
+        wall_now = self._now()
 
         # Start the attempt on the first replayed step.
         if not self.last_input_time and self.current_index == 0:
             self._insert_attempt_separator()
             # Anchor start_time so total_ms from the macro aligns with engine timing.
-            self.start_time = now - (total_ms / 1000.0)
-            self.last_input_time = now
+            self.start_time = wall_now - (total_ms / 1000.0)
+            self.last_input_time = wall_now
+            self._replay_active = True
             self._send({"type": "status", "text": "Macro replaying\u2026", "color": "recording"})
+
+        # Use the macro plan's clock for deterministic transitions even when the
+        # replay delivery queue runs slightly late.
+        now = self.start_time + (total_ms / 1000.0) if self.start_time else wall_now
 
         # The MacroPlayer sleeps through every wait before firing the next event.
         # Force-complete any wait blocking the current position so the incoming key
         # always lands on the right step — no timing checks required.
         self._replay_clear_blocking_waits(now)
+
+        # Planned releases occur on an inclusive duration deadline. Account for
+        # floating-point subtraction once here so every nested hold shape observes
+        # the same rule without mutating individual state start timestamps.
+        if not pressed:
+            now += 0.000001
 
         step = self._active_runtime_step()
         if step is None:
@@ -1458,13 +1551,17 @@ class ComboTrackerEngine:
         # process_press like normal play. Naively bumping current_index skips the wait phase entirely
         # (press_wait tile jumps to completed with no loading bar).
         if isinstance(step, SequenceState):
-            result = step.process_press(key, now)
+            result = (
+                step.process_press(key, now)
+                if pressed
+                else step.process_release(key, now)
+            )
             if isinstance(result, IgnoreResult):
                 return
             if isinstance(result, FailResult):
                 return
             if isinstance(result, CompleteResult):
-                self.record_hit(key, step_ms, total_ms)
+                self.record_hit(key, step_ms, total_ms, at_time=now)
                 self.last_input_time = now
                 self._advance_step(now)
                 self._sync_wait_animation_ui(now)
@@ -1473,7 +1570,7 @@ class ComboTrackerEngine:
                 return
             if isinstance(result, AcceptResult):
                 if getattr(result, "record_hit", True):
-                    self.record_hit(key, step_ms, total_ms)
+                    self.record_hit(key, step_ms, total_ms, at_time=now)
                 self.last_input_time = now
                 self._update_shortcuts()
                 self._sync_wait_animation_ui(now)
@@ -1486,30 +1583,91 @@ class ComboTrackerEngine:
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 return
 
+        # Groups contain their own progress cursor. Replay must drive that cursor
+        # item-by-item instead of advancing the whole top-level group on its first key.
+        if isinstance(step, GroupState):
+            active_item = step.active_item
+            releasing_hold = bool(
+                not pressed
+                and active_item is not None
+                and isinstance(active_item.state, HoldState)
+                and key == active_item.state.expected
+            )
+            result = (
+                step.process_release(key, now)
+                if not pressed
+                else step.process_press(key, now)
+            )
+
+            if isinstance(result, (IgnoreResult, FailResult)):
+                return
+            if isinstance(result, CompleteResult):
+                self._advance_step(now)
+                self._sync_wait_animation_ui(now)
+                if self.current_index >= len(self.runtime_steps):
+                    self._on_combo_completed(total_ms)
+                    return
+                return self._replay_accept_unlocked(
+                    key, step_ms, total_ms, pressed=pressed
+                )
+            if isinstance(result, AcceptResult):
+                if result.record_hit:
+                    self.record_hit(key, step_ms, total_ms, at_time=now)
+                self.last_input_time = now
+
+                if releasing_hold:
+                    self._reset_hold_state()
+                else:
+                    started_item = step.active_item
+                    if (
+                        started_item is not None
+                        and isinstance(started_item.state, HoldState)
+                        and started_item.state.in_progress
+                    ):
+                        self._start_hold(
+                            started_item.state.expected,
+                            started_item.state.required_ms,
+                            now,
+                        )
+
+                self._sync_wait_animation_ui(now)
+                if result.advance:
+                    self._advance_step(now)
+                    self._sync_wait_animation_ui(now)
+                    if self.current_index >= len(self.runtime_steps):
+                        self._on_combo_completed(total_ms)
+                    elif self._maybe_complete_combo_if_trailing_wait(
+                        now=now, total_ms=total_ms
+                    ):
+                        return
+                else:
+                    self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+                return
+
         # Plain hold: replay fires holder key-down before sleep and key-up after (macro_player HoldNode).
         if isinstance(step, HoldState):
             holder = str(step.expected or "").strip().lower()
             if not holder:
                 return
 
-            if (not step.in_progress) and (not step.completed):
+            if pressed and (not step.in_progress) and (not step.completed):
                 if key != holder:
                     return
                 result = step.process_press(key, now)
                 if isinstance(result, AcceptResult):
-                    self.record_hit(key, step_ms, total_ms)
+                    self.record_hit(key, step_ms, total_ms, at_time=now)
                     self.last_input_time = now
                     self._start_hold(holder, step.required_ms, now)
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 return
 
-            if key == holder and step.in_progress:
+            if not pressed and key == holder and step.in_progress:
                 result = step.process_release(key, now)
                 if isinstance(result, AcceptResult) and result.advance:
                     held_ms = (now - step.started_at) * 1000.0 if step.started_at else float(step.required_ms or 0)
                     req_s = self._format_hold_requirement(int(step.required_ms or 0))
                     label = f"{holder} (hold ≥ {req_s}, {held_ms:.0f}ms) [auto]"
-                    self.record_hit(label, step_ms, total_ms)
+                    self.record_hit(label, step_ms, total_ms, at_time=now)
                     self.last_input_time = now
                     self.last_success_input = holder
                     self._start_ender_cooldown(holder, now)
@@ -1534,22 +1692,22 @@ class ComboTrackerEngine:
                 return
 
             # Start marker (holder key-down).
-            if (not step.in_progress) and (not step.completed):
+            if pressed and (not step.in_progress) and (not step.completed):
                 if key != holder:
                     return
                 result = step.process_press(key, now)
                 if isinstance(result, AcceptResult):
-                    self.record_hit(key, step_ms, total_ms)
+                    self.record_hit(key, step_ms, total_ms, at_time=now)
                     self.last_input_time = now
                     self._start_hold(holder, step.required_ms, now)
                     self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 return
 
             # Inner body key while holder is down.
-            if step.in_progress and key != holder:
+            if pressed and step.in_progress and key != holder:
                 result = step.process_press(key, now)
                 if isinstance(result, AcceptResult):
-                    self.record_hit(key, step_ms, total_ms)
+                    self.record_hit(key, step_ms, total_ms, at_time=now)
                     self.last_input_time = now
                     self._start_ender_cooldown(key, now)
                     self.ww.on_accepted_key(self, key)
@@ -1557,11 +1715,11 @@ class ComboTrackerEngine:
                 return
 
             # Completion marker (holder key-up callback from macro player).
-            if key == holder:
+            if not pressed and key == holder:
                 held_ms = (now - self.hold_started_at) * 1000.0 if self.hold_started_at else float(step.required_ms or 0)
                 req_s = self._format_hold_requirement(int(step.required_ms or 0))
                 label = f"{holder} (hold ≥ {req_s}, {held_ms:.0f}ms) [auto]"
-                self.record_hit(label, step_ms, total_ms)
+                self.record_hit(label, step_ms, total_ms, at_time=now)
                 self.last_input_time = now
                 self.last_success_input = holder
                 self._start_ender_cooldown(holder, now)
@@ -1576,44 +1734,65 @@ class ComboTrackerEngine:
                     self._on_combo_completed(total_ms)
                 return
 
-        # Ignore taps that don't match the current step (extra spam taps).
-        start_keys = self._start_keys_for_step(step)
-        if start_keys and key not in start_keys:
+        # Plain replayed presses use the same runtime-state interface and engine
+        # advancement path as live input. This keeps the state's completed flag,
+        # shortcuts, and timeline projection consistent between both adapters.
+        if not pressed:
+            return
+        result = step.process_press(key, now)
+        if isinstance(result, AcceptResult) and not result.advance:
+            if result.record_hit:
+                self.record_hit(key, step_ms, total_ms, at_time=now)
+                self.last_input_time = now
+                self._sync_wait_animation_ui(now)
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            return
+        if not isinstance(result, AcceptResult) or not result.advance:
             return
 
         # Record the step in the attempt log with macro-accurate timing.
-        self.record_hit(key, step_ms, total_ms)
+        self.record_hit(key, step_ms, total_ms, at_time=now)
         self.last_input_time = now
 
-        # Advance the visual state: current_index drives the timeline rendering.
-        self.current_index += 1
-        self._update_shortcuts()
-        self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+        self._advance_step(now)
+        self._sync_wait_animation_ui(now)
 
         if self.current_index >= len(self.runtime_steps):
             self._on_combo_completed(total_ms)
+        else:
+            self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=total_ms)
 
     # -------------------------
     # Input processing (called from pynput)
     # -------------------------
 
-    def process_press(self, input_name: str):
+    def process_press(self, input_name: str, *, event_time: float | None = None):
         # Thread-safe wrapper
         with self._lock:
-            return self._process_press_unlocked(input_name)
+            return self._process_press_unlocked(input_name, event_time)
 
-    def _process_press_unlocked(self, input_name: str):
+    def _process_press_unlocked(
+        self,
+        input_name: str,
+        now: float | None = None,
+        *,
+        allow_repeat: bool = False,
+    ):
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return
 
-        # Only a genuine key-down (new press) can end the combo; key repeat (already held) must not.
+        # Only a genuine key-down can advance detection. OS repeat-down events are
+        # coalesced until release; allow_repeat is reserved for re-processing the
+        # same physical event after a wait/optional transition and buffered holds.
         press_is_repeat = input_name in self.currently_pressed
         self.currently_pressed.add(input_name)
+        if press_is_repeat and not allow_repeat:
+            return
         if not self.runtime_steps:
             return
 
-        now = time.perf_counter()
+        now = self._now() if now is None else float(now)
 
         # During a nested mandatory wait (animation lock), ignore the key for progression.
         # currently_pressed already has it; when the wait ends and we advance,
@@ -1626,7 +1805,7 @@ class ComboTrackerEngine:
             result = self.wait.process_press(input_name, now)
             if isinstance(result, CompleteResult):
                 self._complete_wait(now, fail=False)
-                return self._process_press_unlocked(input_name)
+                return self._process_press_unlocked(input_name, now, allow_repeat=True)
             if isinstance(result, FailResult):
                 if self.no_fail_mode:
                     self._mark_step(int(self.current_index), "early")
@@ -1646,11 +1825,11 @@ class ComboTrackerEngine:
                 else:
                     # Only enders can end combos; early press with non-ender is ignored.
                     # Key repeat (already held) does not end the combo.
-                    if not press_is_repeat and self._ender_can_drop_now(input_name):
+                    if not press_is_repeat and self._ender_can_drop_now(input_name, now=now):
                         self._check_ender_fail(input_name, now)
                 return
             # Ender during wait: use same gate as everywhere else. Key repeat does not end combo.
-            if not press_is_repeat and self.wait.mode in ("soft", "hard") and self._ender_can_drop_now(input_name):
+            if not press_is_repeat and self.wait.mode in ("soft", "hard") and self._ender_can_drop_now(input_name, now=now):
                 if self.no_fail_mode:
                     self._mark_step(int(self.current_index), "wrong")
                     self._reset_wait_state()
@@ -1676,7 +1855,7 @@ class ComboTrackerEngine:
                 return
             if self.hold.check_complete(now):
                 self._complete_hold(now, auto=False)
-                return self._process_press_unlocked(input_name)
+                return self._process_press_unlocked(input_name, now, allow_repeat=True)
 
             if isinstance(self.hold, HoldWithBodyState):
                 # Route the press to the body sequence; no forgiving-hold ignore here.
@@ -1711,14 +1890,14 @@ class ComboTrackerEngine:
                 return
 
             # Only enders can end combos (same gate as everywhere). Key repeat does not end combo.
-            if not press_is_repeat and self._ender_can_drop_now(input_name):
+            if not press_is_repeat and self._ender_can_drop_now(input_name, now=now):
                 self._check_ender_fail(input_name, now)
                 return
 
             # Forgiving hold: only drop if they pressed the next step's key AND it's an ender (new press only).
             next_step = self.runtime_steps[int(self.current_index) + 1] if (int(self.current_index) + 1) < len(self.runtime_steps) else None
             next_keys = self._start_keys_for_step(next_step)
-            if not press_is_repeat and next_keys and (input_name in next_keys) and self._ender_can_drop_now(input_name):
+            if not press_is_repeat and next_keys and (input_name in next_keys) and self._ender_can_drop_now(input_name, now=now):
                 if self.no_fail_mode:
                     self._mark_current_and_skip(now)
                     self._sync_wait_animation_ui(now)
@@ -1768,6 +1947,8 @@ class ComboTrackerEngine:
                 self._start_hold(step.expected, step.required_ms, now)
             elif isinstance(step, GroupState):
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
+            elif isinstance(step, SpamState) and result.record_hit:
+                self._send({"type": "timeline_update", "steps": self.timeline_steps()})
             return
         if isinstance(result, FailResult):
             if self.no_fail_mode:
@@ -1776,7 +1957,7 @@ class ComboTrackerEngine:
                 self._sync_wait_animation_ui(now)
                 return
             # Only enders can end combos; wrong/early key that isn't an ender is ignored. Key repeat does not end combo.
-            if not press_is_repeat and self._ender_can_drop_now(input_name):
+            if not press_is_repeat and self._ender_can_drop_now(input_name, now=now):
                 self._check_ender_fail(input_name, now)
             return
         if isinstance(result, CompleteResult):
@@ -1787,7 +1968,7 @@ class ComboTrackerEngine:
                 return
             if self._maybe_complete_combo_if_trailing_wait(now=now, total_ms=(now - self.start_time) * 1000.0 if self.start_time else 0.0):
                 return
-            return self._process_press_unlocked(input_name)
+            return self._process_press_unlocked(input_name, now, allow_repeat=True)
         # During group mandatory wait (animation lock), ignore all keys including enders.
         if isinstance(step, GroupState) and step.wait_active:
             return
@@ -1806,7 +1987,7 @@ class ComboTrackerEngine:
                         step.completed = True
                         self._advance_step(now)
                         self._sync_wait_animation_ui(now)
-                        return self._process_press_unlocked(input_name)
+                        return self._process_press_unlocked(input_name, now, allow_repeat=True)
             # Optional sequence step (e.g. -e, wait:0.80s): pressing next step's key skips the whole sequence.
             if isinstance(step, SequenceState) and getattr(step, "optional", False):
                 next_idx = int(self.current_index) + 1
@@ -1817,7 +1998,7 @@ class ComboTrackerEngine:
                         step.was_skipped = True
                         self._advance_step(now)
                         self._sync_wait_animation_ui(now)
-                        return self._process_press_unlocked(input_name)
+                        return self._process_press_unlocked(input_name, now, allow_repeat=True)
             # Optional-key grace: optional key is valid in its own slot and through the entire next step.
             # If we're 1 or 2 steps past a skipped optional and user presses that optional's key, accept it (don't drop).
             for prev_idx in (self.current_index - 1, self.current_index - 2):
@@ -1829,7 +2010,7 @@ class ComboTrackerEngine:
                     continue
                 prev_step.was_skipped = False
                 return
-            if not press_is_repeat and self._ender_can_drop_now(input_name):
+            if not press_is_repeat and self._ender_can_drop_now(input_name, now=now):
                 expected = self._expected_label_for_step(step) or "?"
                 self._mark_step(int(self.current_index), "missed")
                 if self.no_fail_mode:
@@ -1847,12 +2028,12 @@ class ComboTrackerEngine:
         return
 
 
-    def process_release(self, input_name: str):
+    def process_release(self, input_name: str, *, event_time: float | None = None):
         # Thread-safe wrapper
         with self._lock:
-            return self._process_release_unlocked(input_name)
+            return self._process_release_unlocked(input_name, event_time)
 
-    def _process_release_unlocked(self, input_name: str):
+    def _process_release_unlocked(self, input_name: str, now: float | None = None):
         input_name = (input_name or "").strip().lower()
         if not input_name:
             return
@@ -1866,7 +2047,7 @@ class ComboTrackerEngine:
         if step is None:
             return
 
-        now = time.perf_counter()
+        now = self._now() if now is None else float(now)
         result = step.process_release(input_name, now)
 
         # Track max hold duration when release was too short (for drop message later)
@@ -1914,7 +2095,7 @@ class ComboTrackerEngine:
             if isinstance(step, HoldWithBodyState):
                 # Hold-with-body: early release always fails (no ender gate).
                 self._fail_combo(result.reason, now, actual="released hold early")
-            elif self._ender_can_drop_now(input_name):
+            elif self._ender_can_drop_now(input_name, now=now):
                 # Plain HoldState: releasing too early drops only if that key is a combo ender.
                 self._fail_combo(result.reason, now, actual="released (hold too short)")
             self._sync_wait_animation_ui(now)
@@ -1945,8 +2126,8 @@ class ComboTrackerEngine:
             if not self.start_time or not self.last_input_time:
                 return
 
-            now = time.perf_counter()
-            self._maybe_start_wait_step()
+            now = self._now()
+            self._maybe_start_wait_step(now)
             self._sync_wait_animation_ui(now)
 
             step = self._active_runtime_step()
@@ -1954,9 +2135,18 @@ class ComboTrackerEngine:
                 return
 
             # Hold duration satisfied without release: auto-complete and advance.
-            if isinstance(step, HoldState) and self.hold_in_progress and self.hold and self.hold.check_complete(now):
+            if (
+                not self._replay_active
+                and isinstance(step, HoldState)
+                and self.hold_in_progress
+                and self.hold
+                and self.hold.check_complete(now)
+            ):
                 self._complete_hold(now, auto=True)
                 self._sync_wait_animation_ui(now)
+                return
+
+            if self._replay_active and isinstance(step, HoldWithBodyState):
                 return
 
             result = step.tick(now)
@@ -1988,5 +2178,7 @@ class ComboTrackerEngine:
 
             self.ui_adapter.maybe_emit_timeline_update_on_change(self, emit=self._send)
             self._apply_buffered_hold_if_possible(now)
-        except Exception:
-            return
+        except Exception as exc:
+            # The UI loop owns rate-limited error reporting. Propagate invariant
+            # failures so they are observable instead of silently disabling tick.
+            raise RuntimeError("Engine tick transition failed") from exc

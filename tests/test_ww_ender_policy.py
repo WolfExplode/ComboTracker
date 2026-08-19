@@ -16,13 +16,15 @@ class MockEngine:
     def _is_combo_ender(self, input_name: str) -> bool:
         return (input_name or "").strip().lower() in self._combo_enders
 
-    def _ender_on_cooldown(self, input_name: str) -> bool:
+    def _ender_on_cooldown(self, input_name: str, *, now: float | None = None) -> bool:
         key = (input_name or "").strip().lower()
         if not key or key not in self._combo_enders:
             return False
-        import time
         until = self._ender_cooldown_until.get(key, 0.0)
-        return time.perf_counter() <= until
+        if now is None:
+            import time
+            now = time.perf_counter()
+        return now <= until
 
 
 class TestCanEnderDropCombo(unittest.TestCase):
