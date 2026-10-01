@@ -31,6 +31,7 @@ const state = {
     timings: null,          // ww_timings.json: {fps, fetched_at, characters: {id: {url, abilities}}}
     timingFilter: '',
     timingUnit: readPref('ww-timing-unit', 'f'),   // 'f' frames or 's' seconds
+    openTimings: new Set(),  // section|name of Timings rows whose frame strip is open
     transcripts: new Map(),
     tracker: null,
 };
@@ -304,16 +305,47 @@ function timingCell(a, col) {
     return fmtFrames(v);
 }
 
+const timingKey = (a) => `${a.section}|${a.name}`;
+
+// WuwaLAB's frame strip: the animation as a bar, a tick per hit, and the part after the cancel
+// frame shaded (from there the next action can cut it short).
+function timingStrip(a) {
+    const total = a.frames || 0;
+    if (!total) return '<p class="muted small">No animation frames listed for this ability.</p>';
+    const pct = (f) => `${Math.min(100, Math.max(0, (f / total) * 100)).toFixed(3)}%`;
+    const hits = (a.hit_frames || []).filter((f) => f <= total);
+    const cancel = a.cancel > 0 && a.cancel < total ? a.cancel : null;
+    // Axis labels, most useful first; a label too close to one already placed is left off
+    // (its tick keeps a tooltip).
+    const want = [[0, '', fmtFrames(0)], [total, 'end', fmtFrames(total)]];
+    if (cancel != null) want.push([cancel, 'cancel', `C ${fmtFrames(cancel)}`]);
+    hits.forEach((f) => want.push([f, '', fmtFrames(f)]));
+    const placed = [];
+    for (const [f, cls, text] of want) {
+        if (placed.some((p) => Math.abs(p[0] - f) / total < 0.06)) continue;
+        placed.push([f, cls, text]);
+    }
+    const marks = placed.map(([f, cls, text]) =>
+        `<span class="tick-lbl${f === 0 ? ' start' : ''}${cls ? ` ${cls}` : ''}" style="left:${pct(f)}">${text}</span>`);
+    return `<div class="fstrip" role="img" aria-label="${esc(`${a.name}: ${total} frames, hits at ${hits.join(', ') || 'none'}${cancel != null ? `, cancel at ${cancel}` : ''}`)}">
+            ${cancel != null ? `<div class="after-cancel" style="left:${pct(cancel)}" title="After the cancel frame"></div><div class="cancel-line" style="left:${pct(cancel)}"></div>` : ''}
+            ${hits.map((f, i) => `<div class="hit" style="left:${pct(f)}" title="Hit ${i + 1}: ${f}f"></div>`).join('')}
+        </div>
+        <div class="fstrip-axis">${marks.join('')}</div>`;
+}
+
 function timingRow(a) {
     const tags = (a.tags || []).map((t) => `<span class="ttag">${esc(t)}</span>`).join('');
     const cells = TIMING_COLS.map((col) =>
         `<td class="num${col.key === 'frames' ? ' strong' : ''}">${timingCell(a, col)}</td>`).join('');
     const hitFrames = (a.hit_frames || []).map((f) => fmtFrames(f)).join(' <span class="sep">·</span> ');
-    return `<tr>
-        <td class="tname"><div>${esc(a.name)}</div>${tags ? `<div class="ttags">${tags}</div>` : ''}</td>
+    const key = timingKey(a);
+    const open = state.openTimings.has(key);
+    return `<tr class="trow${open ? ' open' : ''}" data-tkey="${esc(key)}" aria-expanded="${open}" title="Show the frame strip">
+        <td class="tname"><div><span class="caret">▸</span>${esc(a.name)}</div>${tags ? `<div class="ttags">${tags}</div>` : ''}</td>
         ${cells}
         <td class="hitf">${hitFrames || '<span class="zero">—</span>'}</td>
-    </tr>`;
+    </tr>${open ? `<tr class="tstrip"><td colspan="${TIMING_COLS.length + 2}">${timingStrip(a)}</td></tr>` : ''}`;
 }
 
 function timingRows(t) {
@@ -559,6 +591,16 @@ function bindEvents() {
             state.timingUnit = unit.dataset.unit;
             writePref('ww-timing-unit', state.timingUnit);
             renderDetail();
+            return;
+        }
+        const trow = e.target.closest('tr.trow');
+        if (trow) {
+            const key = trow.dataset.tkey;
+            if (state.openTimings.has(key)) state.openTimings.delete(key);
+            else state.openTimings.add(key);
+            const c = state.roster.find((x) => x.id === state.selectedId);
+            const t = c && timingsFor(c);
+            if (t) $('timingRows').innerHTML = timingRows(t);
             return;
         }
         const act = e.target.closest('[data-act]');

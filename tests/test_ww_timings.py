@@ -35,6 +35,19 @@ class ImportTimingsTests(unittest.TestCase):
         self.assertIn("1610", data["characters"])  # XuanLing -> Yangyang: Xuanling
         self.assertEqual(json.loads(imp.dump(data)), data)
 
+    def test_drops_cooldowns_from_shifted_columns(self):
+        self.assertEqual(imp.cooldown({"cd": 900, "genre": "SKILL"}), 900)
+        self.assertIsNone(imp.cooldown({"cd": None, "genre": "BASIC"}))
+        self.assertIsNone(imp.cooldown({"cd": 11, "genre": "0:11, 81:2"}))  # priority landed in cd
+        self.assertIsNone(imp.cooldown({"cd": "0:2"}))                       # timeline landed in cd
+
+    def test_shipped_file_has_no_shifted_cooldowns(self):
+        for c in SHIPPED["characters"].values():
+            for a in c["abilities"]:
+                self.assertTrue(a["cd"] is None or isinstance(a["cd"], int), (c["name"], a["name"], a["cd"]))
+        iuno = next(c for c in SHIPPED["characters"].values() if c["name"] == "Iuno")
+        self.assertIsNone(iuno["abilities"][0]["cd"])
+
     def test_shipped_file_is_keyed_by_character_ids_and_timing_only(self):
         ids = {str(c["id"]) for c in CHARACTERS.values()}
         self.assertTrue(SHIPPED["characters"])

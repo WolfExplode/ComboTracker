@@ -38,8 +38,28 @@ def name_tokens(name: str) -> str:
     return " ".join(sorted(t for t in re.split(r"[^a-z]+", str(name).lower()) if t))
 
 
+# WuwaLAB's priority-timeline column ("0:11, 81:2").
+PRIORITY_TL = re.compile(r"^\d+:\d+")
+
+
+def cooldown(raw: dict[str, Any]) -> int | None:
+    """The scraped cd, or None when it can't be trusted.
+
+    Pages with the extra Concerto/Energy/Off-tune/F1 columns came through shifted: the
+    priority number landed in cd and the priority timeline in genre, or the timeline itself
+    landed in cd. A cd is only real when genre holds an actual move type (BASIC, SKILL...).
+    """
+    cd, genre = raw.get("cd"), raw.get("genre")
+    if not isinstance(cd, (int, float)) or isinstance(cd, bool):
+        return None
+    if not isinstance(genre, str) or PRIORITY_TL.match(genre):
+        return None
+    return int(cd)
+
+
 def ability(raw: dict[str, Any]) -> dict[str, Any]:
     out = {k: raw[k] for k in KEEP if k in raw}
+    out["cd"] = cooldown(raw)
     out["tags"] = [str(t) for t in out.get("tags") or []]
     out.setdefault("hit_frames", [])
     return out

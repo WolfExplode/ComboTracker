@@ -251,7 +251,22 @@ input[type="search"], select, textarea {
     color: var(--accent-red);
     padding-top: 16px;
 }
-.timings tbody tr:not(.tsection):hover { background: var(--bg-secondary); }
+.timings tbody tr:not(.tsection):not(.tstrip):hover { background: var(--bg-secondary); }
+.timings tr.trow { cursor: pointer; }
+.timings tr.trow.open, .timings tr.tstrip { background: var(--bg-secondary); }
+.timings tr.trow.open td { border-bottom-color: transparent; }
+.timings .caret { display: inline-block; width: 14px; color: var(--text-secondary); font-size: 10px; transition: transform 0.12s; }
+.timings tr.trow.open .caret { transform: rotate(90deg); }
+.timings tr.tstrip td { padding: 4px 24px 18px; }
+.fstrip { position: relative; height: 56px; background: var(--bg-primary); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.fstrip .hit { position: absolute; top: 12px; bottom: 6px; width: 2px; margin-left: -1px; background: var(--accent-blue, #4A9EFF); }
+.fstrip .after-cancel { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(255,255,255,0.06); }
+.fstrip .cancel-line { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--accent-yellow); }
+.fstrip-axis { position: relative; height: 16px; margin-top: 3px; font-family: ui-monospace, Consolas, monospace; font-size: 10px; color: var(--text-secondary); }
+.fstrip-axis .tick-lbl { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.fstrip-axis .tick-lbl.start { transform: none; }
+.fstrip-axis .tick-lbl.end { transform: translateX(-100%); }
+.fstrip-axis .tick-lbl.cancel { color: var(--accent-yellow); }
 .ttags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .ttag {
     font-family: ui-monospace, Consolas, monospace;
