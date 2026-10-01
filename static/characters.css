@@ -163,6 +163,7 @@ input[type="search"], select, textarea {
     padding: 20px;
     min-height: 300px;
     min-width: 0; /* let the wide Timings table scroll inside it instead of widening the page */
+    grid-column: 3; /* stay in the wide column even if the resize bar is missing (stale cached HTML) */
 }
 .empty, .loading { color: var(--text-secondary); padding: 40px 0; text-align: center; }
 .error { color: var(--accent-red); padding: 20px 0; }
@@ -325,6 +326,7 @@ input[type="search"], select, textarea {
 @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; padding: 12px; gap: 20px; }
     .splitter { display: none; }
+    .detail { grid-column: auto; }
     .roster { position: static; max-height: 260px; }
     .skill-body { grid-template-columns: 1fr; }
     .team { grid-template-columns: 1fr auto; }

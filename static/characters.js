@@ -495,8 +495,18 @@ function setRosterWidth(px) {
 function bindResizer() {
     const saved = Number(readPref(ROSTER_WIDTH_KEY, 0));
     if (saved) setRosterWidth(saved);
-    const bar = $('rosterResizer');
-    if (!bar) return;
+    let bar = $('rosterResizer');
+    if (!bar) {
+        // A stale cached characters.html may predate the bar; add it so dragging still works.
+        bar = document.createElement('div');
+        bar.id = 'rosterResizer';
+        bar.className = 'splitter';
+        bar.setAttribute('role', 'separator');
+        bar.setAttribute('aria-orientation', 'vertical');
+        bar.setAttribute('aria-label', 'Resize character list');
+        bar.title = 'Drag to resize. Double-click to reset.';
+        $('roster').after(bar);
+    }
     bar.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         bar.setPointerCapture(e.pointerId);
