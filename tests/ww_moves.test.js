@@ -137,13 +137,13 @@ test('Concerto: Iuno\'s held LMB is Absolute Fullness once her bar is full, and 
     const hold = { type: 'hold', input: 'lmb', duration: 100 };
     assert.strictEqual(label(intro('1'), '1'), 'Illuminated Manifestation');
     assert.strictEqual(label.concerto('1'), 10);
-    assert.strictEqual(label(hold, '1'), 'Flux');
+    assert.strictEqual(label(hold, '1'), 'Flux - Moonbow');
     while (label.concerto('1') < 100) label(press('r'), '1');
     assert.strictEqual(label(hold, '1'), 'Absolute Fullness');
     label(intro('2'), '2'); // Zani's Intro comes from Iuno's Outro, emptying her bar
     assert.strictEqual(label.concerto('1'), 0);
     label(intro('1'), '1');
-    assert.strictEqual(label(hold, '1'), 'Flux');
+    assert.strictEqual(label(hold, '1'), 'Flux - Moonbow');
 });
 
 test('a bare slot key is a plain swap, not an Intro', () => {
@@ -153,7 +153,7 @@ test('a bare slot key is a plain swap, not an Intro', () => {
     assert.strictEqual(label(press('2'), '2'), 'Swap');
     assert.strictEqual(label.concerto('2'), 0); // no Intro Concerto
     assert.strictEqual(label.concerto('1'), before); // no Outro either
-    assert.strictEqual(label(press('lmb'), '2'), 'Augusta Basic 1'); // no Intro chain entry
+    assert.strictEqual(label(press('lmb'), '2'), "Hunter's Path 1"); // no Intro chain entry
 });
 
 test('a step lists the moves it could be, and a picked move names it and steers the chain', () => {
@@ -161,7 +161,8 @@ test('a step lists the moves it could be, and a picked move names it and steers 
     setWwTimingData(require('../static/data/ww_timings.json'));
     const label = createWwMoveLabeler({ '1': 'Shorekeeper' });
     label(press('rmb'), '1');
-    assert.strictEqual(label(press('lmb'), '1'), 'Shorekeeper Dodge Counter?');
+    assert.strictEqual(label(press('lmb'), '1'), 'Origin Calculus 2 (Dodge Counter)'); // WuwaLAB's name
+    assert.strictEqual(label.current, 'Basic: Origin Calculus 2 (Dodge Counter)');
     assert.deepStrictEqual(label.choices.slice(0, 2),
         ['Basic: Origin Calculus 2 (Dodge Counter)', 'Basic: Origin Calculus 1']);
 
@@ -169,11 +170,11 @@ test('a step lists the moves it could be, and a picked move names it and steers 
     picked(press('rmb'), '1');
     assert.strictEqual(picked(press('lmb'), '1', 'Basic: Origin Calculus 1'), 'Origin Calculus 1');
     assert.strictEqual(picked.concerto('1'), 1.6);
-    assert.strictEqual(picked(press('lmb'), '1'), 'Shorekeeper Basic 2'); // chain goes on from A1
+    assert.strictEqual(picked(press('lmb'), '1'), 'Origin Calculus 2'); // chain goes on from A1
 
     // A name that isn't one of the character's moves is ignored.
     const other = createWwMoveLabeler({ '1': 'Shorekeeper' });
-    assert.strictEqual(other(press('lmb'), '1', 'Nope'), 'Shorekeeper Basic 1');
+    assert.strictEqual(other(press('lmb'), '1', 'Nope'), 'Origin Calculus 1');
     assert.deepStrictEqual(createWwMoveLabeler({ '1': 'Shorekeeper' })(press('q'), '1') && [], []);
 });
 

@@ -139,20 +139,20 @@ const WW_KEY_GENRES = {
 };
 
 /**
- * Drop the moves the step before rules out. ctx = { prevKey, nextStage }: the key pressed just
+ * Drop the moves the step before rules out. Mid-Air moves (of any key) need a jump just before. ctx = { prevKey, nextStage }: the key pressed just
  * before, and the Basic stage the chain is on (1 after a reset). LMB right after a jump is a
  * Mid-Air attack; after a dodge it's the Dodge Counter or Basic 1; otherwise it's the next Basic
  * in the chain (or Basic 1), never a Mid-Air attack or Counter. Moves without a stage number
  * (Forte moves like Shorekeeper's Transmutation) depend on state the keys don't show, so they stay.
  */
 function wwPossibleRows(list, key, ctx) {
-    if (!ctx || (key !== 'lmb' && key !== 'hold:lmb')) return list;
+    if (!ctx) return list;
     const midAir = (r) => /mid-air/i.test(r.name);
     const stageOf = (r) => Number((r.name.match(/\s(\d+)(\s*\([^)]*\))*$/) || [])[1]) || 0;
     const airborne = ctx.prevKey === 'space';
     const keep = list.filter((r) => {
         if (midAir(r) !== airborne) return false;
-        if (airborne) return true;
+        if (airborne || (key !== 'lmb' && key !== 'hold:lmb')) return true;
         const stage = stageOf(r);
         if (r.genre === 'COUNTER') return ctx.prevKey === 'rmb';
         if (r.genre !== 'BASIC' || !stage) return true;
@@ -330,7 +330,12 @@ function createWwMoveLabeler(slotNames) {
             else if (g === 'INTRO') after = 'intro';
             else if (g === 'TUNEBREAK') after = 'tune_break';
             text = wwShortMoveName(row.name);
+        } else if (label.choices.length && !(Number(step.chain_count) > 1) && step.type !== 'spam') {
+            // The character has WuwaLAB data: name the step with WuwaLAB's name for the best guess.
+            text = wwShortMoveName(label.choices[0]);
         }
+        // The move in effect for this step: the pick, else the best guess (null without data).
+        label.current = row ? row.name : (label.choices[0] || null);
         if (text) named += 1;
         return text;
     };
@@ -338,6 +343,7 @@ function createWwMoveLabeler(slotNames) {
     label.choices = [];
     label.choiceInputs = [];
     label.choiceFrames = [];
+    label.current = null;
     /** Concerto of the character in `slot` after the steps labeled so far, in points (0-100). */
     label.concerto = (slot) => (concerto[slot] || 0) / 100;
 
@@ -353,7 +359,12 @@ function createWwMoveLabeler(slotNames) {
         const useChain = !(chain.length < 2 || i === 0 || i >= chain.length);
         gain(s, { kind: 'skill', name: useChain ? chain[i] : rulesFor(s).names.skill });
         if (!useChain) return own(s, 'skill', 'Skill');
-        if (i === 1 && typeof label.onRevise === 'function') label.onRevise(skillRun.firstIndex, chain[0]);
+        if (i === 1 && typeof label.onRevise === 'function') {
+            // With WuwaLAB data, use its name for the first press too ("Undying Sunlight - Strike").
+            const rows = wwAbilityTables[rulesFor(s).key] || [];
+            const first = rows.find((r) => r.genre === 'SKILL' && r.name.toLowerCase().includes(chain[0].toLowerCase()));
+            label.onRevise(skillRun.firstIndex, first ? wwShortMoveName(first.name) : chain[0]);
+        }
         return chain[i];
     };
 

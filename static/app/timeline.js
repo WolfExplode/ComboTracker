@@ -615,20 +615,26 @@ function updateTimeline(steps, opts) {
         const toks = new Set(idx.map((r) => (savedSrcMap[r] && savedSrcMap[r].length ? Math.min(...savedSrcMap[r]) : -1)));
         return toks.size === 1 ? [...toks][0] : -1;
     };
-    if (showNames) {
-        labelMove.onRevise = (index, text) => {
-            const el = moveLabelEls[index];
-            if (el) { el.title = el.title.replace(el.textContent, text); el.textContent = text; }
-        };
-    }
+    const namedTiles = []; // tile of each named step, in labeler order (for onRevise)
+    labelMove.onRevise = (index, text) => {
+        const mc = namedTiles[index] && namedTiles[index]._moveChoice;
+        if (mc && mc.chosen) return; // a picked move stays
+        if (mc) mc.guess = mc.choices.find((n) => wwShortMoveName(n) === text) || mc.guess;
+        const el = moveLabelEls[index];
+        if (el) { el.title = el.title.replace(el.textContent, text); el.textContent = text; }
+    };
     function appendMoveLabel(tile, step, slot) {
         const tokIdx = tokenForStep(step);
         const chosen = tokIdx >= 0 ? splitMoveName(savedTokens[tokIdx])[1] : null;
         const text = labelMove(step, slot, chosen);
         if (tokIdx >= 0 && text && labelMove.choices.length > 1) {
-            tile._moveChoice = { runtimeIdx: step.step_indices[0], choices: labelMove.choices, inputs: labelMove.choiceInputs, frames: labelMove.choiceFrames, chosen };
+            tile._moveChoice = {
+                runtimeIdx: step.step_indices[0], choices: labelMove.choices, inputs: labelMove.choiceInputs,
+                frames: labelMove.choiceFrames, chosen, guess: labelMove.choices[0],
+            };
         }
-        if (!text || !showNames) return;
+        if (text) namedTiles.push(tile);
+        if (!text || !showNames) { if (text) moveLabelEls.push(null); return; }
         const el = document.createElement('span');
         el.className = 'step-move';
         el.textContent = text;
@@ -1388,15 +1394,20 @@ function tileMenuItems(tile, indices) {
     const mc = tile._moveChoice;
     if (mc) {
         items.push({ heading: 'Which move is this?' });
+        // One move is always checked: the pick, else the best guess. Picking the best guess clears
+        // the saved pick (it's the default anyway); clicking the checked move does nothing.
+        const current = (mc.chosen && mc.choices.find((n) => n.toLowerCase() === mc.chosen.toLowerCase())) || mc.guess;
         mc.choices.forEach((name, i) => items.push({
             label: wwShortMoveName(name),
             hint: mc.inputs[i],
             frames: mc.frames && mc.frames[i],
             title: name,
-            checked: name === mc.chosen,
-            run: () => setStepMoveName(mc.runtimeIdx, name === mc.chosen ? null : name),
+            checked: name === current,
+            run: () => {
+                if (name === current) return;
+                setStepMoveName(mc.runtimeIdx, name === mc.guess ? null : name);
+            },
         }));
-        if (mc.chosen) items.push({ label: 'Back to the guess', run: () => setStepMoveName(mc.runtimeIdx, null) });
         items.push({ separator: true });
     }
     items.push({
