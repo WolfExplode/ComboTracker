@@ -66,7 +66,7 @@ const appState = {
     batchQueue: [],
     isProcessingBatch: false,
     avgStepMsByPosition: [],
-    // Shell (rail, header, History): one row per combo from the backend's "overview".
+    // Combo list: one row per combo (team, steps) from the backend's "overview".
     comboNames: [],
     activeCombo: '',
     overview: [],

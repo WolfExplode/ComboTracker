@@ -56,7 +56,7 @@ a:hover { color: var(--ct-accent-hover); }
 
 .app {
     display: grid;
-    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-columns: 256px minmax(0, 1fr);
     min-height: 100vh;
 }
 
@@ -156,10 +156,10 @@ a:hover { color: var(--ct-accent-hover); }
 .btn:focus-visible,
 .chip:focus-within,
 .combo-item:focus-visible,
+.combo-group-head:focus-visible,
 .menu-item:focus-visible,
 .picker-btn:focus-visible,
-.team-card:focus-visible,
-.history-row:focus-visible {
+.team-card:focus-visible {
     outline: 2px solid var(--ct-accent);
     outline-offset: 2px;
 }
@@ -587,6 +587,13 @@ select.input { padding-right: 8px; }
 
 .app .timeline-section .combo-steps-header { flex-wrap: wrap; }
 
+/* Dragging a tile's icon drags the tile (to reorder), not a copy of the image */
+.timeline-section img,
+.timeline-section svg {
+    -webkit-user-drag: none;
+    user-select: none;
+}
+
 /* The tile for the input under the cursor in the Inputs box (see applyEditFocus in app/combos.js).
    An outline, so the tile's own border colors keep their meaning. */
 .app .timeline-section .step-edit-focus {
@@ -613,8 +620,8 @@ select.input { padding-right: 8px; }
 
 .editor {
     display: grid;
-    grid-template-columns: 280px minmax(0, 1fr);
-    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
     align-items: start;
 }
 
@@ -644,10 +651,73 @@ select.input { padding-right: 8px; }
 .combo-edit[open] > .combo-edit-summary::before { transform: rotate(45deg); }
 .combo-edit-summary:focus-visible { outline: 2px solid var(--ct-accent); outline-offset: 4px; border-radius: 4px; }
 
-.combo-list-card { padding: 10px; gap: 4px; position: sticky; top: 22px; max-height: calc(100vh - 44px); }
-.combo-list-tools { display: flex; gap: 8px; padding: 4px 4px 8px; }
+/* In the rail it fills the space between the nav and the status card, scrolling on its own */
+.combo-list-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-height: 120px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ct-line);
+}
+.rail .combo-list-card + .rail-spacer { display: none; }
+/* Rail is narrow: smaller, tighter portraits and no step counts so names have room */
+.rail .combo-group-head { padding: 6px 6px; min-height: 40px; gap: 6px; font-size: 13px; }
+.rail .combo-group-head .team-item-left { gap: 8px; }
+.rail .combo-group-head .avatar { width: 22px; height: 22px; font-size: 9px; margin-right: -9px; border-width: 1.5px; }
+.rail .combo-group-head .avatars { padding-right: 9px; }
+.rail .combo-group-body { padding: 0 2px 6px 10px; }
+.rail .combo-item { min-height: 34px; padding: 5px 8px; font-size: 13px; }
+.rail .combo-item-steps { display: none; }
+.app.compact .rail .combo-list-card { display: none; }
+.app.compact .rail .combo-list-card + .rail-spacer { display: block; }
+.editor > .combo-list-card { padding: 10px; border: 1px solid var(--ct-line); border-radius: 14px; background: var(--ct-panel); max-height: 320px; margin: 0; }
+.combo-list-tools { display: flex; gap: 8px; padding: 0 0 6px; }
 .combo-list-tools .input { flex-grow: 1; min-width: 0; width: auto; }
-.combo-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.combo-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; margin: 0 -4px; padding: 0 4px; }
+
+/* Combo list grouped by team (same rows as the Teams page dropdown) */
+.combo-group { border-radius: 10px; }
+.combo-group.open { background: rgba(255, 255, 255, .02); }
+.combo-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ct-text);
+    font: 600 14px var(--ct-font-body);
+    cursor: pointer;
+    text-align: left;
+}
+.combo-group-head:hover { background: var(--ct-surface); transform: none; }
+.combo-group.has-active > .combo-group-head { color: var(--ct-accent); }
+.combo-group-head .avatars .avatar { border-color: var(--ct-panel); }
+.combo-group-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: 500 12px var(--ct-font-mono);
+    color: var(--ct-muted);
+}
+.combo-group-count::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform .15s ease;
+}
+.combo-group.open .combo-group-count::after { transform: rotate(45deg); }
+.combo-group-body { display: flex; flex-direction: column; gap: 2px; padding: 0 4px 6px 18px; }
 
 .combo-item {
     display: flex;
@@ -655,21 +725,20 @@ select.input { padding-right: 8px; }
     justify-content: space-between;
     gap: 10px;
     width: 100%;
-    min-height: 44px;
-    padding: 8px 12px;
+    min-height: 38px;
+    padding: 6px 10px;
     border: 0;
     border-radius: 8px;
     background: transparent;
     color: var(--ct-text);
-    font: 500 14px var(--ct-font-body);
+    font: 500 13.5px var(--ct-font-body);
     cursor: pointer;
     text-align: left;
 }
 
 .combo-item:hover { background: var(--ct-surface); transform: none; }
 .combo-item.on { background: var(--ct-accent-dim); }
-.combo-item-text { display: flex; flex-direction: column; min-width: 0; }
-.combo-item-text > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.combo-item-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .combo-item-steps { font: 400 12px var(--ct-font-mono); color: var(--ct-muted); white-space: nowrap; }
 
 .app .combo-input-wrap .combo-input-highlight,
@@ -797,41 +866,6 @@ select.input { padding-right: 8px; }
 }
 
 /* ---------------------------------------------------------------------------
-   History
-   --------------------------------------------------------------------------- */
-
-.history-body { display: flex; flex-direction: column; gap: 4px; }
-
-.history-row {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    width: 100%;
-    padding: 10px 12px;
-    border: 0;
-    border-radius: 8px;
-    background: var(--ct-surface);
-    color: var(--ct-text);
-    font: 400 14px var(--ct-font-body);
-    text-align: left;
-    cursor: pointer;
-}
-
-.history-row:hover { background: var(--ct-hover); transform: none; }
-.history-row.on { box-shadow: inset 3px 0 0 var(--ct-accent); }
-.history-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.history-head {
-    background: transparent;
-    cursor: default;
-    padding: 0 12px 4px;
-    font: 600 11px var(--ct-font-body);
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: var(--ct-muted);
-}
-
-/* ---------------------------------------------------------------------------
    Settings
    --------------------------------------------------------------------------- */
 
@@ -868,9 +902,6 @@ select.input { padding-right: 8px; }
 
 @media (max-width: 1100px) {
     .cards3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    /* Give the timeline the full width; the combo list sits above it */
-    .editor { grid-template-columns: minmax(0, 1fr); }
-    .combo-list-card { position: static; max-height: 280px; }
 }
 
 @media (max-width: 900px) {
@@ -908,8 +939,6 @@ select.input { padding-right: 8px; }
     .formgrid,
     .cards3,
     .settings { grid-template-columns: minmax(0, 1fr); }
-    .combo-list-card { position: static; max-height: 320px; }
-    .history-row { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); }
     .hide-small { display: none !important; }
     .toast { bottom: 90px; }
 }

@@ -36,15 +36,23 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                     <span class="navlabel">Characters</span>
                 </button>
-                <button type="button" class="navbtn" data-page="history" title="History">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>
-                    <span class="navlabel">History</span>
-                </button>
                 <button type="button" class="navbtn" data-page="settings" title="Settings">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
                     <span class="navlabel">Settings</span>
                 </button>
             </nav>
+
+            <!-- Combos by team. Below 900px (no rail) app/shell.js moves this onto the Practice page. -->
+            <section class="combo-list-card" id="comboListCard" aria-label="Combos">
+                <div class="combo-list-tools">
+                    <label for="comboSearch" class="sr-only">Search combos</label>
+                    <input id="comboSearch" type="search" class="input" placeholder="Search combos" autocomplete="off">
+                    <button id="newBtn" type="button" class="btn primary icon-only" title="New combo" aria-label="New combo">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                </div>
+                <div id="comboList" class="combo-list" role="listbox" aria-label="Your combos"></div>
+            </section>
 
             <div class="rail-spacer"></div>
 
@@ -71,20 +79,9 @@
                 </div>
             </header>
 
-            <!-- ============ PRACTICE (combo list, timeline, editor) ============ -->
+            <!-- ============ PRACTICE (timeline, editor; the combo list is in the rail) ============ -->
             <section class="page" data-page="practice" aria-label="Practice">
-                <div class="editor">
-                    <section class="card combo-list-card">
-                        <div class="combo-list-tools">
-                            <label for="comboSearch" class="sr-only">Search combos</label>
-                            <input id="comboSearch" type="search" class="input" placeholder="Search combos" autocomplete="off">
-                            <button id="newBtn" type="button" class="btn primary icon-only" title="New combo" aria-label="New combo">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            </button>
-                        </div>
-                        <div id="comboList" class="combo-list" role="listbox" aria-label="Your combos"></div>
-                    </section>
-
+                <div class="editor" id="practiceEditor">
 
                     <div class="editor-main">
                         <!-- Compact stat cards; values are filled from the backend's "Label: value" texts -->
@@ -358,17 +355,6 @@
                 <iframe id="charactersFrame" class="characters-frame" title="Characters: moves and team rotations" data-src="characters.html?embed=1"></iframe>
             </section>
 
-            <!-- ============ HISTORY ============ -->
-            <section class="page" data-page="history" aria-label="History" hidden>
-                <section class="card">
-                    <div class="history-row history-head">
-                        <span>Combo</span><span>Success / fail</span><span>Best</span><span class="hide-small">Average</span><span class="hide-small">Target</span>
-                    </div>
-                    <div id="historyBody" class="history-body"></div>
-                    <p class="muted small" id="historyNote"></p>
-                </section>
-            </section>
-
             <!-- ============ SETTINGS ============ -->
             <section class="page" data-page="settings" aria-label="Settings" hidden>
                 <div class="settings">
@@ -440,7 +426,6 @@
         <nav class="bottomnav" aria-label="Pages">
             <button type="button" class="navbtn" data-page="practice"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>Practice</button>
             <button type="button" class="navbtn" data-page="teams"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Teams</button>
-            <button type="button" class="navbtn" data-page="history"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>History</button>
             <button type="button" class="navbtn" data-page="settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>Settings</button>
         </nav>
 

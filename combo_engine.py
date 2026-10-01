@@ -225,7 +225,7 @@ class ComboTrackerEngine:
                 logger.debug("Emitter raised while sending message", exc_info=True)
 
     def _emit_stats_and_fail(self):
-        self._send(ui.stat_update_payload(self))
+        self._send({"type": "stat_update", "stats": ui.stats_text(self)})
         self._send({"type": "fail_update", "fail_by_step": ui.failures_by_step(self)})
 
     # -------------------------

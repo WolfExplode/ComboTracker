@@ -1240,7 +1240,7 @@ function createImageElement(url) {
     const img = document.createElement('span');
     img.className = 'key-img-wrap'; // Matches CSS .key-img-wrap
     if (/^https?:\/\//i.test(url)) {
-        img.innerHTML = `<img class="key-step-image" src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
+        img.innerHTML = `<img class="key-step-image" src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />`;
     } else {
         img.innerHTML = `<span class="step-emoji">${escapeHtml(url)}</span>`;
     }

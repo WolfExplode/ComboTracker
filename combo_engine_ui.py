@@ -42,29 +42,15 @@ def stats_text(engine) -> str:
 
 
 def combo_overview(engine) -> list[dict[str, Any]]:
-    """One row per saved combo (team, attempt counts, best/average) for the combo picker and History page."""
-    rows: list[dict[str, Any]] = []
-    for name in sorted(engine.combos.keys()):
-        rec = engine.combo_stats.get(name)
-        rec = rec if isinstance(rec, dict) else {}
-        success = int(rec.get("success", 0) or 0)
-        fail = int(rec.get("fail", 0) or 0)
-        total_ms = int(rec.get("total_success_ms", 0) or 0)
-        rows.append({
+    """One row per saved combo (its team and step count) for the combo list grouped by team."""
+    return [
+        {
             "name": name,
             "team_id": engine.ww.combo_ww_team.get(name, ""),
             "steps": len(engine.combos.get(name) or []),
-            "success": success,
-            "fail": fail,
-            "best_ms": rec.get("best_ms"),
-            "avg_ms": (total_ms / success) if success > 0 and total_ms > 0 else None,
-            "target_ms": engine.combo_expected_ms.get(name),
-        })
-    return rows
-
-
-def stat_update_payload(engine) -> dict[str, Any]:
-    return {"type": "stat_update", "stats": stats_text(engine), "overview": combo_overview(engine)}
+        }
+        for name in sorted(engine.combos.keys())
+    ]
 
 
 def failures_by_step(engine) -> dict[str, int]:
