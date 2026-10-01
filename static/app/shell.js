@@ -459,6 +459,16 @@ fetch('data/ww_characters.json')
     })
     .catch(() => { /* move names fall back to generic rules */ });
 
+// WuwaLAB's per-ability Concerto, so the timeline can tell when a character's bar is full.
+fetch('data/ww_timings.json')
+    .then(res => (res.ok ? res.json() : null))
+    .then(doc => {
+        if (!doc) return;
+        setWwTimingData(doc);
+        refreshTimelineIfLoaded();
+    })
+    .catch(() => { /* no Concerto tracking */ });
+
 tracker = connectTracker({
     onOpen: () => {
         console.log('Connected to WuWa Combo Tracker backend');

@@ -35,6 +35,24 @@ class ImportTimingsTests(unittest.TestCase):
         self.assertIn("1610", data["characters"])  # XuanLing -> Yangyang: Xuanling
         self.assertEqual(json.loads(imp.dump(data)), data)
 
+    def test_reads_full_scrape_by_header_name(self):
+        row = {
+            "section": "HEAVY ATTACK3 ABILITIES", "name": "Intro: X", "tags": ["MOTION STOP 6-32F"],
+            "values": {"hits": 2, "frames": 100, "cancel": 76, "noswap": 84, "tstop": 0, "mstop": 26,
+                       "concerto": 1000, "energy": 0, "cd": "\u2014", "genre": "INTRO", "pri": 11},
+            "hits_detail": [{"frame": "48f", "mv": "15.91%"}, {"frame": "52f", "mv": "15.91%"}],
+            "timeline": [{"cls": "tl-zone tl-zone--ms", "style": "left: 6%; right: 68%;"}],
+        }
+        a = imp.ability(imp.flat_row(row))
+        self.assertEqual(a["section"], "HEAVY ATTACK")
+        self.assertEqual(a["concerto"], 1000)
+        self.assertIsNone(a["cd"])
+        self.assertEqual(a["hit_frames"], [48, 52])
+        self.assertEqual(a["zones"], [{"kind": "ms", "from": 6, "to": 32}])
+        self.assertNotIn("mv", a)
+        self.assertNotIn("energy", a)
+        self.assertNotIn("pri", a)
+
     def test_drops_cooldowns_from_shifted_columns(self):
         self.assertEqual(imp.cooldown({"cd": 900, "genre": "SKILL"}), 900)
         self.assertIsNone(imp.cooldown({"cd": None, "genre": "BASIC"}))

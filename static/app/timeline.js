@@ -562,7 +562,7 @@ function updateTimeline(steps, opts) {
     if (labelMove) {
         labelMove.onRevise = (index, text) => {
             const el = moveLabelEls[index];
-            if (el) { el.textContent = text; el.title = text; }
+            if (el) { el.title = el.title.replace(el.textContent, text); el.textContent = text; }
         };
     }
     function appendMoveLabel(tile, step, slot) {
@@ -572,7 +572,8 @@ function updateTimeline(steps, opts) {
         const el = document.createElement('span');
         el.className = 'step-move';
         el.textContent = text;
-        el.title = text;
+        const conc = slot ? labelMove.concerto(slot) : 0;
+        el.title = conc > 0 ? `${text}\nConcerto after this ≈ ${Math.round(conc)}/100` : text;
         tile.appendChild(el);
         moveLabelEls.push(el);
     }

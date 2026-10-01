@@ -284,8 +284,18 @@ const TIMING_COLS = [
     { key: 'noswap', label: 'No swap', tip: "Frames before you can swap out", frames: true },
     { key: 'tstop', label: 'T.stop', tip: 'Time stop: the whole field freezes', frames: true },
     { key: 'mstop', label: 'M.stop', tip: 'Motion stop: hit-stop on the character', frames: true },
+    { key: 'concerto', label: 'Concerto', tip: 'Concerto Energy gained (full = 100). A full bar lets the Outro fire on swap and unlocks moves like Iuno\'s Absolute Fullness', concerto: true },
     { key: 'cd', label: 'CD', tip: 'Cooldown', frames: true },
 ];
+
+// WuwaLAB counts Concerto in hundredths (1,000 = 10 points, -10,000 = the Outro emptying the bar).
+function fmtConcerto(v) {
+    if (v == null) return '<span class="zero">—</span>';
+    const pts = v / 100;
+    const text = Number.isInteger(pts) ? String(pts) : pts.toFixed(2).replace(/0$/, '');
+    if (v === 0) return `<span class="zero">${text}</span>`;
+    return `<span class="${v < 0 ? 'neg' : 'conc'}">${text}</span>`;
+}
 
 function timingsFor(c) {
     return state.timings && state.timings.characters ? state.timings.characters[String(c.id)] : null;
@@ -301,6 +311,7 @@ function fmtFrames(n) {
 
 function timingCell(a, col) {
     const v = a[col.key];
+    if (col.concerto) return fmtConcerto(v);
     if (!col.frames) return v ? String(v) : `<span class="zero">${v ?? '—'}</span>`;
     return fmtFrames(v);
 }
@@ -327,8 +338,11 @@ function timingStrip(a) {
     }
     const marks = placed.map(([f, cls, text]) =>
         `<span class="tick-lbl${f === 0 ? ' start' : ''}${cls ? ` ${cls}` : ''}" style="left:${pct(f)}">${text}</span>`);
+    const zones = (a.zones || []).filter((z) => z.to > z.from).map((z) =>
+        `<div class="zone ${z.kind}" style="left:${pct(z.from)};width:calc(${pct(z.to)} - ${pct(z.from)})" title="${z.kind === 'ts' ? 'Time stop' : 'Motion stop'} ${z.from}-${z.to}f">${z.kind.toUpperCase()}</div>`).join('');
     return `<div class="fstrip" role="img" aria-label="${esc(`${a.name}: ${total} frames, hits at ${hits.join(', ') || 'none'}${cancel != null ? `, cancel at ${cancel}` : ''}`)}">
             ${cancel != null ? `<div class="after-cancel" style="left:${pct(cancel)}" title="After the cancel frame"></div><div class="cancel-line" style="left:${pct(cancel)}"></div>` : ''}
+            ${zones}
             ${hits.map((f, i) => `<div class="hit" style="left:${pct(f)}" title="Hit ${i + 1}: ${f}f"></div>`).join('')}
         </div>
         <div class="fstrip-axis">${marks.join('')}</div>`;
@@ -385,7 +399,7 @@ function renderTimings(c) {
                 <tbody id="timingRows">${timingRows(t)}</tbody>
             </table>
         </div>
-        <p class="src-line">Frame data from ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">WuwaLAB</a>` : 'WuwaLAB'}${state.timings.fetched_at ? `, copied ${esc(state.timings.fetched_at.split(' ')[0])}` : ''}. Timing columns only. Hover a column name for what it means.</p>`;
+        <p class="src-line">Frame data from ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">WuwaLAB</a>` : 'WuwaLAB'}${state.timings.fetched_at ? `, copied ${esc(state.timings.fetched_at.split(' ')[0])}` : ''}. Timing columns and Concerto only (Concerto is the total a move gives, in-game points). Hover a column name for what it means.</p>`;
 }
 
 // --- Rotations ----------------------------------------------------------------

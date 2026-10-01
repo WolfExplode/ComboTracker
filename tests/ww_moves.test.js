@@ -122,3 +122,24 @@ test("Iuno's held LMB is her Heavy, Flux", () => {
     const label = createWwMoveLabeler({ '1': 'Iuno' });
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 100 }, '1'), 'Flux');
 });
+
+test('Concerto: Iuno\'s held LMB is Absolute Fullness once her bar is full, and the Outro empties it', () => {
+    const { setWwTimingData, wwConcertoGain } = require('../static/ww_moves.js');
+    setWwTimingData(require('../static/data/ww_timings.json'));
+    const iuno = wwRuleFor('Iuno');
+    assert.strictEqual(wwConcertoGain(iuno, { kind: 'basic', stage: 2 }), 197); // Basic: Moon Ring 2
+    assert.strictEqual(wwConcertoGain(iuno, { kind: 'intro' }), 1000);
+    assert.strictEqual(wwConcertoGain(iuno, { kind: 'heavy', name: 'Absolute Fullness' }), 0);
+
+    const label = createWwMoveLabeler({ '1': 'Iuno', '2': 'Zani' });
+    const hold = { type: 'hold', input: 'lmb', duration: 100 };
+    assert.strictEqual(label(press('1'), '1'), 'Illuminated Manifestation');
+    assert.strictEqual(label.concerto('1'), 10);
+    assert.strictEqual(label(hold, '1'), 'Flux');
+    while (label.concerto('1') < 100) label(press('r'), '1');
+    assert.strictEqual(label(hold, '1'), 'Absolute Fullness');
+    label(press('2'), '2'); // swap out with a full bar: Outro
+    assert.strictEqual(label.concerto('1'), 0);
+    label(press('1'), '1');
+    assert.strictEqual(label(hold, '1'), 'Flux');
+});

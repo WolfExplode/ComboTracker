@@ -16,6 +16,13 @@
 //
 // Per-character rules (chain length, what hold(lmb) does, where LMB picks the chain back up after
 // another move) come from static/data/ww_characters.json via setWwCharacterData().
+//
+// Concerto Energy is tracked per character as the timeline goes, from WuwaLAB's per-ability
+// Concerto (static/data/ww_timings.json via setWwTimingData()). Each move adds its base version's
+// Concerto (an estimate: forms like Iuno's Moonbow or Enhanced moves give more), everyone starts
+// at 0, and swapping out with a full bar fires the Outro and empties it. A character whose
+// basic.hold_full_concerto is set (Iuno: "Absolute Fullness") gets that Heavy instead of the usual
+// one while their bar is full.
 
 const WW_SLOTS = ['1', '2', '3'];
 
@@ -24,7 +31,12 @@ const WW_SLOTS = ['1', '2', '3'];
 // tune_break|heavy|dodge|midair: stage } for "LMB right after that move is Basic Stage N";
 // skillChain = names for E pressed again and again in a row ([] = every E is just "Skill");
 // names = { skill, liberation, intro }: the moves' own names ('' = unknown, say "<character> Skill").
-const WW_DEFAULT_RULE = { basic: 0, hold: 'Heavy', entry: {}, skillChain: [], names: {} };
+// holdFull = what hold(lmb) is called while Concerto is full (null = same as hold); key = name tokens.
+const WW_DEFAULT_RULE = { key: '', basic: 0, hold: 'Heavy', holdFull: null, entry: {}, skillChain: [], names: {} };
+
+// Concerto in WuwaLAB's units: 100 = 1 point, a full bar is 100 points.
+const WW_CONCERTO_FULL = 10000;
+let wwConcertoTables = {}; // name tokens -> [{ name, genre, concerto }] from ww_timings.json
 
 // Own name of the move cast by `input` (ww_characters.json moves list), or ''.
 function wwMoveName(c, input, type) {
@@ -47,8 +59,10 @@ function setWwCharacterData(doc) {
     Object.values((doc && doc.characters) || {}).forEach((c) => {
         const b = c.basic || {};
         rules[wwNameTokens(c.name)] = {
+            key: wwNameTokens(c.name),
             basic: Number(b.hits) || 0,
             hold: b.hold_lmb === 'chain' ? null : (b.hold_label || 'Heavy'),
+            holdFull: b.hold_full_concerto || null,
             entry: c.chain_entry || {},
             skillChain: Array.isArray(c.skill_chain) ? c.skill_chain : [],
             names: {
@@ -59,6 +73,44 @@ function setWwCharacterData(doc) {
         };
     });
     wwCharacterRules = rules;
+}
+
+/** Load ww_timings.json ({characters: {id: {name, abilities}}}) for Concerto tracking. */
+function setWwTimingData(doc) {
+    const tables = {};
+    Object.values((doc && doc.characters) || {}).forEach((c) => {
+        tables[wwNameTokens(c.name)] = (c.abilities || [])
+            .filter((a) => typeof a.concerto === 'number')
+            .map((a) => ({ name: String(a.name || ''), genre: String(a.genre || ''), concerto: a.concerto }));
+    });
+    wwConcertoTables = tables;
+}
+
+/**
+ * Concerto a move gives, in WuwaLAB units (0 when unknown). move = { kind, stage, name }:
+ * kind is intro / basic / midair / counter / heavy / skill / liberation / tune_break.
+ * Picks the first (base-form) WuwaLAB row of that type, or the one with the move's own name.
+ */
+function wwConcertoGain(rule, move) {
+    const rows = wwConcertoTables[rule && rule.key];
+    if (!rows || !rows.length) return 0;
+    const of = (genre) => rows.filter((r) => r.genre === genre);
+    const named = (list) => {
+        const n = String(move.name || '').toLowerCase();
+        return (n && list.find((r) => r.name.toLowerCase().includes(n))) || list[0];
+    };
+    let row = null;
+    if (move.kind === 'intro') row = of('INTRO')[0];
+    else if (move.kind === 'basic') {
+        const re = new RegExp(`^basic[^(]*\\s${Number(move.stage) || 1}$`, 'i');
+        row = of('BASIC').find((r) => re.test(r.name));
+    } else if (move.kind === 'midair') row = of('BASIC').find((r) => /mid-air/i.test(r.name));
+    else if (move.kind === 'counter') row = of('COUNTER')[0];
+    else if (move.kind === 'heavy') row = named(of('HEAVY'));
+    else if (move.kind === 'skill') row = named(of('SKILL'));
+    else if (move.kind === 'liberation') row = of('LIBERATION')[0];
+    else if (move.kind === 'tune_break') row = of('TUNEBREAK')[0];
+    return row ? Math.max(0, row.concerto) : 0;
 }
 
 // Team names are typed by hand ("Pheobe", "Agusta", "Rover"), so allow one typo, a missing word,
@@ -112,13 +164,21 @@ function createWwMoveLabeler(slotNames) {
     let after = ''; // the move LMB would follow (intro, skill, heavy, ...) for chain_entry
     let named = 0; // non-empty names returned so far, for onRevise
     let skillRun = null; // { slot, count, firstIndex }: E presses in a row
+    const concerto = {}; // slot -> Concerto (WuwaLAB units)
+    let onField = null; // slot of the character on the field, for the Outro on swap
+    const gain = (slot, move) => {
+        const v = (concerto[slot] || 0) + wwConcertoGain(rulesFor(slot), move);
+        concerto[slot] = Math.min(WW_CONCERTO_FULL, v);
+    };
+    const isFull = (slot) => (concerto[slot] || 0) >= WW_CONCERTO_FULL;
     const who = (slot) => (slotNames && slotNames[slot]) || `Slot ${slot}`;
     const rulesFor = (slot) => wwRuleFor(who(slot));
 
     // Advance the Basic chain by `hits`, wrapping at the character's chain length.
-    const basicLabel = (n, rule, hits) => {
+    const basicLabel = (n, rule, hits, slot) => {
         const stage = (i) => (rule.basic > 0 ? ((i - 1) % rule.basic) + 1 : i);
         const first = stage(basicCount + 1);
+        for (let i = 1; i <= hits; i++) gain(slot, { kind: 'basic', stage: stage(basicCount + i) });
         basicCount += hits;
         const last = stage(basicCount);
         return hits > 1 ? `${n} Basic ${first}-${last}` : `${n} Basic ${first}`;
@@ -130,6 +190,8 @@ function createWwMoveLabeler(slotNames) {
         return text;
     };
     label.onRevise = null;
+    /** Concerto of the character in `slot` after the steps labeled so far, in points (0-100). */
+    label.concerto = (slot) => (concerto[slot] || 0) / 100;
 
     // A move's own name, or "<character> <generic>" when the data doesn't have one.
     const own = (s, which, generic) => rulesFor(s).names[which] || `${who(s)} ${generic}`;
@@ -140,7 +202,9 @@ function createWwMoveLabeler(slotNames) {
         if (skillRun && skillRun.slot === s) skillRun.count += 1;
         else skillRun = { slot: s, count: 1, firstIndex: named };
         const i = skillRun.count - 1;
-        if (chain.length < 2 || i === 0 || i >= chain.length) return own(s, 'skill', 'Skill');
+        const useChain = !(chain.length < 2 || i === 0 || i >= chain.length);
+        gain(s, { kind: 'skill', name: useChain ? chain[i] : rulesFor(s).names.skill });
+        if (!useChain) return own(s, 'skill', 'Skill');
         if (i === 1 && typeof label.onRevise === 'function') label.onRevise(skillRun.firstIndex, chain[0]);
         return chain[i];
     };
@@ -158,6 +222,7 @@ function createWwMoveLabeler(slotNames) {
         const isHold = step.type === 'hold' || step.type === 'hold_with_body';
         const s = slot || '1';
         const n = who(s);
+        if (!onField && !WW_SLOTS.includes(key)) onField = s;
         const prevKey = lastKey;
         const wasStarted = fightStarted;
         const prevAfter = after;
@@ -173,20 +238,29 @@ function createWwMoveLabeler(slotNames) {
             if (isHold && rule.hold) {
                 basicCount = 0;
                 after = 'heavy';
+                if (rule.holdFull && isFull(s)) { gain(s, { kind: 'heavy', name: rule.holdFull }); return rule.holdFull; }
+                gain(s, { kind: 'heavy', name: rule.hold === 'Heavy' ? '' : rule.hold });
                 return rule.hold === 'Heavy' ? `${n} Heavy` : rule.hold; // "Steelclash" is named; plain Heavy isn't
             }
-            if (!isHold && prevKey === 'space') { basicCount = 0; after = 'midair'; return `${n} Mid-air Attack`; }
+            if (!isHold && prevKey === 'space') {
+                basicCount = 0;
+                after = 'midair';
+                gain(s, { kind: 'midair' });
+                return `${n} Mid-air Attack`;
+            }
             // A dodge can't be told from a perfect dodge by keys alone, hence the "?".
             const hits = Math.max(1, Number(step.chain_count) || 1);
             if (!isHold && prevKey === 'rmb') {
                 basicCount = 0;
                 after = 'dodge';
+                gain(s, { kind: 'counter' });
+                for (let i = 2; i <= hits; i++) gain(s, { kind: 'basic', stage: i });
                 return hits > 1 ? `${n} Dodge Counter? +${hits - 1}` : `${n} Dodge Counter?`;
             }
             // Picking the chain back up after another move (e.g. LMB after Zani's Skill is Basic 3).
             const entry = prevAfter && rule.entry ? Number(rule.entry[prevAfter]) : 0;
             if (entry > 0) basicCount = entry - 1;
-            const text = basicLabel(n, rule, hits);
+            const text = basicLabel(n, rule, hits, s);
             return isHold ? `${text} (held)` : text;
         }
 
@@ -194,17 +268,26 @@ function createWwMoveLabeler(slotNames) {
         if (key === 'f') {
             if (!wasStarted) return 'Start fight';
             after = 'tune_break';
+            gain(s, { kind: 'tune_break' });
             return 'Tune Break';
         }
-        if (WW_SLOTS.includes(key)) { after = 'intro'; return own(key, 'intro', 'Intro'); }
+        if (WW_SLOTS.includes(key)) {
+            // Swapping out with a full bar fires the Outro, which empties it.
+            if (onField && onField !== key && isFull(onField)) concerto[onField] = 0;
+            onField = key;
+            gain(key, { kind: 'intro' });
+            after = 'intro';
+            return own(key, 'intro', 'Intro');
+        }
         if (key === 'e') {
             after = 'skill';
             if (!isHold) return skillLabel(s);
+            gain(s, { kind: 'skill', name: rulesFor(s).names.skill });
             const skill = rulesFor(s).names.skill;
             return skill ? `${skill} (held)` : `${n} Held Skill`;
         }
         if (key === 'q') return 'Echo';
-        if (key === 'r') { after = 'liberation'; return own(s, 'liberation', 'Liberation'); }
+        if (key === 'r') { after = 'liberation'; gain(s, { kind: 'liberation' }); return own(s, 'liberation', 'Liberation'); }
         if (key === 'rmb') return 'Dodge';
         if (key === 'space') return 'Jump';
         if (key === 'shift') return 'Sprint';
@@ -214,4 +297,4 @@ function createWwMoveLabeler(slotNames) {
     return label;
 }
 
-if (typeof module !== 'undefined') module.exports = { createWwMoveLabeler, wwStepKey, setWwCharacterData, wwRuleFor };
+if (typeof module !== 'undefined') module.exports = { createWwMoveLabeler, wwStepKey, setWwCharacterData, setWwTimingData, wwRuleFor, wwConcertoGain };
