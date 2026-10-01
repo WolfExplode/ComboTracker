@@ -1,0 +1,9 @@
+{
+  "name": "combotracker",
+  "private": true,
+  "scripts": {
+    "serve": "python ui_server.py",
+    "test": "python -m pytest -q && node --test tests/ww_moves.test.js tests/ww_rotations.test.js",
+    "test:ui": "node --test tests/ww_moves.test.js tests/ww_rotations.test.js"
+  }
+}

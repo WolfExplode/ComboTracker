@@ -570,6 +570,17 @@
   "combo_demo_video": {
     "Aemeath, Lynae, Mornye": "https://youtu.be/goTBFZBsBTo"
   },
+  "combo_target_game": {
+    "Zani 1": "wuthering_waves",
+    "Zani 2": "wuthering_waves",
+    "Zani Pheobe Rover Rotation": "wuthering_waves",
+    "Zani 3": "wuthering_waves",
+    "Agusta, Iuno, Shorekeeper Double intro": "wuthering_waves",
+    "Aemeath, Lynae, Mornye": "wuthering_waves",
+    "Agusta, Iuno, Shorekeeper Double vs monkey": "wuthering_waves",
+    "test2": "wuthering_waves",
+    "Hiyuki Lucilla Suisui": "wuthering_waves"
+  },
   "ww_characters": {
     "aemeath": {
       "name": "Aemeath",

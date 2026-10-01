@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Combo Tracker redesign</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D10}
+a{color:#2EC5EA}a:hover{color:#62D6F3}
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.app.compact{grid-template-columns:72px minmax(0,1fr)}
+.rail{position:sticky;top:0;height:100vh}
+.navbtn{display:flex;align-items:center;gap:12px;width:100%;height:44px;padding:0 14px;border:0;border-radius:10px;background:transparent;color:#8D97A5;font:500 14px 'IBM Plex Sans',sans-serif;cursor:pointer;position:relative;text-align:left}
+.navbtn:hover{background:#1A1F26;color:#ECEFF3}
+.navbtn.on{background:#152E38;color:#ECEFF3}
+.navbtn.on::before{content:"";position:absolute;left:0;top:13px;width:3px;height:18px;border-radius:2px;background:#2EC5EA}
+.compact .navlabel,.compact .wordmark,.compact .statusText{display:none}
+.compact .navbtn{justify-content:center;padding:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:8px;border:1px solid #343C48;background:#1A1F26;color:#ECEFF3;font:500 14px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:none}
+.btn:hover{background:#2A313C}
+.btn.primary{background:#2EC5EA;border-color:#2EC5EA;color:#04141A;font-weight:600}
+.btn.primary:hover{background:#62D6F3}
+.btn.danger{color:#F05A63;border-color:#4A2328;background:transparent}
+.btn.ghost{background:transparent;border-color:transparent;color:#8D97A5}
+.btn.ghost:hover{color:#ECEFF3;background:#1A1F26}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #343C48;background:transparent;color:#8D97A5;font:500 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.chip.on{border-color:#2EC5EA;color:#ECEFF3;background:#152E38}
+.chip .sw{width:26px;height:14px;border-radius:7px;background:#343C48;position:relative}
+.chip .sw::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#8D97A5}
+.chip.on .sw{background:#2EC5EA}
+.chip.on .sw::after{left:14px;background:#04141A}
+.combo-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:#ECEFF3;font:500 14px 'IBM Plex Sans',sans-serif;cursor:pointer;text-align:left}
+.combo-item:hover{background:#1A1F26}
+.combo-item.on{background:#152E38}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font:600 11px 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8D97A5}
+.input{min-height:40px;padding:0 12px;border-radius:8px;border:1px solid #343C48;background:#0B0D10;color:#ECEFF3;font:400 14px 'IBM Plex Sans',sans-serif}
+textarea.input{padding:10px 12px;font:400 13px/1.6 'JetBrains Mono',monospace;resize:vertical}
+.steps{display:flex;flex-wrap:wrap;gap:10px;padding:10px 0;align-content:flex-start}
+.step{box-sizing:border-box;min-width:90px;max-width:800px;min-height:58px;padding:5px 10px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;background:#0B0D10;border:3px solid #444;border-radius:4px;font-family:'Fira Code','JetBrains Mono',monospace;font-size:12px;color:#e0e0e0}
+.step .ck{position:absolute;top:4px;right:6px;font-size:10px;font-weight:800;letter-spacing:.3px;color:#a0a0a0;text-transform:uppercase}
+.step .pk{font-size:30px;font-weight:700;letter-spacing:.5px;line-height:1.1}
+.step .tm{font-size:11px;font-weight:700}
+.step .mv{margin-top:1px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:#a0a0a0;text-align:center}
+.step.pw{border-color:rgba(255,236,149,.5)}
+.step.pw.short{border-color:rgba(255,221,74,.35)}
+.step.wt{border-color:#ffdd4a}
+.step.hd{border-color:#4a9eff}
+.step.done{border-color:#4aff88;border-width:4px;background:rgba(74,255,136,.1)}
+.step.active{border-color:#4a9eff;box-shadow:0 0 8px rgba(74,158,255,.5);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+.tgl{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 4px;border:0;background:transparent;color:#a0a0a0;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.tgl .sw{width:40px;height:22px;border-radius:11px;background:#2a2a2a;border:1px solid #444;position:relative;box-sizing:border-box}
+.tgl .sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#e0e0e0}
+.tgl.on .sw{background:#1d4f86;border-color:#4a9eff}
+.tgl.on .sw::after{left:20px}
+.keycap{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 8px;border-radius:7px;border:1px solid #343C48;border-bottom-width:3px;background:#1A1F26;font:600 13px 'JetBrains Mono',monospace;color:#ECEFF3;box-sizing:border-box}
+.bottomnav{display:none}
+.menu-item{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;min-height:44px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:#ECEFF3;font:500 14px 'IBM Plex Sans',sans-serif;cursor:pointer;text-align:left}
+.menu-item:hover{background:#2A313C}
+.menu-item.on{color:#2EC5EA}
+.statgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.editor{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.cards3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:900px){
+.app,.app.compact{grid-template-columns:minmax(0,1fr)}
+.rail{display:none}
+.bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;background:#101318;border-top:1px solid #232933;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+.bottomnav .navbtn{flex-direction:column;gap:2px;height:52px;justify-content:center;padding:0;font-size:11px}
+.bottomnav .navbtn.on::before{display:none}
+.main{padding:16px 16px 96px !important}
+.head{flex-direction:column;align-items:stretch !important}
+.statgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.editor,.formgrid,.cards3,.settings{grid-template-columns:minmax(0,1fr)}
+.hideSmall{display:none !important}
+.step{max-width:100%}
+}
+</style>
+</helmet>
+
+<div class="{{appCls}}" style="font-family: 'IBM Plex Sans', sans-serif; color: #ECEFF3; background: #0B0D10; font-size: 14px;">
+
+  <!-- Rail -->
+  <aside class="rail" style="display: flex; flex-direction: column; gap: 12px; padding: 0 12px 16px; background: #101318; border-right: 1px solid #232933; box-sizing: border-box;">
+    <div style="display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 6px;">
+      <div style="width: 30px; height: 30px; flex: none; border-radius: 8px; background: #2EC5EA; display: flex; align-items: center; justify-content: center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#04141A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 9 11 13 14 20 6"></polyline><polyline points="15 6 20 6 20 11"></polyline></svg>
+      </div>
+      <span class="wordmark" style="font: 700 18px 'Barlow', sans-serif; letter-spacing: .01em;">Combo Tracker</span>
+    </div>
+
+    <nav aria-label="Pages" style="display: flex; flex-direction: column; gap: 4px;">
+      <button type="button" class="{{nav.practice}}" onClick="{{go.practice}}" aria-label="Practice">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+        <span class="navlabel">Practice</span>
+      </button>
+      <button type="button" class="{{nav.editor}}" onClick="{{go.editor}}" aria-label="Combos">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="7" y1="9" x2="17" y2="9"></line><line x1="7" y1="13" x2="14" y2="13"></line></svg>
+        <span class="navlabel">Combos</span>
+      </button>
+      <button type="button" class="{{nav.teams}}" onClick="{{go.teams}}" aria-label="Teams">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path><path d="M15 14.5c2.8 0 5 2.2 5 5"></path></svg>
+        <span class="navlabel">Teams</span>
+      </button>
+      <button type="button" class="{{nav.characters}}" onClick="{{go.characters}}" aria-label="Characters">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        <span class="navlabel">Characters</span>
+      </button>
+      <button type="button" class="{{nav.history}}" onClick="{{go.history}}" aria-label="History">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="12"></line><line x1="12" y1="20" x2="12" y2="6"></line><line x1="18" y1="20" x2="18" y2="14"></line></svg>
+        <span class="navlabel">History</span>
+      </button>
+      <button type="button" class="{{nav.settings}}" onClick="{{go.settings}}" aria-label="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+        <span class="navlabel">Settings</span>
+      </button>
+    </nav>
+
+    <div style="flex-grow: 1;"></div>
+
+    <button type="button" class="navbtn" onClick="{{toggleRail}}" aria-label="Collapse or expand the sidebar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg>
+      <span class="navlabel">Collapse sidebar</span>
+    </button>
+
+    <!-- Connection card -->
+    <div style="padding: 14px; border-radius: 12px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 9px; height: 9px; flex: none; border-radius: 50%; background: {{statusColor}};"></span>
+        <span class="statusText" style="font-weight: 600;">{{statusTitle}}</span>
+      </div>
+      <span class="statusText" style="font-size: 12px; color: #8D97A5; padding-left: 18px;">{{statusDetail}}</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" style="min-width: 0; padding: 22px 36px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+
+    <!-- Header -->
+    <div class="head" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 62px;">
+      <div style="display: flex; flex-direction: column;">
+        <span style="font: 600 11px 'IBM Plex Sans', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #8D97A5;">{{overline}}</span>
+        <h1 style="margin: 0; font: 700 30px 'Barlow', sans-serif;">{{pageTitle}}</h1>
+      </div>
+      <div style="position: relative;">
+        <button type="button" onClick="{{toggleMenu}}" style="display: flex; align-items: center; gap: 12px; min-width: 300px; width: 100%; padding: 8px 14px; border-radius: 10px; border: 1px solid {{pickerBorder}}; background: #14181E; color: #ECEFF3; cursor: pointer; text-align: left; box-sizing: border-box;" aria-haspopup="listbox" aria-label="Choose the active combo">
+          <span style="display: flex; gap: 0;">
+            <sc-for list="{{activeTeam}}" as="m" hint-placeholder-count="3">
+              <span style="width: 30px; height: 30px; margin-right: -6px; border-radius: 50%; border: 2px solid #14181E; background: {{m.color}}; color: #0B0D10; display: flex; align-items: center; justify-content: center; font: 700 11px 'Barlow', sans-serif;">{{m.initials}}</span>
+            </sc-for>
+          </span>
+          <span style="display: flex; flex-direction: column; flex-grow: 1; margin-left: 8px;">
+            <span style="font: 600 10.5px 'IBM Plex Sans', sans-serif; letter-spacing: .08em; color: #8D97A5; text-transform: uppercase;">{{activeTeamName}}</span>
+            <span style="font-weight: 600; font-size: 15px;">{{activeCombo}}</span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8D97A5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+          <div role="listbox" style="position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 100%; max-height: 380px; overflow: auto; padding: 6px; border-radius: 10px; border: 1px solid #343C48; background: #1A1F26; box-shadow: 0 16px 40px rgba(0,0,0,.5); box-sizing: border-box;">
+            <sc-for list="{{combos}}" as="c" hint-placeholder-count="6">
+              <button type="button" class="{{c.menuCls}}" onClick="{{c.pick}}">
+                <span>{{c.name}}</span>
+                <span style="font-size: 12px; color: #8D97A5;">{{c.team}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ============ PRACTICE ============ -->
+    <sc-if value="{{isPractice}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        <div class="statgrid">
+          <sc-for list="{{stats}}" as="s" hint-placeholder-count="6">
+            <div style="padding: 14px 16px; border-radius: 12px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font: 600 11px 'IBM Plex Sans', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8D97A5;">{{s.label}}</span>
+              <span style="font: 700 24px 'Barlow', sans-serif;">{{s.value}}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 18px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <h2 style="margin: 0; font: 700 22px 'Barlow', sans-serif;">Combo Steps</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center;">
+              <sc-for list="{{toggles}}" as="t" hint-placeholder-count="6">
+                <button type="button" class="{{t.cls}}" onClick="{{t.flip}}" aria-pressed="{{t.on}}">{{t.label}}<span class="sw"></span></button>
+              </sc-for>
+            </div>
+          </div>
+
+          <p style="margin: 0; text-align: center; font: 600 18px 'IBM Plex Sans', sans-serif; color: {{promptColor}};">{{promptTitle}}</p>
+
+          <div class="steps">
+            <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+              <div class="{{s.cls}}" style="{{s.style}}">
+                <span class="ck">{{s.corner}}</span>
+                <span class="pk">{{s.key}}</span>
+                <span class="tm">{{s.time}}</span>
+                <sc-if value="{{namesOn}}" hint-placeholder-val="{{ true }}"><span class="mv">{{s.label}}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn" onClick="{{resetRun}}">Reset</button>
+            <button type="button" class="btn primary" onClick="{{advance}}">Simulate next input</button>
+          </div>
+        </section>
+
+        <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 style="margin: 0; font: 700 18px 'Barlow', sans-serif;">Last attempt</h2>
+            <span style="font-size: 12px; color: #8D97A5;">Step times in ms</span>
+          </div>
+          <sc-if value="{{hasLog}}" hint-placeholder-val="{{ false }}">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;">
+              <sc-for list="{{log}}" as="l" hint-placeholder-count="4">
+                <div style="padding: 10px 12px; border-radius: 10px; background: #1A1F26; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font: 600 12px 'JetBrains Mono', monospace; color: #8D97A5;">{{l.key}}</span>
+                  <span style="font: 700 18px 'Barlow', sans-serif;">{{l.ms}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{noLog}}" hint-placeholder-val="{{ true }}">
+            <p style="margin: 0; color: #8D97A5;">No attempts yet. Press F in game to start, or use Simulate next input to see how a run looks.</p>
+          </sc-if>
+        </section>
+      </div>
+    </sc-if>
+
+    <!-- ============ COMBO EDITOR ============ -->
+    <sc-if value="{{isEditor}}" hint-placeholder-val="{{ false }}">
+      <div class="editor">
+        <section style="padding: 10px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; gap: 8px; padding: 4px 4px 8px;">
+            <label for="comboSearch" style="position: absolute; left: -9999px;">Search combos</label>
+            <input id="comboSearch" class="input" placeholder="Search combos" style="flex-grow: 1; min-width: 0;">
+            <button type="button" class="btn primary" aria-label="New combo" style="padding: 0 12px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+          </div>
+          <sc-for list="{{combos}}" as="c" hint-placeholder-count="8">
+            <button type="button" class="{{c.listCls}}" onClick="{{c.pick}}">
+              <span style="display: flex; flex-direction: column;">
+                <span>{{c.name}}</span>
+                <span style="font-size: 12px; color: #8D97A5; font-weight: 400;">{{c.team}}</span>
+              </span>
+              <span style="font: 400 12px 'JetBrains Mono', monospace; color: #8D97A5;">{{c.steps}}</span>
+            </button>
+          </sc-for>
+        </section>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 16px;">
+            <div class="formgrid">
+              <div class="field">
+                <label for="fName">Combo name</label>
+                <input id="fName" class="input" value="{{activeCombo}}">
+              </div>
+              <div class="field">
+                <label for="fTeam">Team</label>
+                <select id="fTeam" class="input">
+                  <option>{{activeTeamName}}</option>
+                  <option>Aemeath Lynae Mornye</option>
+                  <option>Agusta Iuno Shorekeeper</option>
+                  <option>Hiyuki Lucilla Suisui</option>
+                  <option>Xuanling, Chisa, SuiSui</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="fInputs">Inputs</label>
+              <textarea id="fInputs" class="input" rows="4">{{activeInputs}}</textarea>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+              <span style="font-size: 12px; color: #8D97A5; margin-right: 4px;">Reads as</span>
+              <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 4px; border-radius: 8px; background: #1A1F26; font-size: 12.5px;"><span class="keycap" style="min-width: 24px; height: 24px; font-size: 11px;">{{s.key}}</span>{{s.label}}</span>
+              </sc-for>
+            </div>
+            <div class="formgrid">
+              <div class="field">
+                <label for="fTime">Target time</label>
+                <input id="fTime" class="input" value="5.00s">
+              </div>
+              <div class="field">
+                <label for="fDiff">Your difficulty (0 to 10)</label>
+                <input id="fDiff" class="input" value="8">
+              </div>
+              <div class="field">
+                <label for="fEnders">Combo enders</label>
+                <input id="fEnders" class="input" value="1:1s, 2:1s, 3:1s, e:2s, r:2s, space:2s">
+              </div>
+              <div class="field">
+                <label for="fVideo">Demo video</label>
+                <input id="fVideo" class="input" placeholder="https://youtu.be/...">
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between;">
+              <button type="button" class="btn danger">Delete</button>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn" onClick="{{go.practice}}">Practice it</button>
+                <button type="button" class="btn primary" onClick="{{save}}">Save</button>
+              </div>
+            </div>
+          </section>
+
+          <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 12px;">
+            <h2 style="margin: 0; font: 700 18px 'Barlow', sans-serif;">Record or replay</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <button type="button" class="{{recordCls}}" onClick="{{toggleRecord}}" aria-pressed="{{recording}}"><span class="sw"></span>Record combo from key presses</button>
+              <button type="button" class="{{macroCls}}" onClick="{{toggleMacro}}" aria-pressed="{{macro}}"><span class="sw"></span>Replay as macro</button>
+            </div>
+            <p style="margin: 0; color: #8D97A5; font-size: 13px;">Recording starts when you press F and stops on Esc. Macro replay starts on F8 and stops on F9 or Esc. Keys and delays are set in Settings.</p>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ TEAMS ============ -->
+    <sc-if value="{{isTeams}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: flex-end;"><button type="button" class="btn primary">New team</button></div>
+        <div class="cards3">
+          <sc-for list="{{teams}}" as="t" hint-placeholder-count="6">
+            <section style="padding: 16px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <h2 style="margin: 0; font: 700 17px 'Barlow', sans-serif;">{{t.name}}</h2>
+                <span style="font-size: 12px; color: #8D97A5;">{{t.combos}}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <sc-for list="{{t.slots}}" as="m" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: #1A1F26;">
+                    <span class="keycap" style="min-width: 26px; height: 26px; font-size: 12px;">{{m.slot}}</span>
+                    <span style="width: 32px; height: 32px; border-radius: 50%; background: {{m.color}}; color: #0B0D10; display: flex; align-items: center; justify-content: center; font: 700 12px 'Barlow', sans-serif;">{{m.initials}}</span>
+                    <span style="font-weight: 500;">{{m.name}}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ CHARACTERS ============ -->
+    <sc-if value="{{isCharacters}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <p style="margin: 0; color: #8D97A5;">The Characters page you already have (moves from encore.moe, team rotations from AntoCrasher's sheet) moves in here as a page of the app, restyled to match.</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px;">
+          <sc-for list="{{roster}}" as="m" hint-placeholder-count="12">
+            <button type="button" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px; border-radius: 12px; border: 1px solid #232933; background: #14181E; color: #ECEFF3; cursor: pointer; font: 500 13px 'IBM Plex Sans', sans-serif;">
+              <span style="width: 52px; height: 52px; border-radius: 50%; background: {{m.color}}; color: #0B0D10; display: flex; align-items: center; justify-content: center; font: 700 16px 'Barlow', sans-serif;">{{m.initials}}</span>
+              {{m.name}}
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ HISTORY ============ -->
+    <sc-if value="{{isHistory}}" hint-placeholder-val="{{ false }}">
+      <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: grid; grid-template-columns: minmax(0,2fr) repeat(3, minmax(0,1fr)); gap: 12px; padding: 0 12px 8px; font: 600 11px 'IBM Plex Sans', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8D97A5;">
+          <span>Combo</span><span>Success / fail</span><span>Best</span><span class="hideSmall">Average</span>
+        </div>
+        <sc-for list="{{combos}}" as="c" hint-placeholder-count="8">
+          <div style="display: grid; grid-template-columns: minmax(0,2fr) repeat(3, minmax(0,1fr)); gap: 12px; padding: 10px 12px; border-radius: 8px; background: #1A1F26;">
+            <span style="font-weight: 500;">{{c.name}}</span><span>0 / 0</span><span>—</span><span class="hideSmall">—</span>
+          </div>
+        </sc-for>
+        <p style="margin: 8px 12px 0; color: #8D97A5; font-size: 13px;">Your saved combos have no attempts logged yet, so every row is empty.</p>
+      </section>
+    </sc-if>
+
+    <!-- ============ SETTINGS ============ -->
+    <sc-if value="{{isSettings}}" hint-placeholder-val="{{ false }}">
+      <div class="settings">
+        <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 14px;">
+          <h2 style="margin: 0; font: 700 18px 'Barlow', sans-serif;">Recording</h2>
+          <div class="field"><label for="sStart">Start key</label><input id="sStart" class="input" value="f"></div>
+          <div class="field"><label for="sValid">Keys to record</label><input id="sValid" class="input" value="f, e, q, r, lmb, rmb, 1, 2, 3"></div>
+          <div class="field"><label for="sStrip">Drop waits shorter than (ms)</label><input id="sStrip" class="input" value="100"></div>
+        </section>
+        <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 14px;">
+          <h2 style="margin: 0; font: 700 18px 'Barlow', sans-serif;">Macro replay</h2>
+          <div class="field"><label for="mStart">Start key</label><input id="mStart" class="input" value="f8"></div>
+          <div class="field"><label for="mStop">Stop key</label><input id="mStop" class="input" value="f9"></div>
+          <div class="field"><label for="mSpam">Spam delay (ms)</label><input id="mSpam" class="input" value="100"></div>
+        </section>
+        <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 12px;">
+          <h2 style="margin: 0; font: 700 18px 'Barlow', sans-serif;">Stream overlays</h2>
+          <p style="margin: 0; color: #8D97A5; font-size: 13px;">Add these as OBS Browser Sources. They keep their current look.</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: #1A1F26;"><span style="font: 400 12.5px 'JetBrains Mono', monospace;">localhost:8080/?view=timeline</span><button type="button" class="btn ghost">Copy</button></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: #1A1F26;"><span style="font: 400 12.5px 'JetBrains Mono', monospace;">localhost:8080/keys.html</span><button type="button" class="btn ghost">Copy</button></div>
+        </section>
+        <section style="padding: 20px; border-radius: 14px; background: #14181E; border: 1px solid #232933; display: flex; flex-direction: column; gap: 12px;">
+          <h2 style="margin: 0; font: 700 18px 'Barlow', sans-serif;">Data</h2>
+          <p style="margin: 0; color: #8D97A5; font-size: 13px;">Combos, teams and stats live in combos.json next to the app.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button type="button" class="btn">Reload combos.json</button>
+            <button type="button" class="btn">Refresh character icons</button>
+            <button type="button" class="btn danger">Clear all history</button>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+  </main>
+
+  <!-- Phone bottom navigation -->
+  <nav class="bottomnav" aria-label="Pages">
+    <button type="button" class="{{nav.practice}}" onClick="{{go.practice}}" aria-label="Practice"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>Practice</button>
+    <button type="button" class="{{nav.editor}}" onClick="{{go.editor}}" aria-label="Combos"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="7" y1="9" x2="17" y2="9"></line><line x1="7" y1="13" x2="14" y2="13"></line></svg>Combos</button>
+    <button type="button" class="{{nav.teams}}" onClick="{{go.teams}}" aria-label="Teams"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path></svg>Teams</button>
+    <button type="button" class="{{nav.characters}}" onClick="{{go.characters}}" aria-label="Characters"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>Characters</button>
+    <button type="button" class="{{nav.settings}}" onClick="{{go.settings}}" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="8"></circle></svg>More</button>
+  </nav>
+
+  <!-- Toast -->
+  <sc-if value="{{toastOn}}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); z-index: 40; padding: 10px 16px; border-radius: 10px; background: #222832; border: 1px solid #343C48; font-weight: 600; box-shadow: 0 12px 30px rgba(0,0,0,.45);">{{toast}}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1320,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { page: 'practice', compact: false, menuOpen: false, combo: 'Zani 1', pos: 0, log: [],
+      toggles: { images: false, scroll: false, names: true, history: false, edit: false, chains: true },
+      recording: false, macro: false, toast: '' };
+  }
+
+  data() {
+    var EL = { spectro: '#F0D36B', fusion: '#FF8A5C', electro: '#B98CFF', aero: '#55D6A8', glacio: '#6CCBFF', havoc: '#E0679F' };
+    var ch = {
+      zani: ['Zani', EL.spectro], phoebe: ['Phoebe', EL.spectro], rover: ['Rover', EL.spectro],
+      aemeath: ['Aemeath', EL.fusion], lynae: ['Lynae', EL.spectro], mornye: ['Mornye', EL.fusion],
+      augusta: ['Augusta', EL.electro], iuno: ['Iuno', EL.aero], shorekeeper: ['Shorekeeper', EL.spectro],
+      hiyuki: ['Hiyuki', EL.glacio], lucilla: ['Lucilla', EL.glacio], suisui: ['Suisui', EL.glacio],
+      xuanling: ['Xuanling', EL.havoc], chisa: ['Chisa', EL.havoc]
+    };
+    var teams = [
+      { name: 'Zani Phobe Rover', slots: ['zani', 'phoebe', 'rover'], combos: 4 },
+      { name: 'Aemeath Lynae Mornye', slots: ['aemeath', 'lynae', 'mornye'], combos: 1 },
+      { name: 'Agusta Iuno Shorekeeper', slots: ['augusta', 'iuno', 'shorekeeper'], combos: 2 },
+      { name: 'Hiyuki Lucilla Suisui', slots: ['hiyuki', 'lucilla', 'suisui'], combos: 1 },
+      { name: 'Xuanling, Chisa, SuiSui', slots: ['xuanling', 'chisa', 'suisui'], combos: 0 },
+      { name: 'Lynae Aemeth Mornye', slots: ['lynae', 'aemeath', 'mornye'], combos: 0 }
+    ];
+    var combos = [
+      { name: 'Zani 1', team: 0, inputs: 'f, wait:0.18s, e, wait:0.1s, lmb, wait:0.1s, 2, hold(e, 0.35s), wait(r, 3.65s)', steps: 9 },
+      { name: 'Zani 2', team: 0 }, { name: 'Zani 3', team: 0 },
+      { name: 'Zani Pheobe Rover Rotation', team: 0 },
+      { name: 'Agusta, Iuno, Shorekeeper Double intro', team: 2 },
+      { name: 'Agusta, Iuno, Shorekeeper Double vs monkey', team: 2 },
+      { name: 'Aemeath, Lynae, Mornye', team: 1 },
+      { name: 'Hiyuki Lucilla Suisui', team: 3 },
+      { name: 'test2', team: 0 }
+    ];
+    return { ch: ch, teams: teams, combos: combos };
+  }
+
+  member(ch, key, slot) {
+    var c = ch[key];
+    return { name: c[0], color: c[1], initials: c[0].slice(0, 2).toUpperCase(), slot: String(slot) };
+  }
+
+  renderVals() {
+    var self = this, s = this.state, d = this.data();
+    var page = s.page;
+    var titles = { practice: 'Practice', editor: 'Combos', teams: 'Teams', characters: 'Characters', history: 'History', settings: 'Settings' };
+    var overlines = { practice: 'Now practicing', editor: 'Edit and record', teams: 'Your teams', characters: 'Moves and rotations', history: 'Every combo', settings: 'App' };
+    var go = {}, nav = {};
+    Object.keys(titles).forEach(function (p) {
+      go[p] = function () { self.setState({ page: p, menuOpen: false }); };
+      nav[p] = 'navbtn' + (page === p ? ' on' : '');
+    });
+
+    var active = d.combos.find(function (c) { return c.name === s.combo; }) || d.combos[0];
+    var team = d.teams[active.team];
+    var activeTeam = team.slots.map(function (k, i) { return self.member(d.ch, k, i + 1); });
+
+    // Zani 1 as the tracker draws it: a key plus its wait is one tile; width grows with duration (90px per 350ms).
+    var raw = [
+      { key: 'F', label: 'Start fight', ms: 180, kind: 'pw', log: 187 },
+      { key: 'E', label: 'Zani Skill', ms: 100, kind: 'pw', log: 212 },
+      { key: 'LMB', label: 'Zani Basic 1', ms: 100, kind: 'pw', log: 131 },
+      { key: '2', label: 'Phoebe Intro', ms: 0, kind: 'press', log: 164 },
+      { key: 'E', label: 'Phoebe Held Skill', ms: 350, kind: 'hd', log: 402 },
+      { key: 'R', label: 'Phoebe Liberation', ms: 3650, kind: 'wt', log: 3688 }
+    ];
+    var pos = Math.min(s.pos, raw.length);
+    var steps = raw.map(function (r, i) {
+      var cls = 'step' + (r.kind === 'press' ? '' : ' ' + r.kind) + (r.kind === 'pw' && r.ms <= 150 ? ' short' : '') +
+        (i < pos ? ' done' : '') + (i === pos ? ' active' : '');
+      var w = Math.min(800, Math.max(90, Math.round(90 * (r.ms || 350) / 350)));
+      return {
+        key: r.key, corner: r.key, label: r.label, cls: cls,
+        time: r.kind === 'hd' ? 'hold ' + r.ms + 'ms' : r.ms ? r.ms + 'ms' : '',
+        style: 'width:' + w + 'px'
+      };
+    });
+    var finished = pos >= raw.length;
+
+    var toggles = [
+      ['images', 'Images'], ['scroll', 'Auto scroll'], ['names', 'Move names'], ['history', 'Show attempt history'], ['edit', 'Edit steps'], ['chains', 'Collapse chains']
+    ].map(function (t) {
+      var on = !!s.toggles[t[0]];
+      return { label: t[1], on: on, cls: 'tgl' + (on ? ' on' : ''),
+        flip: function () { var n = Object.assign({}, self.state.toggles); n[t[0]] = !on; self.setState({ toggles: n }); } };
+    });
+
+    var combos = d.combos.map(function (c) {
+      var t = d.teams[c.team];
+      return {
+        name: c.name, team: t.name, steps: c.steps ? c.steps + ' steps' : '',
+        menuCls: 'menu-item' + (c.name === active.name ? ' on' : ''),
+        listCls: 'combo-item' + (c.name === active.name ? ' on' : ''),
+        pick: function () { self.setState({ combo: c.name, menuOpen: false, pos: 0, log: [] }); }
+      };
+    });
+
+    var roster = ['aemeath', 'augusta', 'chisa', 'hiyuki', 'iuno', 'lucilla', 'lynae', 'mornye', 'phoebe', 'rover', 'shorekeeper', 'suisui', 'xuanling', 'zani']
+      .map(function (k) { return self.member(d.ch, k, 0); });
+
+    var status = s.recording ? ['#F05A63', 'Recording', 'Press Esc to stop'] :
+      s.macro ? ['#F4B740', 'Macro armed', 'F8 starts, F9 stops'] :
+      ['#3DDC84', 'Connected', 'Listening for your inputs'];
+
+    return {
+      appCls: 'app' + (s.compact ? ' compact' : ''),
+      nav: nav, go: go,
+      pageTitle: titles[page], overline: overlines[page],
+      isPractice: page === 'practice', isEditor: page === 'editor', isTeams: page === 'teams',
+      isCharacters: page === 'characters', isHistory: page === 'history', isSettings: page === 'settings',
+      toggleRail: function () { self.setState({ compact: !self.state.compact }); },
+      toggleMenu: function () { self.setState({ menuOpen: !self.state.menuOpen }); },
+      menuOpen: s.menuOpen, pickerBorder: s.menuOpen ? '#2EC5EA' : '#343C48',
+      activeCombo: active.name, activeTeamName: team.name, activeTeam: activeTeam,
+      activeInputs: active.inputs || '[this combo’s inputs]',
+      combos: combos,
+      stats: [
+        { label: 'Success / fail', value: '0 / 0' }, { label: 'Best', value: '—' }, { label: 'Average', value: '—' },
+        { label: 'Target', value: '5.00s' }, { label: 'Difficulty', value: '8.0' }, { label: 'Practical APM', value: '—' }
+      ],
+      steps: steps,
+      promptTitle: finished ? 'Combo complete!' : pos === 0 ? 'Ready! Press the first input to start.' : 'Next: ' + raw[pos].label,
+      promptColor: finished ? '#4aff88' : '#a0a0a0',
+      namesOn: !!s.toggles.names,
+      advance: function () {
+        var p = self.state.pos;
+        if (p >= raw.length) return;
+        var r = raw[p];
+        var log = self.state.log.concat([{ key: r.key, ms: String(r.log) }]);
+        self.setState({ pos: p + 1, log: log });
+      },
+      resetRun: function () { self.setState({ pos: 0, log: [] }); },
+      toggles: toggles,
+      log: s.log, hasLog: s.log.length > 0, noLog: s.log.length === 0,
+      teams: d.teams.map(function (t) {
+        return { name: t.name, combos: t.combos === 1 ? '1 combo' : t.combos + ' combos',
+          slots: t.slots.map(function (k, i) { return self.member(d.ch, k, i + 1); }) };
+      }),
+      roster: roster,
+      recording: s.recording, macro: s.macro,
+      recordCls: 'chip' + (s.recording ? ' on' : ''), macroCls: 'chip' + (s.macro ? ' on' : ''),
+      toggleRecord: function () { self.setState({ recording: !self.state.recording, macro: false }); },
+      toggleMacro: function () { self.setState({ macro: !self.state.macro, recording: false }); },
+      statusColor: status[0], statusTitle: status[1], statusDetail: status[2],
+      save: function () {
+        self.setState({ toast: 'Saved ' + active.name });
+        clearTimeout(self._t);
+        self._t = setTimeout(function () { self.setState({ toast: '' }); }, 2200);
+      },
+      toast: s.toast, toastOn: !!s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

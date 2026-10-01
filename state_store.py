@@ -43,8 +43,10 @@ class MemoryStateStore:
 class JsonStateStore:
     """Atomic JSON adapter with one validated, known-good backup."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, seed_path: Path | None = None) -> None:
         self.path = Path(path)
+        # Starter data used only on first run, when no save file or backup exists yet.
+        self.seed_path = Path(seed_path) if seed_path else None
         self.backup_path = self.path.with_suffix(self.path.suffix + ".bak")
         self._lock = threading.Lock()
 
@@ -60,6 +62,11 @@ class JsonStateStore:
             if not self.path.exists():
                 if self.backup_path.exists():
                     return self._read_json(self.backup_path)
+                if self.seed_path and self.seed_path.exists():
+                    try:
+                        return self._read_json(self.seed_path)
+                    except Exception:
+                        logger.warning("Ignoring unreadable starter file %s", self.seed_path, exc_info=True)
                 return None
             try:
                 return self._read_json(self.path)

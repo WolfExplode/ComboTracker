@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Combo Trainer</title>
+    <title>WuWa Combo Tracker</title>
     <link rel="stylesheet" href="style.css">
     <base target="_blank">
 </head>
@@ -136,21 +136,14 @@
             </details>
         </section>
 
-        <!-- SECTION 2: Target game -->
+        <!-- SECTION 2: Team & characters -->
         <section class="section">
             <details class="section-details">
                 <summary>
-                    <h3>Target game</h3>
+                    <h3>Team &amp; Characters</h3>
                 </summary>
                 <div class="form-grid">
-                    <label>Game:</label>
-                    <select id="targetGameSelect">
-                        <option value="generic">Generic</option>
-                        <option value="wuthering_waves">Wuthering Waves</option>
-                    </select>
-
-                    <!-- WW panels – visible only when Wuthering Waves is selected -->
-                    <div id="wwPanels" class="hidden full-row">
+                    <div id="wwPanels" class="full-row">
 
                         <!-- Teams panel -->
                         <div class="ww-panel">
@@ -175,6 +168,12 @@
                                 <h4 class="ww-panel-title">Characters</h4>
                                 <div id="wwCharPicker" class="ww-char-picker"></div>
                             </div>
+                            <div class="ww-char-sync">
+                                <input type="text" id="wwSyncCharName" placeholder="Character name" class="ww-panel-name-input" autocomplete="off">
+                                <button id="wwSyncCharBtn" type="button" title="Download this character's portrait and skill icons from wuthering.gg">Add from wuthering.gg</button>
+                                <button id="wwSyncAllBtn" type="button" class="subtle" title="Re-download icons for every saved character">Refresh all icons</button>
+                                <a href="characters.html" class="subtle ww-moves-link" title="Every character's moves and the community's team rotations">Moves &amp; rotations</a>
+                            </div>
                             <div id="wwCharEditor" class="ww-char-editor">
                                 <!-- Character editor rendered by JS -->
                             </div>
@@ -197,18 +196,23 @@
         <!-- SECTION 3: Status & Stats -->
         <section class="section status-section">
 
-            <div class="time-display-with-help" tabindex="0">
-                <div id="minTimeDisplay" class="time-display" aria-describedby="min-time-help-tooltip">Fastest possible: —</div>
-                <div id="min-time-help-tooltip" class="input-help-tooltip" role="tooltip">
-                    <p>This combo tracker is meant to track real time, timing data. not in game timing data.</p>
-                    <p>For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s</p>
+            <!-- Compact stat cards; values are filled from the backend's "Label: value" texts -->
+            <div class="stat-cards">
+                <div class="stat-card" id="statsResult"><span class="stat-label">Success / fail</span><span class="stat-value">—</span></div>
+                <div class="stat-card" id="statsBest"><span class="stat-label">Best</span><span class="stat-value">—</span></div>
+                <div class="stat-card" id="statsAvg"><span class="stat-label">Average</span><span class="stat-value">—</span></div>
+                <div class="stat-card time-display-with-help" tabindex="0" id="minTimeDisplay" aria-describedby="min-time-help-tooltip">
+                    <span class="stat-label">Fastest</span><span class="stat-value">—</span>
+                    <div id="min-time-help-tooltip" class="input-help-tooltip" role="tooltip">
+                        <p>This combo tracker is meant to track real time, timing data. not in game timing data.</p>
+                        <p>For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s</p>
+                    </div>
                 </div>
+                <div class="stat-card" id="difficultyDisplay"><span class="stat-label">Difficulty</span><span class="stat-value">—</span></div>
+                <div class="stat-card" id="userDifficultyDisplay"><span class="stat-label">Your difficulty</span><span class="stat-value">—</span></div>
+                <div class="stat-card" id="apmDisplay"><span class="stat-label">Practical APM</span><span class="stat-value">—</span></div>
+                <div class="stat-card" id="apmMaxDisplay"><span class="stat-label">Max APM</span><span class="stat-value">—</span></div>
             </div>
-            <div id="difficultyDisplay" class="time-display">Difficulty: —</div>
-            <div id="userDifficultyDisplay" class="time-display">Your difficulty: —</div>
-            <div id="apmDisplay" class="time-display">Practical APM: —</div>
-            <div id="apmMaxDisplay" class="time-display">Theoretical max APM: —</div>
-            <div id="statsDisplay" class="stats-display">Stats: —</div>
         </section>
 
         <!-- SECTION 4: Visual Combo Timeline -->
@@ -222,6 +226,9 @@
                     <span class="toggle-label">Auto scroll</span>
                     <input type="checkbox" id="autoScrollToggle" class="toggle-switch" title="Auto scroll combo steps as you advance">
 
+                    <span class="toggle-label">Move names</span>
+                    <input type="checkbox" id="moveNamesToggle" class="toggle-switch" title="Name each step's move, like Zani Basic 2 or Phoebe Liberation">
+
                     <span class="toggle-label">Show attempt history</span>
                     <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
 
@@ -231,12 +238,46 @@
                     <span class="toggle-label">Collapse chains</span>
                     <input type="checkbox" id="collapseChainsToggle" class="toggle-switch" title="Show adjacent LMB press+wait steps as one chained tile">
 
+                    <button type="button" id="legendBtn" class="subtle icon-btn" title="What the colors mean" aria-label="Show color legend" aria-expanded="false" aria-controls="legendPanel">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    </button>
                     <button type="button" id="copyOverlayUrlBtn" class="subtle icon-btn" title="Copy URL for OBS Browser Source" aria-label="Copy URL for OBS Browser Source">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                     </button>
+                    <a href="keys.html" id="keyOverlayLink" class="subtle icon-btn" title="Live key overlay: open it, or add http://localhost:8737/keys.html as an OBS Browser Source" aria-label="Open live key overlay">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+                    </a>
+                    <a href="characters.html" id="charactersLink" class="subtle icon-btn" title="Characters: every move and the community's team rotations" aria-label="Open character moves and rotations">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    </a>
                     <button type="button" id="openTimelineWindowBtn" class="subtle icon-btn" title="Open timeline in a new window for OBS Window Capture" aria-label="Open timeline in new window">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </button>
+                </div>
+            </div>
+            <div id="legendPanel" class="legend-panel hidden" role="region" aria-label="Color legend">
+                <div class="legend-group">
+                    <h4>Step types</h4>
+                    <div class="legend-item"><span class="legend-swatch sw-press"></span>Tap a key</div>
+                    <div class="legend-item"><span class="legend-swatch sw-wait"></span>Tap, then wait (fills yellow as time passes)</div>
+                    <div class="legend-item"><span class="legend-swatch sw-short"></span>Short wait, 150ms or less</div>
+                    <div class="legend-item"><span class="legend-swatch sw-hold"></span>Hold the key (fills green while held)</div>
+                    <div class="legend-item"><span class="legend-swatch sw-optional"></span>Optional step, can be skipped</div>
+                    <div class="legend-item"><span class="legend-swatch sw-group"></span>Group: press these in any order</div>
+                    <div class="legend-item"><span class="legend-swatch sw-sequence"></span>Sequence inside a group, in order</div>
+                </div>
+                <div class="legend-group">
+                    <h4>Progress</h4>
+                    <div class="legend-item"><span class="legend-swatch sw-active"></span>Current step (pulses)</div>
+                    <div class="legend-item"><span class="legend-swatch sw-done"></span>Done</div>
+                    <div class="legend-item"><span class="legend-swatch sw-miss"></span>Missed, wrong key or too early</div>
+                </div>
+                <div class="legend-group">
+                    <h4>On each tile</h4>
+                    <div class="legend-item"><span class="legend-key">E</span>Corner letter: the key to press</div>
+                    <div class="legend-item"><span class="legend-key">x3</span>Chained LMB presses shown as one tile</div>
+                    <div class="legend-item"><span class="legend-key">ms</span>Wait or hold length; wider tiles last longer</div>
+                    <div class="legend-item"><span class="legend-key">Aa</span>Bottom text: the move's name</div>
                 </div>
             </div>
             <details class="collapsible" id="keyImagesDetails">
@@ -284,6 +325,7 @@
 
     </div>
 
+    <script src="ww_moves.js"></script>
     <script src="app.js"></script>
 </body>
 

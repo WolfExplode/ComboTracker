@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WuWa Key Overlay</title>
+    <link rel="stylesheet" href="keys.css">
+</head>
+
+<body>
+    <!-- Live key overlay (NohBoard-style). Add http://localhost:8737/keys.html as an OBS Browser Source. -->
+    <main class="kb" id="keyboard">
+        <div class="kb-row">
+            <div class="key" data-key="1"><span class="cap">1</span><span class="role" data-slot="1">Slot 1</span></div>
+            <div class="key" data-key="2"><span class="cap">2</span><span class="role" data-slot="2">Slot 2</span></div>
+            <div class="key" data-key="3"><span class="cap">3</span><span class="role" data-slot="3">Slot 3</span></div>
+            <div class="gap"></div>
+            <div class="key mouse" data-key="lmb"><span class="cap">LMB</span><span class="role">Attack</span></div>
+            <div class="key mouse" data-key="rmb"><span class="cap">RMB</span><span class="role">Dodge</span></div>
+        </div>
+        <div class="kb-row">
+            <div class="key" data-key="q"><span class="cap">Q</span><span class="role">Echo</span></div>
+            <div class="key" data-key="w"><span class="cap">W</span></div>
+            <div class="key" data-key="e"><span class="cap">E</span><span class="role">Skill</span></div>
+            <div class="key" data-key="r"><span class="cap">R</span><span class="role">Liberation</span></div>
+            <div class="gap"></div>
+            <div class="key wide" data-key="f"><span class="cap">F</span><span class="role">Tune Break</span></div>
+        </div>
+        <div class="kb-row">
+            <div class="key" data-key="a"><span class="cap">A</span></div>
+            <div class="key" data-key="s"><span class="cap">S</span></div>
+            <div class="key" data-key="d"><span class="cap">D</span></div>
+        </div>
+        <div class="kb-row">
+            <div class="key wide" data-key="shift"><span class="cap">Shift</span><span class="role">Sprint</span></div>
+            <div class="key space" data-key="space"><span class="cap">Space</span><span class="role">Jump</span></div>
+        </div>
+    </main>
+    <script src="keys.js"></script>
+</body>
+
+</html>

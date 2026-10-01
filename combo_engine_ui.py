@@ -91,7 +91,7 @@ def user_difficulty_text(engine) -> str:
     return f"Your difficulty: {d:g} / 10"
 
 
-def get_editor_payload(engine, target_game_override: str | None = None) -> dict[str, Any]:
+def get_editor_payload(engine) -> dict[str, Any]:
     name = engine.active_combo_name or ""
     inputs = ", ".join(engine.active_combo_tokens) if engine.active_combo_tokens else ""
 
@@ -138,7 +138,7 @@ def get_editor_payload(engine, target_game_override: str | None = None) -> dict[
     if name:
         demo_video = (engine.combo_demo_video.get(name) or "").strip()
 
-    ww_payload = engine.ww.editor_payload(name, target_game_override=target_game_override)
+    ww_payload = engine.ww.editor_payload(name)
     return {
         "name": name,
         "inputs": inputs,

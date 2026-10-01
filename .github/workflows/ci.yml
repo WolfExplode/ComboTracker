@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt pytest
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Run UI tests
+        run: node --test tests/ww_moves.test.js tests/ww_rotations.test.js
+
+  build:
+    # Builds the Windows release folder so it can be downloaded from the run's
+    # Artifacts section without a local build.
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Build
+        run: python -m PyInstaller --noconfirm --clean ComboTracker.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ComboTracker-windows
+          path: dist/ComboTracker/

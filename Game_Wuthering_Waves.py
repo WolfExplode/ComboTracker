@@ -4,6 +4,15 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
+# Defaults for a fresh install (no combos.json yet), tuned for Wuthering Waves:
+# swapping characters (1/2/3), Resonance Skill (e), Liberation (r) and jumping end a combo
+# unless they are the expected input. Values are ender cooldowns in ms.
+WW_DEFAULT_COMBO_ENDERS: dict[str, int] = {"1": 1000, "2": 1000, "3": 1000, "e": 2000, "r": 2000, "space": 2000}
+# Jumping during a hold (e.g. a charged heavy attack) does not drop the combo.
+WW_DEFAULT_COMBO_ENDERS_SOFT: frozenset[str] = frozenset({"space"})
+# Inputs auto-transcribe records: interact/skill/echo/liberation, attack/dodge, swaps, jump, sprint.
+WW_DEFAULT_TRANSCRIBE_KEYS = "f, e, q, r, lmb, rmb, 1, 2, 3, space, shift"
+
 
 @dataclass
 class WutheringWavesGame:
@@ -11,12 +20,9 @@ class WutheringWavesGame:
     Wuthering Waves specific state + helpers.
 
     This module exists to keep `ComboTrackerEngine` focused on core combo parsing/tracking,
-    while game-specific metadata (target game, WW teams/presets, WW combo->team mappings)
+    while game-specific metadata (WW teams/presets, WW combo->team mappings)
     lives in one place.
     """
-
-    # Per-combo target game ("generic" | "wuthering_waves")
-    combo_target_game: dict[str, str] = field(default_factory=dict)
 
     # Team presets (slot-based; characters are stored in ww_characters)
     # ww_teams: team_id -> {
@@ -28,7 +34,7 @@ class WutheringWavesGame:
     ww_teams: dict[str, dict[str, Any]] = field(default_factory=dict)
     ww_active_team_id: str | None = None
 
-    # Per-combo assigned team (when target_game = wuthering_waves)
+    # Per-combo assigned team
     combo_ww_team: dict[str, str] = field(default_factory=dict)
 
     # Character library: name_lower -> { name, swap_image, lmb_image, ability_images: {e,q,r} }
@@ -67,70 +73,28 @@ class WutheringWavesGame:
             return False
         if not getattr(engine, "last_input_time", None) and getattr(engine, "current_index", 0) == 0:
             return False
-        if self.get_target_game(getattr(engine, "active_combo_name", None) or "") == "wuthering_waves":
-            key = (input_name or "").strip().lower()
-            if key in self.WW_CHARACTER_SLOTS and self.ww_active_character and key == self.ww_active_character:
-                return False
+        key = (input_name or "").strip().lower()
+        if key in self.WW_CHARACTER_SLOTS and self.ww_active_character and key == self.ww_active_character:
+            return False
         return True
 
     def on_accepted_key(self, engine: Any, input_name: str) -> None:
-        """When the correct key is 1/2/3 and game is WW, track active character for ender logic."""
-        if self.get_target_game(getattr(engine, "active_combo_name", None) or "") != "wuthering_waves":
-            return
+        """When the correct key is 1/2/3, track the active character for ender logic."""
         key = (input_name or "").strip().lower()
         if key in self.WW_CHARACTER_SLOTS:
             self.ww_active_character = key
 
-    def get_target_game(self, combo_name: str) -> str:
-        name = (combo_name or "").strip()
-        g = str(self.combo_target_game.get(name, "generic") or "generic").strip().lower()
-        return g if g in ("generic", "wuthering_waves") else "generic"
-
-    def set_target_game(self, combo_name: str, target_game: str | None):
-        name = (combo_name or "").strip()
-        g = str(target_game or "").strip().lower()
-        if not name:
-            return
-        if g in ("generic", "wuthering_waves"):
-            self.combo_target_game[name] = g
-        else:
-            self.combo_target_game.pop(name, None)
-
-    def apply_combo_team_assignment(self, combo_name: str, *, target_game: str, ww_team_id: str | None):
-        """
-        Apply per-combo WW team assignment.
-        Expected to be called after `set_target_game()`.
-        """
+    def apply_combo_team_assignment(self, combo_name: str, *, ww_team_id: str | None):
+        """Apply per-combo WW team assignment."""
         name = (combo_name or "").strip()
         if not name:
             return
-        g = str(target_game or "generic").strip().lower()
-        if g == "wuthering_waves":
-            tid = str(ww_team_id or "").strip()
-            if tid and tid in self.ww_teams:
-                self.combo_ww_team[name] = tid
-                self.ww_active_team_id = tid
-            else:
-                self.combo_ww_team.pop(name, None)
+        tid = str(ww_team_id or "").strip()
+        if tid and tid in self.ww_teams:
+            self.combo_ww_team[name] = tid
+            self.ww_active_team_id = tid
         else:
             self.combo_ww_team.pop(name, None)
-
-    def rename_combo(self, old_name: str, new_name: str):
-        old = (old_name or "").strip()
-        new = (new_name or "").strip()
-        if not old or not new or old == new:
-            return
-        if old in self.combo_target_game and new not in self.combo_target_game:
-            self.combo_target_game[new] = self.combo_target_game.pop(old)
-        if old in self.combo_ww_team and new not in self.combo_ww_team:
-            self.combo_ww_team[new] = self.combo_ww_team.pop(old)
-
-    def delete_combo(self, name: str):
-        cname = (name or "").strip()
-        if not cname:
-            return
-        self.combo_target_game.pop(cname, None)
-        self.combo_ww_team.pop(cname, None)
 
     # -------------------------
     # Character library helpers
@@ -166,12 +130,11 @@ class WutheringWavesGame:
     # Editor payload helpers
     # -------------------------
 
-    def editor_payload(self, combo_name: str, target_game_override: str | None = None) -> dict[str, Any]:
+    def editor_payload(self, combo_name: str) -> dict[str, Any]:
         """
         Build the WW-related section of the editor payload for the frontend.
         """
         name = (combo_name or "").strip()
-        target_game = str(target_game_override).strip().lower() if target_game_override else self.get_target_game(name)
 
         # Build teams list with slot info
         ww_teams = []
@@ -189,11 +152,10 @@ class WutheringWavesGame:
 
         # Selected team: active team > combo assignment > none
         sel_team_id = ""
-        if target_game == "wuthering_waves":
-            if self.ww_active_team_id and self.ww_active_team_id in self.ww_teams:
-                sel_team_id = self.ww_active_team_id
-            elif name and name in self.combo_ww_team and self.combo_ww_team[name] in self.ww_teams:
-                sel_team_id = self.combo_ww_team[name]
+        if self.ww_active_team_id and self.ww_active_team_id in self.ww_teams:
+            sel_team_id = self.ww_active_team_id
+        elif name and name in self.combo_ww_team and self.combo_ww_team[name] in self.ww_teams:
+            sel_team_id = self.combo_ww_team[name]
 
         team_name = ""
         team_slots = {"slot1": "", "slot2": "", "slot3": ""}
@@ -231,7 +193,8 @@ class WutheringWavesGame:
             })
 
         return {
-            "target_game": target_game,
+            # The current UI still reads this; every combo is Wuthering Waves.
+            "target_game": "wuthering_waves",
             "ww_teams": ww_teams,
             "ww_team_id": sel_team_id,
             "ww_team_name": team_name,
@@ -396,31 +359,11 @@ def delete_ww_team(engine, team_id: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def select_team_stateless(engine, team_id: str, target_game: str) -> None:
+def select_team_stateless(engine, team_id: str) -> None:
     """Stateless team selection - doesn't persist, just updates UI."""
-    tid = str(team_id or "").strip()
-    game = str(target_game or "generic").strip().lower()
-
-    if game == "wuthering_waves":
-        engine.ww.set_active_ww_team(tid)
-        engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
-        engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
-        return
-
-    engine.ww.set_active_ww_team("")
-    engine._send({"type": "combo_data", **engine.get_editor_payload(target_game_override=game)})
+    engine.ww.set_active_ww_team(str(team_id or "").strip())
+    engine._send({"type": "combo_data", **engine.get_editor_payload()})
     engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
-
-
-def update_target_game_stateless(engine, target_game: str) -> None:
-    """Stateless target game update - doesn't persist, just updates UI."""
-    game = str(target_game or "generic").strip().lower()
-    if game not in ("generic", "wuthering_waves"):
-        game = "generic"
-
-    payload = engine.get_editor_payload(target_game_override=game)
-    payload["target_game"] = game
-    engine._send({"type": "combo_data", **payload})
 
 
 def save_ww_character_cmd(

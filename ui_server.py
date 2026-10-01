@@ -12,13 +12,15 @@ from pathlib import Path
 from socketserver import TCPServer, ThreadingMixIn
 from typing import Any, Callable
 
-import websockets
+from websockets.asyncio.server import ServerConnection, serve
 from pynput import keyboard, mouse
 
 from combo_engine import ComboTrackerEngine
 from macro_player import MacroPlayer
 from profiling.transcription_log import TranscriptionLogWriter
 from transcriber import Transcriber
+import ww_sync
+import ww_library
 
 logger = logging.getLogger(__name__)
 
@@ -63,18 +65,52 @@ def _normalized_macro_stop_key() -> str:
 transcribe_mode_enabled = False
 macro_mode_enabled = False
 
+# Keys shown on the live key overlay (static/keys.html, a built-in NohBoard-style display).
+# Only these are broadcast, so typing elsewhere never leaves the listener.
+OVERLAY_KEYS = frozenset(
+    {"w", "a", "s", "d", "shift", "space", "1", "2", "3", "q", "e", "r", "f", "lmb", "rmb"}
+)
+_overlay_down: set[str] = set()
+
+
+def _emit_overlay_input(input_name: str, down: bool) -> None:
+    """Tell overlay clients a key went down or up (key-repeat presses are dropped)."""
+    if input_name not in OVERLAY_KEYS:
+        return
+    if down:
+        if input_name in _overlay_down:
+            return
+        _overlay_down.add(input_name)
+    else:
+        _overlay_down.discard(input_name)
+    engine._send({"type": "key_input", "key": input_name, "down": down})
+
 
 HOST_HTTP = "localhost"
-PORT_HTTP = 8080
+PORT_HTTP = 8737
 HOST_WS = "localhost"
 PORT_WS = 8765
+
+# Only the bundled UI (and non-browser clients, which send no Origin header) may
+# connect. Without this, any website open in the browser could connect to the
+# local WebSocket and edit or delete combos.
+ALLOWED_WS_ORIGINS = [
+    f"http://localhost:{PORT_HTTP}",
+    f"http://127.0.0.1:{PORT_HTTP}",
+    None,
+]
 
 
 class ThreadedHTTPServer(ThreadingMixIn, TCPServer):
     """Handle each HTTP request in its own thread so multiple tabs can reload without blocking."""
 
+    daemon_threads = True
+    # Lets a quick restart rebind while old sockets sit in TIME_WAIT. Not on Windows,
+    # where SO_REUSEADDR would let a second process steal a port already in use.
+    allow_reuse_address = sys.platform != "win32"
 
-def serve_static() -> None:
+
+def make_static_server() -> ThreadedHTTPServer:
     # When packaged with PyInstaller, static files are in sys._MEIPASS
     if getattr(sys, "frozen", False):
         base = Path(sys._MEIPASS)
@@ -82,16 +118,49 @@ def serve_static() -> None:
         base = Path(__file__).resolve().parent
     static_dir = (base / "static").resolve()
 
+    library = ww_library.Library(engine.data_dir / "ww_library_cache")
+
     class Handler(SimpleHTTPRequestHandler):
+        # mimetypes reads the Windows registry, which other apps can corrupt
+        # (e.g. .html -> video/html makes the browser download the page).
+        extensions_map = {
+            **SimpleHTTPRequestHandler.extensions_map,
+            ".html": "text/html; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".js": "text/javascript; charset=utf-8",
+            ".json": "application/json; charset=utf-8",
+            ".svg": "image/svg+xml",
+            ".png": "image/png",
+            ".webp": "image/webp",
+            ".ico": "image/x-icon",
+        }
+
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, directory=str(static_dir), **kwargs)
 
-    with ThreadedHTTPServer((HOST_HTTP, PORT_HTTP), Handler) as httpd:
+        def do_GET(self) -> None:
+            # Character library (static/characters.html) is served as JSON; everything else is a static file.
+            if not self.path.startswith(ww_library.API_PREFIX):
+                return super().do_GET()
+            status, payload = ww_library.handle_api(library, self.path)
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+    return ThreadedHTTPServer((HOST_HTTP, PORT_HTTP), Handler)
+
+
+def serve_static(httpd: ThreadedHTTPServer) -> None:
+    with httpd:
         print(f"HTTP server running at http://{HOST_HTTP}:{PORT_HTTP}")
         httpd.serve_forever()
 
 
-connected_clients: set[websockets.WebSocketServerProtocol] = set()
+connected_clients: set[ServerConnection] = set()
 
 
 async def broadcast_dict(payload: dict[str, Any]) -> None:
@@ -128,10 +197,7 @@ def _safe_json_load(s: str) -> dict[str, Any] | None:
         return None
 
 
-async def ws_handler(
-    websocket: websockets.WebSocketServerProtocol,
-    _path: str | None = None,
-) -> None:
+async def ws_handler(websocket: ServerConnection) -> None:
     global transcribe_mode_enabled, macro_mode_enabled
     connected_clients.add(websocket)
     print(f"Client connected. Total: {len(connected_clients)}")
@@ -152,14 +218,14 @@ async def ws_handler(
                 ok, err = engine.save_or_update_combo(
                     name=str(msg.get("name") or ""),
                     inputs=str(msg.get("inputs") or ""),
-                    enders=str(msg.get("enders") or ""),
+                    enders=None if msg.get("enders") is None else str(msg.get("enders")),
                     expected_time=str(msg.get("expected_time") or ""),
                     user_difficulty=str(msg.get("user_difficulty") or ""),
                     step_display_mode=str(msg.get("step_display_mode") or ""),
                     key_images=msg.get("key_images"),
                     demo_video=str(msg.get("demo_video") or ""),
-                    target_game=str(msg.get("target_game") or ""),
                     ww_team_id=str(msg.get("ww_team_id") or ""),
+                    as_new=bool(msg.get("as_new")),
                 )
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
@@ -182,6 +248,10 @@ async def ws_handler(
                 )
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
+            elif mtype == "sync_character":
+                await ww_sync.sync_character(engine, str(msg.get("name") or ""))
+            elif mtype == "sync_all_characters":
+                await ww_sync.refresh_all_characters(engine)
             elif mtype == "delete_character":
                 ok, err = engine.delete_ww_character(str(msg.get("name") or ""))
                 if not ok and err:
@@ -189,16 +259,8 @@ async def ws_handler(
             elif mtype == "update_ww_dash":
                 engine.update_ww_dash(str(msg.get("dash_image") or ""))
             elif mtype == "select_team":
-                # Stateless team selection: accepts target_game parameter
-                target_game = str(msg.get("target_game") or "").strip().lower()
-                engine.select_team_stateless(
-                    team_id=str(msg.get("team_id") or ""),
-                    target_game=target_game
-                )
-            elif mtype == "update_target_game":
-                # Stateless target game update (doesn't persist to JSON)
-                target_game = str(msg.get("target_game") or "").strip().lower()
-                engine.update_target_game_stateless(target_game)
+                # Stateless team selection (doesn't persist to JSON)
+                engine.select_team_stateless(team_id=str(msg.get("team_id") or ""))
             elif mtype == "delete_team":
                 ok, err = engine.delete_ww_team(str(msg.get("team_id") or ""))
                 if not ok and err:
@@ -356,7 +418,7 @@ def run_ws_server() -> None:
     engine.set_emitter(make_threadsafe_emitter(loop))
 
     async def _main():
-        async with websockets.serve(ws_handler, HOST_WS, PORT_WS):
+        async with serve(ws_handler, HOST_WS, PORT_WS, origins=ALLOWED_WS_ORIGINS):
             print(f"WebSocket server running at ws://{HOST_WS}:{PORT_WS}")
             await asyncio.Future()  # run forever
 
@@ -367,6 +429,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
     def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         event_time = time.perf_counter()
         input_name = engine.normalize_key(key)
+        _emit_overlay_input(input_name, True)  # macro playback shows on the overlay too
 
         # Macro output is matched by origin before hotkey handling. This prevents
         # a synthetic Esc/F9 from stopping its own macro while physical stop keys
@@ -420,6 +483,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
     def on_key_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         event_time = time.perf_counter()
         input_name = engine.normalize_key(key)
+        _emit_overlay_input(input_name, False)
         if macro_player.consume_synthetic_event(input_name, False):
             return
         if transcribe_mode_enabled:
@@ -436,6 +500,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
     def on_mouse_click(_x: float, _y: float, button: mouse.Button, pressed: bool) -> None:
         event_time = time.perf_counter()
         btn = engine.normalize_mouse(button)
+        _emit_overlay_input(btn, pressed)
         if macro_player.consume_synthetic_event(btn, pressed):
             return
         if transcribe_mode_enabled:
@@ -555,8 +620,20 @@ def setup_logging() -> None:
 def main() -> None:
     _warn_if_windows_non_elevated()
     setup_logging()
-    # Static UI
-    http_thread = threading.Thread(target=serve_static, daemon=True)
+    # Static UI. Bind here so a busy port stops startup with a clear message
+    # instead of silently killing the HTTP thread.
+    try:
+        httpd = make_static_server()
+    except OSError as e:
+        print(
+            f"Error: could not open http://{HOST_HTTP}:{PORT_HTTP} ({e}). "
+            "Is ComboTracker already running? Close the other copy and try again.",
+            file=sys.stderr,
+        )
+        if getattr(sys, "frozen", False):
+            input("Press Enter to close...")  # keep the packaged console window readable
+        sys.exit(1)
+    http_thread = threading.Thread(target=serve_static, args=(httpd,), daemon=True)
     http_thread.start()
 
     # WebSocket server (owns its asyncio loop)

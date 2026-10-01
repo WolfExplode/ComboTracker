@@ -45,74 +45,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import html as html_mod
 import json
-import re
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 DEFAULT_COMBOS_PATH = REPO_ROOT / "combos.json"
 DEFAULT_WS_URI = "ws://localhost:8765"
 
-USER_AGENT = "Mozilla/5.0 (compatible; ComboTracker-tools)"
-IMG_HOST = "https://wuthering.gg"
-
-# The site emits these as HTML-escaped relative paths (e.g. "/_ipx/q_70&amp;s_100x100/...").
-# We unescape entities and prefix the host before matching to get real, usable URLs.
-ICON_PATTERNS = {
-    "swap_image": r"/_ipx/q_70&s_100x100/images/iconrolehead150/T_IconRoleHead150_\d+(?:_UI)?\.png",
-    "lmb_image": r"/_ipx/q_70&s_32x32/images/iconskill/SP_IconNor[A-Za-z0-9]*\.png",
-    "e": r"/_ipx/q_70&s_32x32/images/iconskill/[A-Za-z0-9_]+B1\.png",
-    "r": r"/_ipx/q_70&s_32x32/images/iconskill/[A-Za-z0-9_]+C1\.png",
-    "q": r"/_ipx/q_70&s_34x34/images/mstskill/T_MstSkil_\d+_UI\.png",
-}
-
-
-def _dedupe_preserve_order(items: list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for it in items:
-        if it not in seen:
-            seen.add(it)
-            out.append(it)
-    return out
-
-
-def fetch_character_icons(slug: str) -> dict[str, Any]:
-    """Scrape https://wuthering.gg/characters/<slug> for the standard icon set."""
-    url = f"https://wuthering.gg/characters/{slug.strip().lower()}"
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            raw_html = resp.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"{url} -> HTTP {e.code}. Check the character slug.") from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Could not reach {url}: {e.reason}") from e
-
-    html = html_mod.unescape(raw_html)
-
-    result: dict[str, Any] = {"swap_image": "", "lmb_image": "", "ability_images": {"q": "", "e": "", "r": ""}}
-    missing = []
-    for field, pattern in ICON_PATTERNS.items():
-        matches = _dedupe_preserve_order(re.findall(pattern, html))
-        value = (IMG_HOST + matches[0]) if matches else ""
-        if not value:
-            missing.append(field)
-        if field in ("q", "e", "r"):
-            result["ability_images"][field] = value
-        else:
-            result[field] = value
-
-    if missing:
-        print(f"  warning: could not find {', '.join(missing)} on {url} -- fill in manually.", file=sys.stderr)
-
-    return result
+from ww_icons import fetch_character_icons  # noqa: E402  (needs REPO_ROOT on sys.path)
 
 
 # ---------------------------------------------------------------------------
@@ -224,14 +168,22 @@ def delete_team_direct(path: Path, team_id: str) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+def _warn_missing(icons: dict[str, Any], slug: str) -> None:
+    if icons.get("missing"):
+        print(f"  warning: could not find {', '.join(icons['missing'])} for {slug} -- fill in manually.", file=sys.stderr)
+
+
 def cmd_fetch(args: argparse.Namespace) -> None:
     icons = fetch_character_icons(args.slug)
+    _warn_missing(icons, args.slug)
     print(json.dumps({"name": args.name or args.slug.capitalize(), **icons}, indent=2))
 
 
 def cmd_add_character(args: argparse.Namespace) -> None:
     name = args.name or args.slug.capitalize()
     icons = fetch_character_icons(args.slug)
+    _warn_missing(icons, args.slug)
+    icons.pop("missing", None)
     if args.swap:
         icons["swap_image"] = args.swap
     if args.lmb:

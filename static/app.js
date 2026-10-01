@@ -1,5 +1,8 @@
-// WebSocket connection
-const ws = new WebSocket('ws://localhost:8765');
+// WebSocket connection (opened by connectWebSocket() at the end of this file)
+const WS_URL = 'ws://localhost:8765';
+const WS_RECONNECT_MAX_MS = 5000;
+let ws = null;
+let wsReconnectDelayMs = 500;
 
 const getEl = (id) => document.getElementById(id);
 
@@ -8,7 +11,7 @@ const SHORT_WAIT_MS = 150;
 
 // Timeline-only view for OBS (Browser Source or Window Capture)
 if (new URLSearchParams(window.location.search).get('view') === 'timeline') {
-    document.title = 'ComboTracker – Timeline';
+    document.title = 'WuWa Combo Tracker – Timeline';
     document.body.classList.add('timeline-window-view');
 }
 
@@ -17,18 +20,57 @@ function getTimelineUrl() {
     return window.location.origin + path + (path.includes('?') ? '&' : '?') + 'view=timeline';
 }
 
-ws.onopen = () => {
-    console.log('Connected to Combo Trainer backend');
-};
-
-ws.onclose = () => {
-    console.error('Connection lost. Please restart the application.');
-    updateStatus('ERROR: Backend disconnected', 'fail');
-};
+/** Connect to the backend, retrying with backoff so the UI (and OBS overlays) recover on their own after a restart. */
+function connectWebSocket() {
+    const socket = new WebSocket(WS_URL);
+    ws = socket;
+    socket.onopen = () => {
+        console.log('Connected to WuWa Combo Tracker backend');
+        wsReconnectDelayMs = 500;
+        updateStatus('Status: Ready', 'neutral');
+    };
+    socket.onclose = () => {
+        if (ws !== socket) return;
+        console.warn(`Backend connection lost; retrying in ${wsReconnectDelayMs}ms`);
+        updateStatus('Backend disconnected. Reconnecting…', 'fail');
+        setTimeout(connectWebSocket, wsReconnectDelayMs);
+        wsReconnectDelayMs = Math.min(wsReconnectDelayMs * 2, WS_RECONNECT_MAX_MS);
+    };
+    socket.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        appState.batchQueue.push(msg);
+        if (!appState.isProcessingBatch) processBatch();
+    };
+}
 
 function sendMessage(type, payload = {}) {
-    if (ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ type, ...payload }));
+}
+
+/** Per-browser display preference; storage can be unavailable (private windows, OBS), so fall back quietly. */
+function readStoredFlag(key, fallback) {
+    try {
+        const v = localStorage.getItem(key);
+        return v === null ? fallback : v === '1';
+    } catch (_) {
+        return fallback;
+    }
+}
+
+function writeStoredFlag(key, value) {
+    try { localStorage.setItem(key, value ? '1' : '0'); } catch (_) { /* ignore */ }
+}
+
+/** Character names for team slots '1'/'2'/'3' of the selected team. */
+function wwSlotNames() {
+    const out = {};
+    WW_SLOTS.forEach((slot, i) => {
+        const key = (appState.wwTeamSlots[i] || '').toString();
+        const ch = key ? appState.wwCharacters[key] : null;
+        if (ch && ch.name) out[slot] = ch.name;
+    });
+    return out;
 }
 
 // Single app state (replaces scattered globals)
@@ -39,10 +81,11 @@ const appState = {
     lastFailByStep: {},
     showFailCount: false,
     collapseChainedPresses: true,
+    showMoveNames: readStoredFlag('showMoveNames', true),
     autoScrollEnabled: false,
     stepEditMode: true,
     editStepsUndoStack: [],
-    targetGame: 'generic',
+    targetGame: 'wuthering_waves',
     wwAbilityImages: { "1": {}, "2": {}, "3": {} },
     wwSwapImages: { "1": "", "2": "", "3": "" },
     wwLmbImages: { "1": "", "2": "", "3": "" },
@@ -148,9 +191,9 @@ function initializeUI(data) {
     }
 }
 
-function normalizeTargetGame(v) {
-    const g = (v || '').toString().trim().toLowerCase();
-    return (g === 'wuthering_waves') ? 'wuthering_waves' : 'generic';
+// ComboTracker is Wuthering Waves only; every combo uses the WW team/character features.
+function normalizeTargetGame(_v) {
+    return 'wuthering_waves';
 }
 
 function ensureWwAbilityShape(obj) {
@@ -842,40 +885,51 @@ function updateStatus(text, color) {
     el.className = 'status-' + (color || 'neutral');
 }
 
-// Stats
+// Stats: the backend sends "Label: value" texts; cards show just the value.
+function setStatValue(id, text) {
+    const el = getEl(id)?.querySelector('.stat-value');
+    if (!el) return;
+    const raw = (text || '').toString();
+    const i = raw.indexOf(':');
+    const value = (i >= 0 ? raw.slice(i + 1) : raw).trim();
+    el.textContent = value || '—';
+    el.title = raw;
+}
+
+// e.g. "Stats: 3 success / 1 fail (75%) | Best: 12.3s | Avg: 13.0s"
 function updateStats(text) {
-    const el = getEl('statsDisplay');
-    if (el) el.textContent = text || 'Stats: —';
+    const parts = (text || '').toString().replace(/^Stats:\s*/, '').split('|').map(s => s.trim());
+    const result = (parts[0] || '').replace(/ success \/ /, ' / ').replace(/ fail/, '');
+    setStatValue('statsResult', /^0 \/ 0\b/.test(result) ? '' : result); // no attempts yet
+    setStatValue('statsBest', parts[1] || '');
+    setStatValue('statsAvg', parts[2] || '');
 }
 
 function updateMinTime(text) {
-    const el = getEl('minTimeDisplay');
-    if (el) el.textContent = text || 'Fastest possible: —';
+    // Drop the "(53700ms)" repeat of the value to keep the card short.
+    setStatValue('minTimeDisplay', (text || '').toString().replace(/\s*\(\d+ms\)\s*$/, ''));
 }
 
 function updateDifficulty(text) {
-    const el = getEl('difficultyDisplay');
-    if (el) el.textContent = text || 'Difficulty: —';
+    setStatValue('difficultyDisplay', text);
 }
 
 function updateUserDifficulty(text) {
-    const el = getEl('userDifficultyDisplay');
-    if (el) el.textContent = text || 'Your difficulty: —';
+    setStatValue('userDifficultyDisplay', text);
 }
 
 function updateAPM(text) {
-    const el = getEl('apmDisplay');
-    if (el) el.textContent = text || 'Practical APM: —';
+    setStatValue('apmDisplay', text);
 }
 
 function updateAPMMax(text) {
-    const el = getEl('apmMaxDisplay');
-    if (el) el.textContent = text || 'Theoretical max APM: —';
+    setStatValue('apmMaxDisplay', text);
 }
 
 function setDifficultyColor(el, value) {
     if (!el) return;
     el.classList.remove('diff-easy', 'diff-med', 'diff-hard', 'diff-insane');
+    if (value === null || value === undefined || value === '') return; // unrated, not "easy"
     const v = Number(value);
     if (!Number.isFinite(v)) return;
     if (v < 3) el.classList.add('diff-easy');
@@ -1673,6 +1727,19 @@ function updateTimeline(steps, opts) {
         showFailCount: appState.showFailCount,
     };
 
+    // Names each step's move ("Zani Basic 2"); steps must be labeled in timeline order.
+    const labelMove = appState.showMoveNames ? createWwMoveLabeler(wwSlotNames()) : null;
+    function appendMoveLabel(tile, step, slot) {
+        if (!labelMove) return;
+        const text = labelMove(step, slot);
+        if (!text) return;
+        const el = document.createElement('span');
+        el.className = 'step-move';
+        el.textContent = text;
+        el.title = text;
+        tile.appendChild(el);
+    }
+
     const viewport = getEl('comboTimelineViewport');
     const isAutoScroll = viewport?.classList.contains('auto-scroll-on');
     let baseStepWidthPx = 90;
@@ -1841,6 +1908,7 @@ function updateTimeline(steps, opts) {
         if (it.completed) el.classList.add('completed');
 
         appendStepContent(el, it, characterId, ctx);
+        appendMoveLabel(el, it, characterId);
 
         let keyForCorner = '';
         if (it.type === 'wait' && it.wait_for) keyForCorner = it.wait_for;
@@ -1945,6 +2013,7 @@ function updateTimeline(steps, opts) {
             if (it.active) itEl.classList.add('active');
             if (it.completed) itEl.classList.add('completed');
             appendStepContent(itEl, it, nextChar, ctx);
+            appendMoveLabel(itEl, it, nextChar);
             items.appendChild(itEl);
         });
         tile.appendChild(items);
@@ -2001,6 +2070,7 @@ function updateTimeline(steps, opts) {
         if (keyForCorner && s.type !== 'hold_with_body') addCornerKey(tile, keyForCorner, s, runtimeIdxNormal);
 
         appendStepContent(tile, s, nextChar, ctx, runtimeIdxNormal);
+        appendMoveLabel(tile, s, nextChar);
         attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
@@ -2633,6 +2703,16 @@ if (showFailCountEl) {
     });
 }
 
+const moveNamesToggleEl = getEl('moveNamesToggle');
+if (moveNamesToggleEl) {
+    moveNamesToggleEl.checked = !!appState.showMoveNames;
+    moveNamesToggleEl.addEventListener('change', () => {
+        appState.showMoveNames = moveNamesToggleEl.checked;
+        writeStoredFlag('showMoveNames', appState.showMoveNames);
+        refreshTimelineIfLoaded();
+    });
+}
+
 const stepEditToggleEl = getEl('stepEditToggle');
 if (stepEditToggleEl) {
     stepEditToggleEl.checked = !!appState.stepEditMode;
@@ -2648,6 +2728,16 @@ if (collapseChainsToggleEl) {
     collapseChainsToggleEl.addEventListener('change', () => {
         appState.collapseChainedPresses = collapseChainsToggleEl.checked;
         refreshTimelineIfLoaded();
+    });
+}
+
+const legendBtn = getEl('legendBtn');
+if (legendBtn) {
+    legendBtn.addEventListener('click', () => {
+        const panel = getEl('legendPanel');
+        if (!panel) return;
+        const open = panel.classList.toggle('hidden') === false;
+        legendBtn.setAttribute('aria-expanded', String(open));
     });
 }
 
@@ -2901,16 +2991,19 @@ if (keyImagesDetails) {
     });
 }
 
-const targetGameEl = getEl('targetGameSelect');
-if (targetGameEl) {
-    targetGameEl.addEventListener('change', () => {
-        appState.targetGame = normalizeTargetGame(targetGameEl.value);
-        // Send target game change to backend immediately for stateless operation
-        sendMessage('update_target_game', { target_game: appState.targetGame });
-        syncGameUIVisibility();
-        refreshTimelineIfLoaded();
-    });
+// WW: one-click character sync from wuthering.gg
+const wwSyncCharNameEl = getEl('wwSyncCharName');
+function syncCharacterFromWeb() {
+    const name = (wwSyncCharNameEl?.value || '').toString().trim();
+    if (!name) { updateStatus('Type a character name first.', 'fail'); return; }
+    sendMessage('sync_character', { name });
+    wwSyncCharNameEl.value = '';
 }
+getEl('wwSyncCharBtn')?.addEventListener('click', syncCharacterFromWeb);
+wwSyncCharNameEl?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); syncCharacterFromWeb(); }
+});
+getEl('wwSyncAllBtn')?.addEventListener('click', () => sendMessage('sync_all_characters'));
 
 // WW: team select dropdown
 document.addEventListener('change', e => {
@@ -3055,8 +3148,4 @@ function processBatch() {
     });
 }
 
-ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    appState.batchQueue.push(msg);
-    if (!appState.isProcessingBatch) processBatch();
-};
+connectWebSocket();

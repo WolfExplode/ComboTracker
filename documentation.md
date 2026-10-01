@@ -171,7 +171,7 @@ Example:
 - **During the attempt**: pressing an ender key drops the combo only if that key is **off cooldown**.
 - **Key repeat (held key) does not drop**: only a **new key-down** can end the combo. If you keep a key held (e.g. hold `r` through a wait), repeat key events from the OS are ignored for ender logic—so the combo will not drop until you release and press that key again (a genuine new press).
 
-Data is stored in `combos.json`.
+Data is stored in `combos.json`. On first run it is seeded from `combos.example.json` when that file is present; updates never overwrite `combos.json`.
 
 ---
 
@@ -204,7 +204,7 @@ This is intentionally simple so it’s easy to tune.
 
 ## Troubleshooting
 
-### I get a 404 when opening `http://localhost:8080/`
+### I get a 404 when opening `http://localhost:8737/`
 
 Make sure you’re running `ui_server.py` from `ComboTracker/`, or just run it normally—recent versions serve `static/` using an absolute path so it works regardless of working directory.
 
@@ -247,7 +247,7 @@ misclassified inputs without re-recording the combo.
 ComboTracker is a small local web UI + Python backend. Roughly:
 
 - **UI server + input hooks**: `ui_server.py`
-  - Runs HTTP (`localhost:8080`) serving `static/`
+  - Runs HTTP (`localhost:8737`) serving `static/`
   - Runs WebSocket (`localhost:8765`)
   - Starts global keyboard/mouse hooks via `pynput`
   - Calls into `ComboTrackerEngine`
@@ -270,10 +270,12 @@ ComboTracker is a small local web UI + Python backend. Roughly:
   - Tracks signatures and emits wait animation events only when needed
 
 - **Persistence (schema + load/save/migrations)**: `persistence.py`
-  - Owns JSON schema compatibility and sanitization
+  - Owns JSON schema compatibility and sanitization; `load_engine_state` runs one small loader per section (combos, enders, stats, teams, legacy migrations, ...)
 
 - **Commands (internal engine-only helpers)**: `_combo_commands.py`
   - Apply/save/delete/new/clear commands that mutate engine data (called under the engine lock)
+  - `per_combo_maps()` lists every dict keyed by combo name; rename and delete go through it. Add new per-combo settings there.
+  - Saving refuses a name another combo already uses; `as_new` saves a separate combo instead of editing the active one (used by the Characters page)
 
 - **Utilities extracted for maintainability**:
   - `step_introspection.py`: step labeling and key-introspection helpers
@@ -286,7 +288,7 @@ ComboTracker is a small local web UI + Python backend. Roughly:
   - Preserves raw evidence through `profiling/transcription_log.py`
 
 - **Game-specific state / helpers**: `Game_Wuthering_Waves.py`
-  - Stores WW-specific metadata (teams, target game, active character slot)
+  - Stores WW-specific metadata (teams, per-combo team, active character slot)
   - Provides WW ender policy used by the engine
 
 ### Macro timing profiler

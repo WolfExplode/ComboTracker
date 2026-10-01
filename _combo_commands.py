@@ -10,6 +10,19 @@ from typing import Any
 from persistence import fresh_combo_stats
 
 
+def per_combo_maps(engine) -> list[dict[str, Any]]:
+    """Every dict keyed by combo name. Rename and delete go through this list so none is missed."""
+    return [
+        engine.combo_stats,
+        engine.combo_expected_ms,
+        engine.combo_user_difficulty,
+        engine.combo_step_display_mode,
+        engine.combo_key_images,
+        engine.combo_demo_video,
+        engine.ww.combo_ww_team,
+    ]
+
+
 def apply_enders_from_text(engine, raw: str) -> tuple[bool, str | None]:
     raw = (raw or "").strip()
     if not raw:
@@ -66,23 +79,25 @@ def save_or_update_combo(
     *,
     name: str,
     inputs: str,
-    enders: str,
+    enders: str | None,
     expected_time: str | None = None,
     user_difficulty: str | None = None,
     step_display_mode: str | None = None,
     key_images: Any | None = None,
     demo_video: str | None = None,
-    target_game: str | None = None,
     ww_team_id: str | None = None,
+    as_new: bool = False,
 ) -> tuple[bool, str | None]:
     name = (name or "").strip()
     keys_str = (inputs or "").strip()
     if not name or not keys_str:
         return False, "Please fill in Name and Inputs."
 
-    ok, err = apply_enders_from_text(engine, enders)
-    if not ok:
-        return False, err
+    # Enders are global settings; a caller that doesn't send them (the Characters page) leaves them alone.
+    if enders is not None:
+        ok, err = apply_enders_from_text(engine, enders)
+        if not ok:
+            return False, err
 
     expected_ms = None
     expected_raw = (expected_time or "").strip()
@@ -105,24 +120,17 @@ def save_or_update_combo(
     if not input_list:
         return False, "Please provide at least one input."
 
-    old_name = engine.active_combo_name if engine.active_combo_name in engine.combos else None
+    # as_new: save a separate combo instead of editing (and renaming) the active one.
+    old_name = None if as_new else (engine.active_combo_name if engine.active_combo_name in engine.combos else None)
+    if name != old_name and name in engine.combos:
+        return False, f"A combo named '{name}' already exists. Pick another name."
     if old_name and name != old_name:
-        if old_name in engine.combo_stats and name not in engine.combo_stats:
-            engine.combo_stats[name] = engine.combo_stats.pop(old_name)
+        # Rename: carry everything stored under the old name (stats included) to the new one.
+        del engine.combos[old_name]
         engine.combos[name] = input_list
-        if old_name != name and old_name in engine.combos:
-            del engine.combos[old_name]
-        if old_name in engine.combo_expected_ms:
-            del engine.combo_expected_ms[old_name]
-        if old_name in engine.combo_user_difficulty:
-            del engine.combo_user_difficulty[old_name]
-        if old_name in engine.combo_step_display_mode and name not in engine.combo_step_display_mode:
-            engine.combo_step_display_mode[name] = engine.combo_step_display_mode.pop(old_name)
-        if old_name in engine.combo_key_images and name not in engine.combo_key_images:
-            engine.combo_key_images[name] = engine.combo_key_images.pop(old_name)
-        if old_name in getattr(engine, "combo_demo_video", {}) and name not in getattr(engine, "combo_demo_video", {}):
-            engine.combo_demo_video[name] = engine.combo_demo_video.pop(old_name)
-        engine.ww.rename_combo(old_name, name)
+        for mapping in per_combo_maps(engine):
+            if old_name in mapping:
+                mapping[name] = mapping.pop(old_name)
     else:
         # Same name or new combo: if steps changed, clear all history for this combo
         old_list = engine.combos.get(name)
@@ -166,9 +174,7 @@ def save_or_update_combo(
     else:
         engine.combo_demo_video.pop(name, None)
 
-    g_raw = str(target_game or "").strip().lower()
-    engine.ww.set_target_game(name, g_raw)
-    engine.ww.apply_combo_team_assignment(name, target_game=engine.ww.get_target_game(name), ww_team_id=ww_team_id)
+    engine.ww.apply_combo_team_assignment(name, ww_team_id=ww_team_id)
 
     engine._ensure_combo_stats(name)
     engine.set_active_combo(name, emit=False)
@@ -184,19 +190,8 @@ def delete_combo(engine, name: str) -> tuple[bool, str | None]:
         return False, "Select a combo to delete."
 
     del engine.combos[name]
-    if name in engine.combo_stats:
-        del engine.combo_stats[name]
-    if name in engine.combo_expected_ms:
-        del engine.combo_expected_ms[name]
-    if name in engine.combo_user_difficulty:
-        del engine.combo_user_difficulty[name]
-    if name in engine.combo_step_display_mode:
-        del engine.combo_step_display_mode[name]
-    if name in engine.combo_key_images:
-        del engine.combo_key_images[name]
-    if name in getattr(engine, "combo_demo_video", {}):
-        del engine.combo_demo_video[name]
-    engine.ww.delete_combo(name)
+    for mapping in per_combo_maps(engine):
+        mapping.pop(name, None)
 
     if engine.active_combo_name == name:
         engine.active_combo_name = None

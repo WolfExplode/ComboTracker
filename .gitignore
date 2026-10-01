@@ -12,3 +12,7 @@ combos.json.bak
 
 # Runtime profiler artifacts
 /logs/
+ww_library_cache/
+
+# Your saved combos, teams and stats (combos.example.json seeds it on first run)
+combos.json

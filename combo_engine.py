@@ -6,12 +6,14 @@ from pathlib import Path
 from typing import Any, Callable
 
 from Game_Wuthering_Waves import (
+    WW_DEFAULT_COMBO_ENDERS,
+    WW_DEFAULT_COMBO_ENDERS_SOFT,
+    WW_DEFAULT_TRANSCRIBE_KEYS,
     WutheringWavesGame,
     set_active_ww_team,
     save_or_update_ww_team,
     delete_ww_team,
     select_team_stateless,
-    update_target_game_stateless,
     save_ww_character_cmd,
     delete_ww_character_cmd,
     update_ww_dash_cmd,
@@ -98,7 +100,6 @@ class ComboTrackerEngine:
 
         self.wait_in_progress = False
         self.wait_started_at = 0.0
-        self.wait_until = 0.0
         self.wait_required_ms: int | None = None
 
         self.currently_pressed: set[str] = set()
@@ -107,8 +108,6 @@ class ComboTrackerEngine:
         # step_index -> mark string (e.g. "ok", "early", "missed", "wrong")
         self.step_marks: dict[int, str] = {}
         # For soft waits: track if the *next expected input* was pressed during the wait window.
-        # wait_step_index -> set(inputs pressed too early for that gate)
-        self.wait_early_inputs: dict[int, set[str]] = {}
         # So we only send wait_begin once per group mandatory wait (UI animates progress).
         self.ui_adapter = UIAdapter()
 
@@ -116,17 +115,16 @@ class ComboTrackerEngine:
         # is already in currently_pressed, we start the hold immediately (no separate buffer state).
 
         # Combo enders: key -> cooldown_ms (0 = no cooldown; wrong press drops immediately)
-        self.combo_enders: dict[str, int] = {}
+        self.combo_enders: dict[str, int] = dict(WW_DEFAULT_COMBO_ENDERS)
         # Soft enders: keys that do not drop the combo when pressed during a hold step (~key:2s)
-        self.combo_enders_soft: set[str] = set()
+        self.combo_enders_soft: set[str] = set(WW_DEFAULT_COMBO_ENDERS_SOFT)
         # Auto-transcribe: comma-separated valid keys (persisted like combo_enders)
-        self.transcribe_valid_keys: str = ""
+        self.transcribe_valid_keys: str = WW_DEFAULT_TRANSCRIBE_KEYS
         # Key that begins a transcription when auto-transcribe is on (normalized token, e.g. f, space, lmb)
         self.transcribe_start_key: str = "f"
         # When enabled and transcribe_strip_wait_under_ms is non-empty, omit wait: below that many ms.
         self.transcribe_strip_wait_under_enabled: bool = False
         self.transcribe_strip_wait_under_ms: str = "0"
-        self.last_success_input: str | None = None
         # Per-ender cooldown: key -> monotonic time when that key's cooldown ends.
         # When the user correctly presses an ender key, we set cooldown for that key so
         # re-pressing it during a wait/hold doesn't drop the combo until cooldown expires.
@@ -170,7 +168,9 @@ class ComboTrackerEngine:
         # Persistence
         self.data_dir = self._get_data_dir()
         self.save_path = self.data_dir / "combos.json"
-        self.state_store: StateStore = state_store or JsonStateStore(self.save_path)
+        self.state_store: StateStore = state_store or JsonStateStore(
+            self.save_path, seed_path=self.data_dir / "combos.example.json"
+        )
 
         # Load persisted state
         self.load_combos()
@@ -180,14 +180,6 @@ class ComboTrackerEngine:
     # -------------------------
     # These properties keep older code paths working while the WW logic is moved into
     # `Game_Wuthering_Waves.py`.
-
-    @property
-    def combo_target_game(self) -> dict[str, str]:
-        return self.ww.combo_target_game
-
-    @combo_target_game.setter
-    def combo_target_game(self, value: dict[str, str]):
-        self.ww.combo_target_game = value
 
     @property
     def ww_teams(self) -> dict[str, dict[str, Any]]:
@@ -250,12 +242,6 @@ class ComboTrackerEngine:
     def split_inputs(self, keys_str: str):
         return input_normalization.split_inputs(keys_str or "")
 
-    def calc_min_combo_time_ms(self, steps: list[Any] | None) -> int:
-        """Fastest possible combo time in ms. Delegates to combo_analytics."""
-        import combo_analytics
-        total = sum(combo_analytics._step_time_ms(s) for s in (steps or []))
-        return max(0, int(total))
-
     def _format_ms(self, ms: int) -> str:
         return format_utils.format_ms(ms)
 
@@ -273,42 +259,6 @@ class ComboTrackerEngine:
 
     def _step_accepts_input(self, step: Any, input_name: str) -> bool:
         return step_introspection.step_accepts_input(step, input_name)
-
-    def _find_next_step_index_for_input(self, input_name: str, *, start_index: int) -> int | None:
-        """Look ahead for the next non-wait step that matches input_name."""
-        input_name = (input_name or "").strip().lower()
-        if not input_name:
-            return None
-        try:
-            for j in range(max(0, int(start_index)), len(self.runtime_steps)):
-                s = self.runtime_steps[j]
-                if isinstance(s, WaitState):
-                    continue
-                if self._step_accepts_input(s, input_name):
-                    return j
-        except Exception:
-            return None
-        return None
-
-    def _find_prev_step_index_for_input(self, input_name: str, *, end_index: int) -> int | None:
-        """Look backward for the most recent non-wait step that matches input_name."""
-        input_name = (input_name or "").strip().lower()
-        if not input_name:
-            return None
-        try:
-            end = max(0, int(end_index))
-        except Exception:
-            end = 0
-        try:
-            for j in range(min(end, len(self.runtime_steps)) - 1, -1, -1):
-                s = self.runtime_steps[j]
-                if isinstance(s, WaitState):
-                    continue
-                if self._step_accepts_input(s, input_name):
-                    return j
-        except Exception:
-            return None
-        return None
 
     def _mark_step(self, step_index: int, mark: str):
         """
@@ -328,7 +278,6 @@ class ComboTrackerEngine:
 
     def _reset_attempt_marks(self):
         self.step_marks = {}
-        self.wait_early_inputs = {}
 
     def _next_non_wait_step_index(self, *, start_index: int) -> int | None:
         """Return the next step index >= start_index that is not a wait step."""
@@ -383,9 +332,6 @@ class ComboTrackerEngine:
     def _ensure_combo_stats(self, name: str) -> None:
         stats_recording.ensure_combo_stats(self, name)
 
-    def _combo_avg_ms(self, name: str):
-        return stats_recording.combo_avg_ms(self, name)
-
     def _format_percent(self, success: int, fail: int) -> str:
         return stats_recording.format_percent(success, fail)
 
@@ -403,18 +349,6 @@ class ComboTrackerEngine:
 
     def _parse_expected_time_ms(self, raw: str | None) -> int | None:
         return format_utils.parse_expected_time_ms(raw)
-
-    def _count_combo_actions(self, steps: list[Any] | None) -> tuple[int, int, int]:
-        """Returns (press_count, hold_count, total_actions). Delegates to combo_analytics."""
-        import combo_analytics
-        if steps is None or steps is self.runtime_steps:
-            return combo_analytics.count_combo_actions(self)
-        press, hold = 0, 0
-        for s in steps:
-            pp, hh = combo_analytics._count_step_actions(s)
-            press += pp
-            hold += hh
-        return press, hold, press + hold
 
     def practical_apm(self) -> float | None:
         return combo_analytics.practical_apm(self)
@@ -444,8 +378,8 @@ class ComboTrackerEngine:
     # UI state snapshots
     # -------------------------
 
-    def get_editor_payload(self, target_game_override: str | None = None) -> dict[str, Any]:
-        return ui.get_editor_payload(self, target_game_override=target_game_override)
+    def get_editor_payload(self) -> dict[str, Any]:
+        return ui.get_editor_payload(self)
 
     def get_status(self) -> Status:
         return ui.get_status(self)
@@ -500,14 +434,14 @@ class ComboTrackerEngine:
         *,
         name: str,
         inputs: str,
-        enders: str,
+        enders: str | None,
         expected_time: str | None = None,
         user_difficulty: str | None = None,
         step_display_mode: str | None = None,
         key_images: Any | None = None,
         demo_video: str | None = None,
-        target_game: str | None = None,
         ww_team_id: str | None = None,
+        as_new: bool = False,
     ) -> tuple[bool, str | None]:
         with self._lock:
             return combo_commands.save_or_update_combo(
@@ -520,8 +454,8 @@ class ComboTrackerEngine:
                 step_display_mode=step_display_mode,
                 key_images=key_images,
                 demo_video=demo_video,
-                target_game=target_game,
                 ww_team_id=ww_team_id,
+                as_new=as_new,
             )
 
     def delete_combo(self, name: str) -> tuple[bool, str | None]:
@@ -584,13 +518,9 @@ class ComboTrackerEngine:
         with self._lock:
             return delete_ww_team(self, team_id)
 
-    def select_team_stateless(self, team_id: str, target_game: str):
+    def select_team_stateless(self, team_id: str):
         with self._lock:
-            select_team_stateless(self, team_id, target_game)
-
-    def update_target_game_stateless(self, target_game: str):
-        with self._lock:
-            update_target_game_stateless(self, target_game)
+            select_team_stateless(self, team_id)
 
     def new_combo(self):
         with self._lock:
@@ -753,11 +683,7 @@ class ComboTrackerEngine:
             self._ensure_combo_stats(name)
             
             # Restore saved WW active team when selecting a combo
-            if self.ww.get_target_game(name) == "wuthering_waves":
-                saved_team = self.ww.combo_ww_team.get(name)
-                self.ww.ww_active_team_id = saved_team
-            else:
-                self.ww.ww_active_team_id = None
+            self.ww.ww_active_team_id = self.ww.combo_ww_team.get(name)
 
             self.reset_tracking()
             self.save_combos()
@@ -800,7 +726,6 @@ class ComboTrackerEngine:
         self._attempt_hit_clock = None
         self._replay_active = False
         self.attempt_counter = 0
-        self.last_success_input = None
         self._ender_cooldown_until.clear()
         self.ww.ww_active_character = None
         self._ui_last_success_combo = None
@@ -910,7 +835,6 @@ class ComboTrackerEngine:
             self._send({"type": "wait_end"})
         self.wait_in_progress = False
         self.wait_started_at = 0.0
-        self.wait_until = 0.0
         self.wait_required_ms = None
 
     def _reset_group_state(self):
@@ -1205,7 +1129,6 @@ class ComboTrackerEngine:
         self.wait_in_progress = True
         self.wait_started_at = float(started_at)
         self.wait_required_ms = required_ms
-        self.wait_until = self.wait_started_at + (required_ms / 1000.0)
         # Tell the UI to animate a visible wait progress bar (similar to holds).
         # Mode may be soft|hard|mandatory (mandatory = animation lock; inputs ignored).
         try:
@@ -1311,7 +1234,6 @@ class ComboTrackerEngine:
             else:
                 self._record_step_timing(label, now)
             self.last_input_time = now
-            self.last_success_input = target_input
             self._start_ender_cooldown(target_input, now)
             self.ww.on_accepted_key(self, target_input)
             step.complete()
@@ -1347,24 +1269,6 @@ class ComboTrackerEngine:
 
         self._reset_hold_state()
         return ok
-
-    def _record_fail_detail(
-        self,
-        *,
-        step_index: int,
-        expected: str,
-        actual: str,
-        reason: str,
-        elapsed_ms: float | None,
-    ) -> None:
-        stats_recording.record_fail_detail(
-            self,
-            step_index=step_index,
-            expected=expected,
-            actual=actual,
-            reason=reason,
-            elapsed_ms=elapsed_ms,
-        )
 
     def record_combo_success(self, completion_ms: float | int | None = None) -> None:
         stats_recording.record_combo_success(self, completion_ms)
@@ -1669,7 +1573,6 @@ class ComboTrackerEngine:
                     label = f"{holder} (hold ≥ {req_s}, {held_ms:.0f}ms) [auto]"
                     self.record_hit(label, step_ms, total_ms, at_time=now)
                     self.last_input_time = now
-                    self.last_success_input = holder
                     self._start_ender_cooldown(holder, now)
                     self.ww.on_accepted_key(self, holder)
                     self._hold_max_held_ms = 0.0
@@ -1721,7 +1624,6 @@ class ComboTrackerEngine:
                 label = f"{holder} (hold ≥ {req_s}, {held_ms:.0f}ms) [auto]"
                 self.record_hit(label, step_ms, total_ms, at_time=now)
                 self.last_input_time = now
-                self.last_success_input = holder
                 self._start_ender_cooldown(holder, now)
                 self.ww.on_accepted_key(self, holder)
                 step.complete()
@@ -1922,7 +1824,6 @@ class ComboTrackerEngine:
                 else:
                     self._record_step_timing(input_name, now)
             self.last_input_time = now
-            self.last_success_input = input_name
             self._start_ender_cooldown(input_name, now)
             self.ww.on_accepted_key(self, input_name)
             # If this press started a nested wait (e.g. press_wait inside a group/sequence),

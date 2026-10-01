@@ -418,6 +418,16 @@ button.danger:hover {
     border-radius: var(--border-radius);
 }
 
+.combo-steps-controls a.icon-btn {
+    background: var(--accent-blue);
+    color: var(--bg-primary);
+    transition: var(--transition);
+}
+
+.combo-steps-controls a.icon-btn:hover {
+    background: #5aaaff;
+}
+
 .combo-steps-controls .icon-btn svg {
     flex-shrink: 0;
 }
@@ -1005,6 +1015,43 @@ button.danger:hover {
 
 .time-display-with-help .input-help-tooltip p:last-child {
     margin-bottom: 0;
+}
+
+/* Compact stat cards */
+.stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
+}
+
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border: 1px solid var(--accent-grey);
+    border-radius: var(--border-radius);
+    background: var(--bg-primary);
+    min-width: 0;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.stat-value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stat-card:not([class*="diff-"]) .stat-value {
+    color: var(--text-primary);
 }
 
 .time-display,
@@ -2073,3 +2120,104 @@ body.timeline-window-view #copyOverlayUrlBtn,
 body.timeline-window-view #openTimelineWindowBtn {
     display: none !important;
 }
+
+/* Wuthering Waves move name under each step (see ww_moves.js) */
+.step-move {
+    max-width: 100%;
+    margin-top: 3px;
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* "Add from wuthering.gg" row in the Characters panel */
+.ww-char-sync {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 12px 0;
+}
+
+.ww-char-sync input {
+    flex: 1 1 220px;
+}
+
+.ww-char-sync button.subtle {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+}
+
+.ww-char-sync .ww-moves-link {
+    color: var(--accent-blue);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.ww-char-sync .ww-moves-link:hover {
+    text-decoration: underline;
+}
+
+/* Color legend (info button above Combo Steps). Swatches reuse the timeline's colors. */
+.legend-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 24px;
+    margin: 0 0 14px 0;
+    padding: 12px 14px;
+    border: 1px solid var(--accent-grey);
+    border-radius: var(--border-radius);
+    background: var(--bg-secondary);
+    font-size: 0.85rem;
+}
+
+.legend-group h4 {
+    margin: 0 0 6px 0;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.legend-swatch,
+.legend-key {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 18px;
+    box-sizing: border-box;
+    border-radius: 4px;
+    background: var(--bg-primary);
+}
+
+.legend-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--accent-grey);
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-secondary);
+}
+
+.sw-press { border: 2px solid #444; }
+.sw-wait { border: 2px solid var(--accent-yellow); background: linear-gradient(to right, rgba(255, 221, 74, 0.5) 50%, var(--bg-primary) 50%); }
+.sw-short { border: 2px solid rgba(255, 221, 74, 0.35); }
+.sw-hold { border: 2px solid var(--accent-blue); background: linear-gradient(to right, rgba(74, 255, 136, 0.9) 50%, var(--bg-primary) 50%); }
+.sw-optional { border: 2px dashed var(--text-secondary); }
+.sw-group { border: 2px solid rgba(200, 200, 200, 0.65); }
+.sw-sequence { border: 2px solid rgba(138, 43, 226, 0.65); background: rgba(138, 43, 226, 0.08); }
+.sw-active { border: 2px solid var(--accent-blue); box-shadow: 0 0 8px rgba(74, 158, 255, 0.5); }
+.sw-done { border: 2px solid var(--accent-green); background: rgba(74, 255, 136, 0.1); }
+.sw-miss { border: 2px solid var(--accent-red); background: rgba(255, 74, 74, 0.14); }
+
+.legend-panel.hidden { display: none; }

@@ -51,9 +51,8 @@ class TestCanEnderDropCombo(unittest.TestCase):
         engine.current_index = 0
         self.assertFalse(ww.can_ender_drop_combo(engine, "e"))
 
-    def test_ender_after_input_returns_true_for_generic(self):
+    def test_ender_after_input_returns_true(self):
         ww = WutheringWavesGame()
-        ww.combo_target_game["test_combo"] = "generic"
         engine = MockEngine()
         engine._combo_enders = {"e"}
         engine.last_input_time = 1.0
@@ -62,7 +61,6 @@ class TestCanEnderDropCombo(unittest.TestCase):
 
     def test_ww_current_character_slot_does_not_drop(self):
         ww = WutheringWavesGame()
-        ww.combo_target_game["test_combo"] = "wuthering_waves"
         ww.ww_active_character = "2"
         engine = MockEngine()
         engine._combo_enders = {"1", "2", "3"}
@@ -74,7 +72,6 @@ class TestCanEnderDropCombo(unittest.TestCase):
 
     def test_ww_other_character_slot_drops(self):
         ww = WutheringWavesGame()
-        ww.combo_target_game["test_combo"] = "wuthering_waves"
         ww.ww_active_character = "2"
         engine = MockEngine()
         engine._combo_enders = {"1", "2", "3"}
@@ -85,16 +82,8 @@ class TestCanEnderDropCombo(unittest.TestCase):
 
 
 class TestOnAcceptedKey(unittest.TestCase):
-    def test_generic_game_does_nothing(self):
-        ww = WutheringWavesGame()
-        ww.combo_target_game["test_combo"] = "generic"
-        engine = MockEngine()
-        ww.on_accepted_key(engine, "2")
-        self.assertIsNone(ww.ww_active_character)
-
     def test_ww_game_sets_character_slot(self):
         ww = WutheringWavesGame()
-        ww.combo_target_game["test_combo"] = "wuthering_waves"
         engine = MockEngine()
         ww.on_accepted_key(engine, "2")
         self.assertEqual(ww.ww_active_character, "2")
@@ -103,7 +92,6 @@ class TestOnAcceptedKey(unittest.TestCase):
 
     def test_non_slot_key_does_not_clear_character(self):
         ww = WutheringWavesGame()
-        ww.combo_target_game["test_combo"] = "wuthering_waves"
         ww.ww_active_character = "2"
         engine = MockEngine()
         ww.on_accepted_key(engine, "e")
