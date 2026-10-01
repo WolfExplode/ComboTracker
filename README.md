@@ -75,9 +75,9 @@ Notes:
 ### Building the Windows release
 You can package ComboTracker so others can run it without installing Python.
 
-1. Install build tooling (once):
+1. Install the requirements, which include PyInstaller (once):
    ```bash
-   python -m pip install -r requirements-build.txt
+   python -m pip install -r requirements.txt
    ```
 2. From the project root, build:
    ```bash
