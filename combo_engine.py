@@ -25,8 +25,7 @@ from persistence import load_engine_state, save_engine_state
 from state_store import JsonStateStore, StateStore
 
 import _combo_commands as combo_commands
-import input_normalization
-from parser import expanded_ast_from_tokens, runtime_source_token_indices_from_tokens
+from parser import expanded_ast_from_tokens, runtime_source_token_indices_from_tokens, split_inputs
 import format_utils
 import stats_recording
 import step_introspection
@@ -227,38 +226,11 @@ class ComboTrackerEngine:
 
     def _emit_stats_and_fail(self):
         self._send(ui.stat_update_payload(self))
-        self._send({"type": "fail_update", "fail_by_step": self.failures_by_step()})
+        self._send({"type": "fail_update", "fail_by_step": ui.failures_by_step(self)})
 
     # -------------------------
     # Normalization helpers (delegate to input_normalization)
     # -------------------------
-
-    def normalize_key(self, key) -> str:
-        return input_normalization.normalize_key(key)
-
-    def normalize_mouse(self, button) -> str:
-        return input_normalization.normalize_mouse(button)
-
-    def split_inputs(self, keys_str: str):
-        return input_normalization.split_inputs(keys_str or "")
-
-    def _format_ms(self, ms: int) -> str:
-        return format_utils.format_ms(ms)
-
-    def _format_ms_brief(self, ms: float | int | None) -> str:
-        return format_utils.format_ms_brief(ms)
-
-    def _format_hold_requirement(self, hold_ms: int) -> str:
-        return format_utils.format_hold_requirement(hold_ms)
-
-    def _expected_label_for_step(self, step: Any) -> str:
-        return step_introspection.expected_label_for_step(step)
-
-    def _start_keys_for_step(self, step: Any) -> set[str]:
-        return step_introspection.start_keys_for_step(step)
-
-    def _step_accepts_input(self, step: Any, input_name: str) -> bool:
-        return step_introspection.step_accepts_input(step, input_name)
 
     def _mark_step(self, step_index: int, mark: str):
         """
@@ -328,54 +300,6 @@ class ComboTrackerEngine:
     # -------------------------
     # Stats helpers
     # -------------------------
-
-    def _ensure_combo_stats(self, name: str) -> None:
-        stats_recording.ensure_combo_stats(self, name)
-
-    def _format_percent(self, success: int, fail: int) -> str:
-        return stats_recording.format_percent(success, fail)
-
-    def stats_text(self):
-        return ui.stats_text(self)
-
-    def stat_update_payload(self) -> dict[str, Any]:
-        return ui.stat_update_payload(self)
-
-    def failures_by_step(self) -> dict[str, int]:
-        return ui.failures_by_step(self)
-
-    def failures_by_reason(self) -> dict[str, int]:
-        return ui.failures_by_reason(self)
-
-    def min_time_text(self) -> str:
-        return ui.min_time_text(self)
-
-    def _parse_expected_time_ms(self, raw: str | None) -> int | None:
-        return format_utils.parse_expected_time_ms(raw)
-
-    def practical_apm(self) -> float | None:
-        return combo_analytics.practical_apm(self)
-
-    def theoretical_max_apm(self) -> float | None:
-        return ui.theoretical_max_apm(self)
-
-    def apm_text(self) -> str:
-        return ui.apm_text(self)
-
-    def apm_max_text(self) -> str:
-        return ui.apm_max_text(self)
-
-    def difficulty_score_10(self) -> float | None:
-        return combo_analytics.difficulty_score_10(self)
-
-    def difficulty_text(self) -> str:
-        return ui.difficulty_text(self)
-
-    def user_difficulty_value(self) -> float | None:
-        return ui.user_difficulty_value(self)
-
-    def user_difficulty_text(self) -> str:
-        return ui.user_difficulty_text(self)
 
     # -------------------------
     # UI state snapshots
@@ -645,7 +569,7 @@ class ComboTrackerEngine:
         """Push transcript to client: inputs field + parsed steps / timeline (used for live updates and when recording stops)."""
         with self._lock:
             self._send({"type": "transcription_result", "inputs": transcript or ""})
-            tokens = [k.strip().lower() for k in self.split_inputs(transcript or "") if k.strip()]
+            tokens = [k.strip().lower() for k in split_inputs(transcript or "") if k.strip()]
             ast_list = expanded_ast_from_tokens(tokens)
             self.active_combo_tokens = tokens
             self.runtime_steps = [build_runtime_state(node) for node in ast_list]
@@ -683,7 +607,7 @@ class ComboTrackerEngine:
             # Build runtime state objects from AST (expanded: wait(r,t) -> press + wait)
             ast_list = expanded_ast_from_tokens(self.active_combo_tokens)
             self.runtime_steps = [build_runtime_state(node) for node in ast_list]
-            self._ensure_combo_stats(name)
+            stats_recording.ensure_combo_stats(self, name)
             
             # Restore saved WW active team when selecting a combo
             self.ww.ww_active_team_id = self.ww.combo_ww_team.get(name)
@@ -694,23 +618,23 @@ class ComboTrackerEngine:
             if emit:
                 st = self.get_status()
                 self._send({"type": "combo_data", **self.get_editor_payload()})
-                self._send({"type": "min_time", "text": self.min_time_text()})
+                self._send({"type": "min_time", "text": ui.min_time_text(self)})
                 self._send(
                     {
                         "type": "difficulty_update",
-                        "text": self.difficulty_text(),
-                        "value": self.difficulty_score_10(),
+                        "text": ui.difficulty_text(self),
+                        "value": combo_analytics.difficulty_score_10(self),
                     }
                 )
                 self._send(
                     {
                         "type": "user_difficulty_update",
-                        "text": self.user_difficulty_text(),
-                        "value": self.user_difficulty_value(),
+                        "text": ui.user_difficulty_text(self),
+                        "value": ui.user_difficulty_value(self),
                     }
                 )
-                self._send({"type": "apm_update", "text": self.apm_text()})
-                self._send({"type": "apm_max_update", "text": self.apm_max_text()})
+                self._send({"type": "apm_update", "text": ui.apm_text(self)})
+                self._send({"type": "apm_max_update", "text": ui.apm_max_text(self)})
                 self._emit_stats_and_fail()
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 self._send({"type": "status", "text": st.text, "color": st.color})
@@ -742,10 +666,6 @@ class ComboTrackerEngine:
         self._reset_hold_state()
         self._reset_wait_state()
         self._reset_group_state()
-
-    def _active_step(self):
-        """Current step (StepState). Alias for _active_runtime_step for backward compatibility."""
-        return self._active_runtime_step()
 
     def _active_runtime_step(self):
         """Current step as StepState (for new match dispatch)."""
@@ -1084,7 +1004,7 @@ class ComboTrackerEngine:
         self.record_combo_fail(
             actual=actual or reason,
             expected_step_index=int(self.current_index),
-            expected_label=expected_label or self._expected_label_for_step(self._active_step()),
+            expected_label=expected_label or step_introspection.expected_label_for_step(self._active_runtime_step()),
             reason=reason,
             elapsed_ms=elapsed_ms,
         )
@@ -1110,7 +1030,7 @@ class ComboTrackerEngine:
         if not self._ender_can_drop_now(input_name, now=now):
             return
         self._mark_step(int(self.current_index), "missed")
-        expected = str(self._expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
+        expected = str(step_introspection.expected_label_for_step(self._active_runtime_step()) or "").strip().lower()
         actual = str(input_name or "").strip().lower()
         if self.no_fail_mode:
             self._mark_current_and_skip(now, mark="missed")
@@ -1156,7 +1076,7 @@ class ComboTrackerEngine:
     def _complete_wait(self, now: float, *, fail: bool, reason: str | None = None):
         required_ms = int(self.wait_required_ms or 0)
         waited_ms = max(0.0, (now - self.wait_started_at) * 1000)
-        req_s = self._format_hold_requirement(required_ms) if required_ms else "?"
+        req_s = format_utils.format_hold_requirement(required_ms) if required_ms else "?"
         # For display, include mode when relevant
         mode = "soft"
         step = self._active_runtime_step()
@@ -1179,7 +1099,7 @@ class ComboTrackerEngine:
             self.record_combo_fail(
                 actual=str(reason or ""),
                 expected_step_index=int(self.current_index),
-                expected_label=self._expected_label_for_step(self._active_runtime_step()),
+                expected_label=step_introspection.expected_label_for_step(self._active_runtime_step()),
                 reason="too early",
                 elapsed_ms=elapsed_ms,
             )
@@ -1229,7 +1149,7 @@ class ComboTrackerEngine:
         self._hold_max_held_ms = max(self._hold_max_held_ms, held_ms)
         ok = held_ms >= float(target_hold_ms)
 
-        req_s = self._format_hold_requirement(target_hold_ms)
+        req_s = format_utils.format_hold_requirement(target_hold_ms)
         total_ms = (now - self.start_time) * 1000 if self.start_time else 0.0
 
         label = f"{target_input} (hold ≥ {req_s}, {held_ms:.0f}ms)"
@@ -1268,7 +1188,7 @@ class ComboTrackerEngine:
             self.record_combo_fail(
                 actual=f"released @ {held_ms:.0f}ms",
                 expected_step_index=int(self.current_index),
-                expected_label=self._expected_label_for_step(step),
+                expected_label=step_introspection.expected_label_for_step(step),
                 reason="hold incomplete",
                 elapsed_ms=elapsed_ms,
             )
@@ -1577,7 +1497,7 @@ class ComboTrackerEngine:
                 result = step.process_release(key, now)
                 if isinstance(result, AcceptResult) and result.advance:
                     held_ms = (now - step.started_at) * 1000.0 if step.started_at else float(step.required_ms or 0)
-                    req_s = self._format_hold_requirement(int(step.required_ms or 0))
+                    req_s = format_utils.format_hold_requirement(int(step.required_ms or 0))
                     label = f"{holder} (hold ≥ {req_s}, {held_ms:.0f}ms) [auto]"
                     self.record_hit(label, step_ms, total_ms, at_time=now)
                     self.last_input_time = now
@@ -1628,7 +1548,7 @@ class ComboTrackerEngine:
             # Completion marker (holder key-up callback from macro player).
             if not pressed and key == holder:
                 held_ms = (now - self.hold_started_at) * 1000.0 if self.hold_started_at else float(step.required_ms or 0)
-                req_s = self._format_hold_requirement(int(step.required_ms or 0))
+                req_s = format_utils.format_hold_requirement(int(step.required_ms or 0))
                 label = f"{holder} (hold ≥ {req_s}, {held_ms:.0f}ms) [auto]"
                 self.record_hit(label, step_ms, total_ms, at_time=now)
                 self.last_input_time = now
@@ -1806,7 +1726,7 @@ class ComboTrackerEngine:
 
             # Forgiving hold: only drop if they pressed the next step's key AND it's an ender (new press only).
             next_step = self.runtime_steps[int(self.current_index) + 1] if (int(self.current_index) + 1) < len(self.runtime_steps) else None
-            next_keys = self._start_keys_for_step(next_step)
+            next_keys = step_introspection.start_keys_for_step(next_step)
             if not press_is_repeat and next_keys and (input_name in next_keys) and self._ender_can_drop_now(input_name, now=now):
                 if self.no_fail_mode:
                     self._mark_current_and_skip(now)
@@ -1890,7 +1810,7 @@ class ComboTrackerEngine:
                 next_idx = int(self.current_index) + 1
                 if next_idx < len(self.runtime_steps):
                     next_step = self.runtime_steps[next_idx]
-                    next_keys = self._start_keys_for_step(next_step)
+                    next_keys = step_introspection.start_keys_for_step(next_step)
                     if next_keys and input_name in next_keys:
                         step.was_skipped = True
                         step.completed = True
@@ -1902,7 +1822,7 @@ class ComboTrackerEngine:
                 next_idx = int(self.current_index) + 1
                 if next_idx < len(self.runtime_steps):
                     next_step = self.runtime_steps[next_idx]
-                    next_keys = self._start_keys_for_step(next_step)
+                    next_keys = step_introspection.start_keys_for_step(next_step)
                     if next_keys and input_name in next_keys:
                         step.was_skipped = True
                         self._advance_step(now)
@@ -1920,7 +1840,7 @@ class ComboTrackerEngine:
                 prev_step.was_skipped = False
                 return
             if not press_is_repeat and self._ender_can_drop_now(input_name, now=now):
-                expected = self._expected_label_for_step(step) or "?"
+                expected = step_introspection.expected_label_for_step(step) or "?"
                 self._mark_step(int(self.current_index), "missed")
                 if self.no_fail_mode:
                     self._mark_current_and_skip(now, mark="missed")

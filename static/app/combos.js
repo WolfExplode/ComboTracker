@@ -25,8 +25,6 @@ function initializeUI(data) {
         appState.targetGame = preserved.targetGame;
         appState.wwTeamId = preserved.wwTeamId;
         appState.stepDisplayMode = preserved.stepDisplayMode;
-        const gameSelect = getEl('targetGameSelect');
-        if (gameSelect) gameSelect.value = appState.targetGame;
         const teamSelect = getEl('wwTeamSelect');
         if (teamSelect) teamSelect.value = appState.wwTeamId;
         const stepToggle = getEl('stepDisplayToggle');
@@ -40,7 +38,7 @@ function initializeUI(data) {
         const collapseChainsToggle = getEl('collapseChainsToggle');
         if (collapseChainsToggle) collapseChainsToggle.checked = preserved.collapseChainedPresses;
         appState.keyImages = preserved.keyImages;
-        syncGameUIVisibility();
+        renderWwPanels();
         refreshTimelineIfLoaded();
     }
     if (data.status) updateStatus(data.status.text, data.status.color);
@@ -79,175 +77,6 @@ function initializeUI(data) {
     if (macroSpamIntervalEl && data.macro_spam_interval_ms !== undefined) {
         macroSpamIntervalEl.value = String(data.macro_spam_interval_ms || '');
     }
-}
-
-// Split a combo string into top-level tokens (respects (), {}, []).
-function splitTopLevelTokens(str) {
-    const out = [];
-    let buf = '';
-    let paren = 0, brace = 0, bracket = 0;
-    for (const ch of (str || '')) {
-        if (ch === '(') paren++;
-        else if (ch === ')') paren = Math.max(0, paren - 1);
-        else if (ch === '{') brace++;
-        else if (ch === '}') brace = Math.max(0, brace - 1);
-        else if (ch === '[') bracket++;
-        else if (ch === ']') bracket = Math.max(0, bracket - 1);
-        if (ch === ',' && paren === 0 && brace === 0 && bracket === 0) {
-            const t = buf.trim();
-            if (t) out.push(t);
-            buf = '';
-        } else {
-            buf += ch;
-        }
-    }
-    const t = buf.trim();
-    if (t) out.push(t);
-    return out;
-}
-
-// Extract the hold key from a hold(key, ...) token.
-function _extractHoldKey(part) {
-    const tl = part.toLowerCase();
-    if (!tl.startsWith('hold(') || !tl.endsWith(')')) return null;
-    const inner = part.slice('hold('.length, -1);
-    const args = splitTopLevelTokens(inner);
-    return args.length >= 1 ? args[0].trim().toLowerCase() : null;
-}
-
-// Extract keys from inputs text
-function extractKeysFromInputs() {
-    const txt = (getEl('comboInputs')?.value || '').toString();
-    if (!txt.trim()) return [];
-
-    const parts = splitTopLevelTokens(txt).map(x => x.toLowerCase());
-    const keys = new Set();
-
-    parts.forEach(part => {
-        // hold(key, time) or hold(key, time, {body}) — new or existing form
-        if (/^hold\s*\(/i.test(part)) {
-            const hk = _extractHoldKey(part);
-            if (hk) keys.add(hk);
-            // Also extract keys from {body} if present
-            const bodyM = part.match(/\{([^}]*)\}\s*\)$/);
-            if (bodyM) {
-                splitTopLevelTokens(bodyM[1]).forEach(bi => {
-                    const bit = bi.trim().toLowerCase();
-                    if (!/^wait[_a-z]*[:(\s]/i.test(bit)) keys.add(bit);
-                });
-            }
-            return;
-        }
-        // key{time} shorthand
-        let m = part.match(/^([^{]+)\{/);
-        if (m) {
-            keys.add(m[1].trim());
-            return;
-        }
-        // wait(...) -> skip
-        if (/^wait[_a-z]*[:(\s]/i.test(part)) return;
-        // [group] -> extract items using top-level split
-        m = part.match(/^\[(.+)\]$/s);
-        if (m) {
-            splitTopLevelTokens(m[1]).forEach(gi => {
-                const gg = gi.trim().toLowerCase();
-                if (/^hold\s*\(/i.test(gg)) {
-                    const hk = _extractHoldKey(gg);
-                    if (hk) keys.add(hk);
-                    return;
-                }
-                let mm = gg.match(/^([^{]+)\{/);
-                if (mm) { keys.add(mm[1].trim()); return; }
-                mm = gg.match(/^wait\(\s*([^,]+)\s*,/i);
-                if (mm) { keys.add(mm[1].trim()); return; }
-                if (!/^wait[_a-z]*[:(\s]/i.test(gg)) keys.add(gg);
-            });
-            return;
-        }
-        // Plain key
-        keys.add(part);
-    });
-
-    return Array.from(keys).sort();
-}
-
-function readKeyImagesFromUI() {
-    const container = getEl('keyImagesEditor');
-    if (!container) return;
-    const inputs = container.querySelectorAll('input[data-key]');
-    const next = {};
-    inputs.forEach(inp => {
-        const k = (inp.getAttribute('data-key') || '').trim().toLowerCase();
-        const url = (inp.value || '').toString().trim();
-        if (k && url) next[k] = url;
-    });
-    appState.keyImages = next;
-}
-
-function renderKeyImagesEditor() {
-    // Generic mode only
-    if (appState.targetGame === 'wuthering_waves') return;
-
-    readKeyImagesFromUI();
-    const container = getEl('keyImagesEditor');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const keys = extractKeysFromInputs();
-    if (keys.length === 0) {
-        container.innerHTML = '<div class="help-text">Enter inputs above to see key image fields.</div>';
-        return;
-    }
-
-    keys.forEach(k => {
-        const row = document.createElement('div');
-        row.className = 'key-image-row';
-
-        const label = document.createElement('span');
-        label.className = 'key-image-label';
-        label.textContent = k.toUpperCase();
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.setAttribute('data-key', k);
-        input.placeholder = 'https://... or emoji';
-        input.value = (appState.keyImages[k] || '').toString();
-
-        const preview = document.createElement('div');
-        preview.className = 'key-image-preview';
-        const v = (appState.keyImages[k] || '').toString().trim();
-        if (v) {
-            preview.style.display = 'flex';
-            if (/^https?:\/\//i.test(v)) {
-                preview.innerHTML = `<img src="${escapeHtml(v)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:24px;height:24px;object-fit:contain;" />`;
-            } else {
-                preview.innerHTML = `<span>${escapeHtml(v)}</span>`;
-            }
-        } else {
-            preview.style.display = 'none';
-        }
-
-        input.addEventListener('input', () => {
-            const url = input.value.trim();
-            if (url) {
-                appState.keyImages[k] = url;
-                preview.style.display = 'flex';
-                if (/^https?:\/\//i.test(url)) {
-                    preview.innerHTML = `<img src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:24px;height:24px;object-fit:contain;" />`;
-                } else {
-                    preview.innerHTML = `<span>${escapeHtml(url)}</span>`;
-                }
-            } else {
-                delete appState.keyImages[k];
-                preview.style.display = 'none';
-            }
-        });
-
-        row.appendChild(label);
-        row.appendChild(input);
-        row.appendChild(preview);
-        container.appendChild(row);
-    });
 }
 
 // Demo video: normalize YouTube link to embed URL
@@ -308,9 +137,6 @@ function setEditorFields(data) {
     appState.keyImages = (typeof data.key_images === 'object' && data.key_images !== null) ? { ...data.key_images } : {};
 
     // Target game & WW data
-    appState.targetGame = normalizeTargetGame(data.target_game || 'generic');
-    const gameSelect = getEl('targetGameSelect');
-    if (gameSelect) gameSelect.value = appState.targetGame;
 
     // WW character library
     const charsList = Array.isArray(data.ww_characters) ? data.ww_characters : [];
@@ -348,7 +174,7 @@ function setEditorFields(data) {
         appState.wwCurrentChar = null;
     }
 
-    syncGameUIVisibility();
+    renderWwPanels();
 }
 
 const noFailModeEl = getEl('noFailMode');
@@ -362,8 +188,6 @@ if (noFailModeEl) {
 const saveBtn = getEl('saveBtn');
 if (saveBtn) {
     saveBtn.addEventListener('click', () => {
-        readKeyImagesFromUI();
-
         const name = (getEl('comboName')?.value || '').toString();
         const inputs = (getEl('comboInputs')?.value || '').toString();
         const enders = (getEl('comboEnders')?.value || '').toString();
@@ -641,14 +465,7 @@ function updateComboInputHighlight() {
 
 const inputsEl = getEl('comboInputs');
 if (inputsEl) {
-    let t = null;
-    inputsEl.addEventListener('input', () => {
-        updateComboInputHighlight();
-        if (t) clearTimeout(t);
-        t = setTimeout(() => {
-            renderKeyImagesEditor();
-        }, 150);
-    });
+    inputsEl.addEventListener('input', updateComboInputHighlight);
     inputsEl.addEventListener('scroll', () => {
         const mirror = getEl('comboInputHighlight');
         if (mirror) {
@@ -658,12 +475,4 @@ if (inputsEl) {
     });
     // Initial highlight if textarea already has content (e.g. restored state)
     updateComboInputHighlight();
-}
-
-const keyImagesDetails = getEl('keyImagesDetails');
-if (keyImagesDetails) {
-    keyImagesDetails.addEventListener('toggle', () => {
-        // Ensure UI is up-to-date when opening/closing
-        renderKeyImagesEditor();
-    });
 }

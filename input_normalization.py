@@ -1,10 +1,8 @@
 """
-Input parsing and normalization: pynput key/mouse to internal tokens, split input strings.
+Input normalization: pynput key/mouse events to internal tokens.
 """
 
 from __future__ import annotations
-
-from parser import split_inputs as _parser_split_inputs
 
 
 def normalize_key(key) -> str:
@@ -38,8 +36,3 @@ def normalize_mouse(button) -> str:
     if button == mouse.Button.middle:
         return "mmb"
     return "mouse_extra"
-
-
-def split_inputs(keys_str: str):
-    """Split user-entered Inputs string into top-level comma-separated tokens."""
-    return _parser_split_inputs(keys_str or "")

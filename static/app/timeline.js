@@ -398,7 +398,6 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
 
     // Save via the same path as the Save/Update button.
-    readKeyImagesFromUI();
     const toggle = getEl('stepDisplayToggle');
     sendMessage('save_combo', {
         name: (getEl('comboName')?.value || '').toString(),

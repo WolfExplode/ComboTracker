@@ -1,10 +1,5 @@
 // Teams page: team cards, the team editor, the character icon library, and the combo's Team dropdown.
 
-// ComboTracker is Wuthering Waves only; every combo uses the WW team/character features.
-function normalizeTargetGame(_v) {
-    return 'wuthering_waves';
-}
-
 function ensureWwAbilityShape(obj) {
     const out = { "1": {}, "2": {}, "3": {} };
     if (!obj || typeof obj !== 'object') return out;
@@ -29,23 +24,11 @@ function ensureWwSlotShape(obj) {
     return out;
 }
 
-function syncGameUIVisibility() {
-    const isWW = appState.targetGame === 'wuthering_waves';
-
-    const wwPanels = getEl('wwPanels');
-    if (wwPanels) wwPanels.classList.toggle('hidden', !isWW);
-
-    const keyDetails = getEl('keyImagesDetails');
-    if (keyDetails) keyDetails.classList.toggle('hidden', isWW);
-
-    if (isWW) {
-        renderWwTeamEditor();
-        renderWwCharacterEditor();
-        renderWwDashPreview();
-    }
-
-    // Re-render key images editor (generic mode only).
-    renderKeyImagesEditor();
+/** Re-render the team and character panels after the editor payload changes. */
+function renderWwPanels() {
+    renderWwTeamEditor();
+    renderWwCharacterEditor();
+    renderWwDashPreview();
 }
 
 // ----- WW helper: image preview -----
@@ -325,26 +308,6 @@ function renderTeamSlotsEditor() {
             }
         });
     });
-}
-
-// Resolve current team slots → appState.wwSwapImages / wwLmbImages / wwAbilityImages for timeline
-function _resolveTeamImagesToState() {
-    const swap = { "1": "", "2": "", "3": "" };
-    const lmb = { "1": "", "2": "", "3": "" };
-    const ability = { "1": {}, "2": {}, "3": {} };
-    appState.wwTeamSlots.forEach((charKey, idx) => {
-        const sk = String(idx + 1);
-        const char = charKey ? appState.wwCharacters[charKey] : null;
-        if (!char) return;
-        if (char.swap_image) swap[sk] = char.swap_image;
-        if (char.lmb_image) lmb[sk] = char.lmb_image;
-        if (char.ability_images && typeof char.ability_images === 'object') {
-            ability[sk] = { ...char.ability_images };
-        }
-    });
-    appState.wwSwapImages = swap;
-    appState.wwLmbImages = lmb;
-    appState.wwAbilityImages = ability;
 }
 
 // ----- WW Character editor -----

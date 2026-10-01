@@ -6,6 +6,8 @@ from typing import Any
 from timeline_model import TimelineSteps
 
 import combo_analytics
+import format_utils
+import stats_recording
 from states import (
     GroupState,
     HoldState,
@@ -30,12 +32,12 @@ def stats_text(engine) -> str:
     summary = combo_analytics.combo_stats_summary(engine)
     s = summary["success"]
     f = summary["fail"]
-    pct = engine._format_percent(s, f)
+    pct = stats_recording.format_percent(s, f)
     best = summary["best_ms"]
     avg = summary["avg_ms"]
     return (
         f"Stats: {s} success / {f} fail ({pct})"
-        f" | Best: {engine._format_ms_brief(best)} | Avg: {engine._format_ms_brief(avg)}"
+        f" | Best: {format_utils.format_ms_brief(best)} | Avg: {format_utils.format_ms_brief(avg)}"
     )
 
 
@@ -77,7 +79,7 @@ def min_time_text(engine) -> str:
     if not getattr(engine, "runtime_steps", None):
         return "Fastest possible: —"
     min_ms = combo_analytics.min_combo_time_ms(engine)
-    return f"Fastest possible: {engine._format_ms(min_ms)}"
+    return f"Fastest possible: {format_utils.format_ms(min_ms)}"
 
 
 def theoretical_max_apm(engine) -> float | None:
@@ -140,7 +142,7 @@ def get_editor_payload(engine) -> dict[str, Any]:
     if name:
         ms = engine.combo_expected_ms.get(name)
         if ms is not None:
-            expected = engine._format_ms_brief(ms)
+            expected = format_utils.format_ms_brief(ms)
     user_diff = ""
     if name:
         d = engine.combo_user_difficulty.get(name)
@@ -216,7 +218,7 @@ def get_status(engine) -> Status:
     if not engine.runtime_steps:
         return Status("Status: Select a combo to start", "neutral")
 
-    step = engine._active_step()
+    step = engine._active_runtime_step()
     if not step:
         return Status("Status: Select a combo to start", "neutral")
 
@@ -240,10 +242,10 @@ def get_status(engine) -> Status:
             return Status("Ready! Press the first input to start.", "ready")
 
     if engine.wait_in_progress:
-        req = engine._format_hold_requirement(int(engine.wait_required_ms or 0))
+        req = format_utils.format_hold_requirement(int(engine.wait_required_ms or 0))
         mode = "soft"
         try:
-            s = engine._active_step()
+            s = engine._active_runtime_step()
             if isinstance(s, WaitState):
                 mode = str(s.mode or "soft").strip().lower() or "soft"
         except Exception:
@@ -252,7 +254,7 @@ def get_status(engine) -> Status:
             return Status(f"Animation lock ≥ {req} (inputs ignored)...", "wait")
         return Status(f"Waiting ≥ {req}...", "wait")
     if engine.hold_in_progress:
-        req = engine._format_hold_requirement(int(engine.hold_required_ms or 0))
+        req = format_utils.format_hold_requirement(int(engine.hold_required_ms or 0))
         inp = str(engine.hold_expected_input or "").upper()
         return Status(f"Holding '{inp}' (≥ {req}). Release OR press next input to continue...", "recording")
     return Status("Recording...", "recording")

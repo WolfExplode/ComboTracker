@@ -16,6 +16,7 @@ from websockets.asyncio.server import ServerConnection, serve
 from pynput import keyboard, mouse
 
 from combo_engine import ComboTrackerEngine
+import input_normalization
 from macro_player import MacroPlayer
 from profiling.transcription_log import TranscriptionLogWriter
 from transcriber import Transcriber
@@ -428,7 +429,7 @@ def run_ws_server() -> None:
 def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
     def on_key_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         event_time = time.perf_counter()
-        input_name = engine.normalize_key(key)
+        input_name = input_normalization.normalize_key(key)
         _emit_overlay_input(input_name, True)  # macro playback shows on the overlay too
 
         # Macro output is matched by origin before hotkey handling. This prevents
@@ -482,7 +483,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
 
     def on_key_release(key: keyboard.Key | keyboard.KeyCode | None) -> None:
         event_time = time.perf_counter()
-        input_name = engine.normalize_key(key)
+        input_name = input_normalization.normalize_key(key)
         _emit_overlay_input(input_name, False)
         if macro_player.consume_synthetic_event(input_name, False):
             return
@@ -499,7 +500,7 @@ def start_input_listeners() -> tuple[keyboard.Listener, mouse.Listener]:
 
     def on_mouse_click(_x: float, _y: float, button: mouse.Button, pressed: bool) -> None:
         event_time = time.perf_counter()
-        btn = engine.normalize_mouse(button)
+        btn = input_normalization.normalize_mouse(button)
         _emit_overlay_input(btn, pressed)
         if macro_player.consume_synthetic_event(btn, pressed):
             return

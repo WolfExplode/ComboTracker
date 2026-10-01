@@ -52,7 +52,7 @@ class ComboOverviewTests(unittest.TestCase):
     def test_init_and_stat_update_carry_the_overview(self):
         engine = _engine_with_two_combos()
         self.assertEqual(len(engine.init_payload()["overview"]), 2)
-        msg = engine.stat_update_payload()
+        msg = ui.stat_update_payload(engine)
         self.assertEqual(msg["type"], "stat_update")
         self.assertIn("stats", msg)
         self.assertEqual(len(msg["overview"]), 2)

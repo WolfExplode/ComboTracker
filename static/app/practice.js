@@ -336,7 +336,7 @@ const stepToggleEl = getEl('stepDisplayToggle');
 if (stepToggleEl) {
     stepToggleEl.addEventListener('change', () => {
         appState.stepDisplayMode = stepToggleEl.checked ? 'images' : 'icons';
-        syncGameUIVisibility();
+        renderWwPanels();
         refreshTimelineIfLoaded();
     });
 }

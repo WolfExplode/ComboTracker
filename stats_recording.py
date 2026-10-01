@@ -24,16 +24,6 @@ def ensure_combo_stats(engine: Any, name: str) -> None:
             engine.combo_stats[name].setdefault(k, v)
 
 
-def combo_avg_ms(engine: Any, name: str) -> float | None:
-    """Average success completion time in ms for the given combo, or None."""
-    ensure_combo_stats(engine, name)
-    s = int(engine.combo_stats[name].get("success", 0) or 0)
-    total = int(engine.combo_stats[name].get("total_success_ms", 0) or 0)
-    if s <= 0 or total <= 0:
-        return None
-    return total / float(s)
-
-
 def format_percent(success: int, fail: int) -> str:
     """Format success/(success+fail) as a percentage string."""
     total = success + fail
@@ -157,7 +147,7 @@ def record_combo_fail(
         idx_i = 0
     exp = expected_label
     if not exp:
-        step = engine._active_step() if hasattr(engine, "_active_step") else None
+        step = engine._active_runtime_step() if hasattr(engine, "_active_runtime_step") else None
         exp = step_introspection.expected_label_for_step(step) if step else "—"
 
     record_fail_detail(

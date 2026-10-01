@@ -7,6 +7,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import combo_engine_ui as ui
+import format_utils
+import stats_recording
+from parser import split_inputs
 from persistence import fresh_combo_stats
 
 
@@ -33,7 +37,7 @@ def apply_enders_from_text(engine, raw: str) -> tuple[bool, str | None]:
 
     parsed: dict[str, int] = {}
     soft_keys: set[str] = set()
-    for token in engine.split_inputs(raw):
+    for token in split_inputs(raw):
         t = token.strip()
         if not t:
             continue
@@ -102,7 +106,7 @@ def save_or_update_combo(
     expected_ms = None
     expected_raw = (expected_time or "").strip()
     if expected_raw:
-        expected_ms = engine._parse_expected_time_ms(expected_raw)
+        expected_ms = format_utils.parse_expected_time_ms(expected_raw)
         if expected_ms is None:
             return False, "Invalid Expected time. Examples: 1.05s or 1050ms"
 
@@ -116,7 +120,7 @@ def save_or_update_combo(
         if not (0.0 <= user_diff_val <= 10.0):
             return False, "Invalid Your difficulty. Use a number from 0 to 10."
 
-    input_list = [k.strip().lower() for k in engine.split_inputs(keys_str) if k.strip()]
+    input_list = [k.strip().lower() for k in split_inputs(keys_str) if k.strip()]
     if not input_list:
         return False, "Please provide at least one input."
 
@@ -176,7 +180,7 @@ def save_or_update_combo(
 
     engine.ww.apply_combo_team_assignment(name, ww_team_id=ww_team_id)
 
-    engine._ensure_combo_stats(name)
+    stats_recording.ensure_combo_stats(engine, name)
     engine.set_active_combo(name, emit=False)
     engine.save_combos()
 
@@ -218,8 +222,8 @@ def clear_history_and_stats(engine) -> None:
         engine.combo_stats[engine.active_combo_name] = fresh_combo_stats()
         engine.save_combos()
     engine._send({"type": "clear_results"})
-    engine._send(engine.stat_update_payload())
-    engine._send({"type": "fail_update", "fail_by_step": engine.failures_by_step()})
+    engine._send(ui.stat_update_payload(engine))
+    engine._send({"type": "fail_update", "fail_by_step": ui.failures_by_step(engine)})
     engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
     st = engine.get_status()
     engine._send({"type": "status", "text": st.text, "color": st.color})
@@ -232,8 +236,8 @@ def clear_all_history_and_stats(engine) -> None:
         engine.combo_stats[name] = fresh_combo_stats()
     engine.save_combos()
     engine._send({"type": "clear_results"})
-    engine._send(engine.stat_update_payload())
-    engine._send({"type": "fail_update", "fail_by_step": engine.failures_by_step()})
+    engine._send(ui.stat_update_payload(engine))
+    engine._send({"type": "fail_update", "fail_by_step": ui.failures_by_step(engine)})
     engine._send({"type": "timeline_update", "steps": engine.timeline_steps()})
     st = engine.get_status()
     engine._send({"type": "status", "text": st.text, "color": st.color})
