@@ -41,6 +41,14 @@ Prefix a key with `-` to make it optional: `-e` means you may skip that key. If 
 
 - Example: `f, wait:0.3s, -e, wait:0.80s, r, wait:1.8s` — you can do `f`, wait, then `r` (skipping `e`) or `f`, wait, `e`, wait, `r`. In the timeline, optional steps use a dashed border; skipped ones show a subtle “skipped” style, pressed ones show “was-pressed”.
 
+### Picking which move a step is
+
+Some keys can mean more than one move, and the keys alone can't tell which: LMB after a dodge is either a Dodge Counter or Basic 1, a held LMB can be Heavy 1 or Heavy 2, and so on. Right-click the step on the timeline and pick the move from the list (the moves that key can cast for that character, from WuwaLAB, best guess first). The list leaves out moves the step before rules out (after a dodge, LMB is the Dodge Counter or Basic 1; after a jump, only Mid-Air moves). The pick is saved in the inputs as a quoted name after the key, e.g. `rmb, lmb "Basic: Origin Calculus 1", wait:0.15s`, and you can type it by hand too. It only changes the move name on the timeline, the Basic chain count after it and the Concerto estimate; the tracker ignores it when checking your presses. For characters WuwaLAB covers, every step is named with WuwaLAB's name for the move: the best guess until you pick another. The move in use is always checked; picking the best guess again removes the saved name. Names can't contain double quotes.
+
+### Optional waits
+
+Prefix a wait with `-` to make it optional: `-wait:0.15s`. Pressing any key during that wait ends it early and the press counts for the next step, so you can either wait it out or go straight on. Like `wait:`, right after a key it joins that key's tile (`e, -wait:0.15s, r`: press `e`, then `r` whenever you like), and elsewhere it is its own tile (`hold(lmb, 0.5s), -wait:0.2s, e`). Plain `wait:` is unchanged. In the timeline, an optional wait has a dashed right edge.
+
 ### Any-order groups (order interchangeable)
 
 Use brackets to indicate that multiple inputs can be pressed in **any order**, but all must be completed before the combo continues:

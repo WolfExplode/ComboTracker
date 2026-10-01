@@ -465,6 +465,10 @@ def load_engine_state(engine) -> None:
         _load_combo_options(engine, data)
         _load_ww_characters(engine, data)
         _load_ww_teams(engine, data)
+        notes = data.get("ww_character_notes")
+        engine.ww.ww_character_notes = {
+            str(k): str(v) for k, v in notes.items() if isinstance(v, str)
+        } if isinstance(notes, dict) else {}
         _migrate_legacy_combo_ability_images(engine, data)
         _load_macro_settings(engine, data)
 
@@ -485,6 +489,7 @@ def load_engine_state(engine) -> None:
         engine.combo_demo_video = {}
         engine.ww.ww_characters = {}
         engine.ww.ww_dash_image = ""
+        engine.ww.ww_character_notes = {}
         engine.ww.ww_teams = {}
         engine.ww.ww_active_team_id = None
         engine.ww.combo_ww_team = {}
@@ -525,6 +530,7 @@ def save_engine_state(engine) -> bool:
             "combo_demo_video": dict(getattr(engine, "combo_demo_video", {})),
             "ww_characters": dict(engine.ww.ww_characters),
             "ww_dash_image": engine.ww.ww_dash_image,
+            "ww_character_notes": dict(getattr(engine.ww, "ww_character_notes", {})),
             "ww_teams": {
                 tid: {
                     "name": tv.get("name", "Team"),

@@ -17,6 +17,7 @@ from Game_Wuthering_Waves import (
     save_ww_character_cmd,
     delete_ww_character_cmd,
     update_ww_dash_cmd,
+    save_ww_character_note_cmd,
 )
 import combo_analytics
 import combo_engine_ui as ui
@@ -436,6 +437,10 @@ class ComboTrackerEngine:
     def delete_ww_character(self, name: str) -> tuple[bool, str | None]:
         with self._lock:
             return delete_ww_character_cmd(self, name=name)
+
+    def save_ww_character_note(self, char_id: str, text: str) -> tuple[bool, str | None]:
+        with self._lock:
+            return save_ww_character_note_cmd(self, char_id=char_id, text=text)
 
     def update_ww_dash(self, dash_image: str) -> tuple[bool, str | None]:
         with self._lock:

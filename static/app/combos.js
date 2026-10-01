@@ -15,7 +15,6 @@ function initializeUI(data) {
         wwTeamId: appState.wwTeamId,
         stepDisplayMode: appState.stepDisplayMode,
         noFailMode: !!getEl('noFailMode')?.checked,
-        stepEditMode: !!getEl('stepEditToggle')?.checked,
         collapseChainedPresses: !!getEl('collapseChainsToggle')?.checked,
         keyImages: { ...appState.keyImages },
     } : null;
@@ -31,9 +30,6 @@ function initializeUI(data) {
         if (stepToggle) stepToggle.checked = (appState.stepDisplayMode === 'images');
         const noFailEl = getEl('noFailMode');
         if (noFailEl) noFailEl.checked = preserved.noFailMode;
-        appState.stepEditMode = preserved.stepEditMode;
-        const stepEditToggle = getEl('stepEditToggle');
-        if (stepEditToggle) stepEditToggle.checked = preserved.stepEditMode;
         appState.collapseChainedPresses = preserved.collapseChainedPresses;
         const collapseChainsToggle = getEl('collapseChainsToggle');
         if (collapseChainsToggle) collapseChainsToggle.checked = preserved.collapseChainedPresses;
@@ -222,10 +218,10 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Ctrl/Cmd+Z: undo the last Edit Steps mutation (delete, reorder, or inline field edit)
+// Ctrl/Cmd+Z: undo the last step edit (delete, reorder, or inline field edit)
 document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
-        if (!appState.stepEditMode || appState.editStepsUndoStack.length === 0) return;
+        if (appState.editStepsUndoStack.length === 0) return;
         e.preventDefault();
         undoLastEditStep();
     }
@@ -407,10 +403,10 @@ function tokenizeComboInput(text) {
             tokens.push({ type: 'hold', text: text.slice(start, i) });
             continue;
         }
-        // wait:duration (soft wait)
-        if (text.slice(i).match(/^wait\s*:/)) {
+        // wait:duration (soft wait), -wait:duration (optional wait)
+        if (text.slice(i).match(/^-?wait\s*:/)) {
             const start = i;
-            i += text.slice(i).match(/^wait\s*:/)[0].length;
+            i += text.slice(i).match(/^-?wait\s*:/)[0].length;
             while (i < len && /[^\s,\[\]\{\}]/.test(text[i])) i++;
             tokens.push({ type: 'wait', text: text.slice(start, i) });
             continue;
@@ -421,6 +417,14 @@ function tokenizeComboInput(text) {
             i++;
             while (i < len && /[a-zA-Z0-9]/.test(text[i])) i++;
             tokens.push({ type: 'optional', text: text.slice(start, i) });
+            continue;
+        }
+        // "Move Name" picked from a step's right-click menu
+        if (text[i] === '"') {
+            const close = text.indexOf('"', i + 1);
+            const end = close === -1 ? len : close + 1;
+            tokens.push({ type: 'name', text: text.slice(i, end) });
+            i = end;
             continue;
         }
         // brackets and braces
@@ -451,12 +455,24 @@ function tokenizeComboInput(text) {
     }).join('');
 }
 
+// [start, end) of the Inputs text to mark, for the timeline tile being dragged or selected
+// (see "Tile focus" below), or null.
+let comboInputMark = null;
+
 function updateComboInputHighlight() {
     const ta = getEl('comboInputs');
     const mirror = getEl('comboInputHighlight');
     if (!ta || !mirror) return;
     const raw = (ta.value || '');
-    mirror.innerHTML = raw ? tokenizeComboInput(raw) : '';
+    const m = comboInputMark;
+    if (raw && m && m.text === raw && m.start < m.end) {
+        // Marks fall on top-level token boundaries, so each slice tokenizes the same as the whole.
+        mirror.innerHTML = tokenizeComboInput(raw.slice(0, m.start))
+            + `<mark class="combo-hl-focus">${tokenizeComboInput(raw.slice(m.start, m.end))}</mark>`
+            + tokenizeComboInput(raw.slice(m.end));
+    } else {
+        mirror.innerHTML = raw ? tokenizeComboInput(raw) : '';
+    }
     mirror.scrollTop = ta.scrollTop;
     mirror.scrollLeft = ta.scrollLeft;
 }
@@ -486,6 +502,7 @@ function splitInputsTokenSpans(str) {
     const spans = [];
     let depth = 0;
     let start = 0;
+    let quoted = false; // inside a "Move Name"
     const push = (end) => {
         const raw = str.slice(start, end);
         const lead = raw.length - raw.trimStart().length;
@@ -494,6 +511,8 @@ function splitInputsTokenSpans(str) {
     };
     for (let i = 0; i < str.length; i++) {
         const ch = str[i];
+        if (ch === '"') { quoted = !quoted; continue; }
+        if (quoted) continue;
         if (ch === '(' || ch === '{' || ch === '[') depth++;
         else if (ch === ')' || ch === '}' || ch === ']') depth = Math.max(0, depth - 1);
         else if (ch === ',' && depth === 0) { push(i); start = i + 1; }
@@ -545,3 +564,141 @@ if (inputsEl) {
     const timeline = getEl('comboTimeline');
     if (timeline) new MutationObserver(() => { if (document.activeElement === inputsEl) applyEditFocus(); }).observe(timeline, { childList: true });
 }
+
+// ---------------------------------------------------------------------------
+// Tile focus: the reverse of editing focus. Dragging a Combo Steps tile, or clicking one, marks
+// its text in the Inputs box. Like editing focus it only follows tokens that still line up
+// with the saved combo.
+// ---------------------------------------------------------------------------
+
+/** [start, end) of the Inputs text behind these runtime steps, or null when it can't be matched. */
+function inputRangeForRuntime(runtimeIndices) {
+    const ta = getEl('comboInputs');
+    if (!ta || !runtimeIndices.length) return null;
+    const saved = splitInputsTokens(appState.savedInputs || '');
+    const srcMap = buildRuntimeToSourceMap(saved);
+    const tokIdx = new Set();
+    runtimeIndices.forEach((r) => (srcMap[r] || []).forEach((t) => tokIdx.add(t)));
+    if (!tokIdx.size) return null;
+    const spans = splitInputsTokenSpans(ta.value || '');
+    const last = Math.max(...tokIdx);
+    for (let i = 0; i <= last; i++) {
+        if (!spans[i] || (saved[i] || '').toLowerCase() !== spans[i].text.toLowerCase()) return null;
+    }
+    const first = Math.min(...tokIdx);
+    return { start: spans[first].start, end: spans[last].end, text: ta.value || '' };
+}
+
+function setInputMarkForTile(tile) {
+    const raw = tile ? (tile.dataset.stepIndices || '').trim() : '';
+    const indices = raw ? raw.split(',').map((v) => Number.parseInt(v, 10)).filter(Number.isFinite) : [];
+    comboInputMark = inputRangeForRuntime(indices);
+    updateComboInputHighlight();
+    if (!comboInputMark) return;
+    // Bring the marked text into view inside the Inputs box.
+    const ta = getEl('comboInputs');
+    const mark = getEl('comboInputHighlight')?.querySelector('.combo-hl-focus');
+    if (!ta || !mark) return;
+    const top = mark.offsetTop;
+    if (top < ta.scrollTop || top + mark.offsetHeight > ta.scrollTop + ta.clientHeight) {
+        ta.scrollTop = Math.max(0, top - ta.clientHeight / 3);
+        updateComboInputHighlight();
+    }
+}
+
+{
+    const timeline = getEl('comboTimeline');
+    const topTile = (target) => (timeline && target ? [...timeline.children].find((c) => c.contains(target)) : null);
+    if (timeline) {
+        timeline.addEventListener('dragstart', (ev) => setInputMarkForTile(topTile(ev.target)));
+        timeline.addEventListener('dragend', () => { comboInputMark = null; updateComboInputHighlight(); });
+        timeline.addEventListener('click', (ev) => {
+            if (ev.target.closest('button, input, [contenteditable="true"]')) return;
+            const tile = topTile(ev.target);
+            timeline.querySelectorAll('.step-selected').forEach((el) => el.classList.remove('step-selected'));
+            if (tile && tile.dataset.stepIndices) tile.classList.add('step-selected');
+            setInputMarkForTile(tile);
+        });
+    }
+    // Clicking anywhere else clears the mark; typing in the Inputs box drops it (offsets move).
+    document.addEventListener('click', (ev) => {
+        if (!comboInputMark || (timeline && timeline.contains(ev.target))) return;
+        if (ev.target.closest && ev.target.closest('#comboInputs')) return;
+        comboInputMark = null;
+        timeline?.querySelectorAll('.step-selected').forEach((el) => el.classList.remove('step-selected'));
+        updateComboInputHighlight();
+    });
+    getEl('comboInputs')?.addEventListener('input', () => { comboInputMark = null; });
+}
+
+// ---------------------------------------------------------------------------
+// Copy and paste tiles: Ctrl+C copies the selected tile's inputs, Ctrl+V pastes them next to
+// the tile under (or nearest) the mouse: before it on its left half, after it on its right.
+// Text boxes keep their own copy and paste.
+// ---------------------------------------------------------------------------
+
+let tileClipboard = null; // input tokens of the copied tile
+const mousePos = { x: -1, y: -1 };
+document.addEventListener('mousemove', (ev) => { mousePos.x = ev.clientX; mousePos.y = ev.clientY; }, { passive: true });
+
+/** Source token indices (in the Inputs box) behind a timeline tile, sorted, or []. */
+function tokenIndicesForTile(tile, tokens) {
+    const raw = tile ? (tile.dataset.stepIndices || '').trim() : '';
+    if (!raw) return [];
+    const srcMap = buildRuntimeToSourceMap(tokens);
+    const out = new Set();
+    raw.split(',').forEach((v) => (srcMap[Number.parseInt(v, 10)] || []).forEach((t) => out.add(t)));
+    return [...out].sort((a, b) => a - b);
+}
+
+function isTypingTarget(el) {
+    return !!(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)));
+}
+
+document.addEventListener('keydown', (ev) => {
+    if (!(ev.ctrlKey || ev.metaKey) || ev.shiftKey || ev.altKey) return;
+    const k = ev.key.toLowerCase();
+    if (k !== 'c' && k !== 'v') return;
+    if (isTypingTarget(document.activeElement)) return;
+    if (k === 'c' && String(window.getSelection?.() || '').trim()) return; // copying page text
+    const timeline = getEl('comboTimeline');
+    const inputsEl = getEl('comboInputs');
+    if (!timeline || !inputsEl) return;
+    const tokens = splitInputsTokens(inputsEl.value || '');
+
+    if (k === 'c') {
+        const tile = timeline.querySelector('.step-selected');
+        const idx = tokenIndicesForTile(tile, tokens);
+        if (!idx.length) return;
+        ev.preventDefault();
+        tileClipboard = idx.map((i) => tokens[i]);
+        navigator.clipboard?.writeText(tileClipboard.join(', ')).catch(() => {});
+        if (typeof showToast === 'function') showToast('Step copied. Point at a spot and press Ctrl+V.');
+        return;
+    }
+
+    if (!tileClipboard || !tileClipboard.length) return;
+    // The tile under the mouse, else the nearest one; else the end of the combo.
+    const tiles = [...timeline.children].filter((c) => (c.dataset.stepIndices || '').trim());
+    let target = null;
+    let best = Infinity;
+    tiles.forEach((t) => {
+        const r = t.getBoundingClientRect();
+        const dx = Math.max(r.left - mousePos.x, 0, mousePos.x - r.right);
+        const dy = Math.max(r.top - mousePos.y, 0, mousePos.y - r.bottom);
+        const d = dx * dx + dy * dy;
+        if (d < best) { best = d; target = t; }
+    });
+    let at = tokens.length;
+    if (target) {
+        const idx = tokenIndicesForTile(target, tokens);
+        if (idx.length) {
+            const r = target.getBoundingClientRect();
+            at = mousePos.x < r.left + r.width / 2 ? idx[0] : idx[idx.length - 1] + 1;
+        }
+    }
+    ev.preventDefault();
+    tokens.splice(at, 0, ...tileClipboard);
+    pushEditStepsUndoSnapshot();
+    saveComboInputs(tokens.join(', '));
+});

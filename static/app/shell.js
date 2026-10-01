@@ -57,6 +57,39 @@ getEl('railToggle')?.addEventListener('click', () => {
     writeStoredFlag('ctRailCompact', compact);
 });
 
+// Drag the rail's right edge to resize it (remembered per browser); double-click resets.
+const RAIL_WIDTH_KEY = 'ctRailWidth';
+const RAIL_MIN = 200, RAIL_MAX = 480, RAIL_DEFAULT = 256;
+function setRailWidth(px) {
+    const w = Math.round(Math.min(RAIL_MAX, Math.max(RAIL_MIN, px)));
+    appEl.style.setProperty('--rail-w', `${w}px`);
+    return w;
+}
+try {
+    const saved = Number(localStorage.getItem(RAIL_WIDTH_KEY));
+    if (saved) setRailWidth(saved);
+} catch (_) { /* ignore */ }
+const railResizer = getEl('railResizer');
+railResizer?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    railResizer.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing');
+    let width = Math.round(document.querySelector('.rail').getBoundingClientRect().width);
+    const move = (ev) => { width = setRailWidth(ev.clientX); };
+    const up = () => {
+        railResizer.removeEventListener('pointermove', move);
+        document.body.classList.remove('resizing');
+        try { localStorage.setItem(RAIL_WIDTH_KEY, String(width)); } catch (_) { /* ignore */ }
+    };
+    railResizer.addEventListener('pointermove', move);
+    railResizer.addEventListener('pointerup', up, { once: true });
+    railResizer.addEventListener('pointercancel', up, { once: true });
+});
+railResizer?.addEventListener('dblclick', () => {
+    setRailWidth(RAIL_DEFAULT);
+    try { localStorage.removeItem(RAIL_WIDTH_KEY); } catch (_) { /* ignore */ }
+});
+
 // The combo list lives in the rail; without a rail (phones) it moves to the top of the Practice page.
 const comboListCard = getEl('comboListCard');
 const railSpacer = document.querySelector('.rail-spacer');
@@ -425,6 +458,16 @@ fetch('data/ww_characters.json')
         refreshTimelineIfLoaded();
     })
     .catch(() => { /* move names fall back to generic rules */ });
+
+// WuwaLAB's per-ability Concerto, so the timeline can tell when a character's bar is full.
+fetch('data/ww_timings.json')
+    .then(res => (res.ok ? res.json() : null))
+    .then(doc => {
+        if (!doc) return;
+        setWwTimingData(doc);
+        refreshTimelineIfLoaded();
+    })
+    .catch(() => { /* no Concerto tracking */ });
 
 tracker = connectTracker({
     onOpen: () => {

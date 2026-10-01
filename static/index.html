@@ -15,6 +15,9 @@
     <div class="app" id="app">
 
         <!-- Left rail (BetterGhub-style): logo, pages, collapse, connection status -->
+        <!-- Drag to resize the rail; double-click resets it -->
+        <div class="rail-resizer" id="railResizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize. Double-click to reset."></div>
+
         <aside class="rail" aria-label="Combo Tracker">
             <div class="brand">
                 <div class="brand-mark">
@@ -119,9 +122,6 @@
                                     <span class="toggle-label">Show attempt history</span>
                                     <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
 
-                                    <span class="toggle-label">Edit steps</span>
-                                    <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps" checked>
-
                                     <span class="toggle-label">Collapse chains</span>
                                     <input type="checkbox" id="collapseChainsToggle" class="toggle-switch" title="Show adjacent LMB press+wait steps as one chained tile">
 
@@ -194,6 +194,7 @@
                                         <strong>Spam:</strong> <code>spam(lmb,4.4s)</code> repeatedly taps for that span<br>
                                         <strong>Animation lock:</strong> <code>wait(r, 1.5)</code> for the key and its non-interruptible animation<br>
                                         <strong>Key + wait:</strong> <code>f, wait:0.23s</code> for the key and its interruptible animation<br>
+                                        <strong>Optional:</strong> <code>-e</code> may be skipped; <code>-wait:0.15s</code> the next key may cut the wait short<br>
                                         <strong>Any-order:</strong> <code>[q, e, lmb, 1]</code> can press in any order<br>
                                         <strong>Sequence:</strong> <code>{hold(e, 0.30), e}</code> must do in that order<br>
                                         <strong>Examples:</strong><br>

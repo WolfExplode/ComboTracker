@@ -165,7 +165,10 @@ function splitInputsTokens(str) {
     const out = [];
     let buf = '';
     let paren = 0, brace = 0, bracket = 0;
+    let quoted = false; // inside a "Move Name" (it may hold commas)
     for (const ch of (str || '')) {
+        if (ch === '"') { quoted = !quoted; buf += ch; continue; }
+        if (quoted) { buf += ch; continue; }
         if (ch === '(') paren++;
         else if (ch === ')') paren = Math.max(0, paren - 1);
         else if (ch === '{') brace++;
@@ -233,6 +236,19 @@ function parseDurationToMs(raw) {
  * `s` is the step data dict from the backend.
  * `oldSourceToken` — original combo-input token when rebuilding complex holds (hold-with-body).
  */
+// A step can carry the move it casts, picked from its right-click menu:
+// lmb "Basic: Origin Calculus 2 (Dodge Counter)". Same as split_move_name in parser.py.
+function splitMoveName(token) {
+    const m = String(token || '').match(/\s*"([^"]*)"\s*$/);
+    if (!m) return [String(token || ''), null];
+    return [String(token).slice(0, m.index), m[1]];
+}
+
+function withMoveName(token, name) {
+    const base = splitMoveName(token)[0].trim();
+    return name ? `${base} "${name.replace(/"/g, '')}"` : base;
+}
+
 function extractHoldWithBodyParts(oldSourceToken) {
     const t = (oldSourceToken || '').trim();
     if (!t.toLowerCase().startsWith('hold(') || !t.endsWith(')')) return null;
@@ -246,6 +262,14 @@ function extractHoldWithBodyParts(oldSourceToken) {
     const key = head.slice(0, commaIdx).trim();
     const durPart = head.slice(commaIdx + 1).trim();
     return { key, durPart, bodyPart };
+}
+
+// -wait:Xs (alone or after a key): the next press may cut the wait short.
+function markOptionalWait(el, s) {
+    const optionalWait = s.wait_optional || (s.type === 'wait' && s.optional);
+    if (!optionalWait) return;
+    el.classList.add('wait-optional');
+    el.title = 'Optional wait: pressing the next key early is fine';
 }
 
 function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
@@ -263,7 +287,7 @@ function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
         if (!key) return null;
         const durMs = field === 'duration' ? parseDurationToMs(val) : s.duration;
         if (!durMs) return null;
-        return [key, `wait:${formatDurationToken(durMs)}`];
+        return [`${s.optional ? '-' : ''}${key}`, `${s.wait_optional ? '-' : ''}wait:${formatDurationToken(durMs)}`];
     }
 
     if (s.type === 'hold') {
@@ -312,7 +336,7 @@ function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
         // Standalone soft/hard wait: one token wait:Xs
         const durMs = parseDurationToMs(val);
         if (!durMs) return null;
-        return [`wait:${formatDurationToken(durMs)}`];
+        return [`${s.optional ? '-' : ''}wait:${formatDurationToken(durMs)}`];
     }
 
     return null;
@@ -372,9 +396,10 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     if (!srcIndices || srcIndices.length === 0) return false;
 
     const minSrc = Math.min(...srcIndices);
-    const oldSourceToken = currentTokens[minSrc];
-    const newTokens = reconstructTokensForEdit(s, field, newValue, oldSourceToken);
+    const [oldSourceToken, moveName] = splitMoveName(currentTokens[minSrc]);
+    const newTokens = reconstructTokensForEdit(s, field, newValue, oldSourceToken.trim());
     if (!newTokens) return false;
+    if (moveName) newTokens[0] = withMoveName(newTokens[0], moveName); // keep a picked move
 
     // Splice: replace source token(s) at srcIndices with newTokens.
     const result = [];
@@ -392,12 +417,17 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     }
     if (result.length === 0) return false;
 
-    const newInputs = result.join(', ');
     pushEditStepsUndoSnapshot();
+    saveComboInputs(result.join(', '));
+    return true;
+}
+
+/** Put new inputs in the Inputs box and save them, the same way as the Save button. */
+function saveComboInputs(newInputs) {
+    const inputsEl = getEl('comboInputs');
+    if (!inputsEl) return;
     inputsEl.value = newInputs;
     if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
-
-    // Save via the same path as the Save/Update button.
     const toggle = getEl('stepDisplayToggle');
     sendMessage('save_combo', {
         name: (getEl('comboName')?.value || '').toString(),
@@ -411,6 +441,22 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
         target_game: appState.targetGame,
         ww_team_id: appState.wwTeamId || '',
     });
+}
+
+/**
+ * Pick (or clear, with name null) the move for the timeline step at runtimeIdx: writes
+ * lmb "Basic: X 1" into its input token and saves. Returns false if it can't be mapped.
+ */
+function setStepMoveName(runtimeIdx, name) {
+    const inputsEl = getEl('comboInputs');
+    if (!inputsEl) return false;
+    const tokens = splitInputsTokens(inputsEl.value || '');
+    const src = buildRuntimeToSourceMap(tokens)[runtimeIdx];
+    if (!src || !src.length) return false;
+    const i = Math.min(...src);
+    tokens[i] = withMoveName(tokens[i], name);
+    pushEditStepsUndoSnapshot();
+    saveComboInputs(tokens.join(', '));
     return true;
 }
 
@@ -422,15 +468,15 @@ function buildRuntimeToSourceMap(tokens) {
     const srcMap = [];
     let i = 0;
     while (i < tokens.length) {
-        const tok = tokens[i].trim().toLowerCase();
+        const tok = splitMoveName(tokens[i])[0].trim().toLowerCase();
         if (!tok) { i++; continue; }
 
         // press + following soft/hard wait -> one runtime SequenceNode (press_wait tile)
-        if (!tok.startsWith('wait') && !tok.startsWith('hold(') && !tok.startsWith('spam(') && !tok.startsWith('[') && !tok.startsWith('{')) {
+        if (!tok.startsWith('wait') && !tok.startsWith('-wait') && !tok.startsWith('hold(') && !tok.startsWith('spam(') && !tok.startsWith('[') && !tok.startsWith('{')) {
             // Could be a plain press followed by wait:Xs
             if (i + 1 < tokens.length) {
-                const nxt = tokens[i + 1].trim().toLowerCase();
-                if (nxt.startsWith('wait:')) {
+                const nxt = splitMoveName(tokens[i + 1])[0].trim().toLowerCase();
+                if (nxt.startsWith('wait:') || nxt.startsWith('-wait:')) {
                     srcMap.push([i, i + 1]);
                     i += 2;
                     continue;
@@ -472,11 +518,10 @@ function buildRuntimeToSourceMap(tokens) {
 }
 
 /**
- * Make a span inline-editable on double-click when edit mode is active.
+ * Make a span inline-editable on double-click.
  * `s` = step dict, `field` = 'key' | 'duration', `runtimeIdx` = first runtime index.
  */
 function attachInlineEdit(span, s, field, runtimeIdx) {
-    if (!appState.stepEditMode) return;
     span.classList.add('step-field-editable');
     span.title = 'Double-click to edit';
 
@@ -556,16 +601,47 @@ function updateTimeline(steps, opts) {
     };
 
     // Names each step's move ("Zani Basic 2"); steps must be labeled in timeline order.
-    const labelMove = appState.showMoveNames ? createWwMoveLabeler(wwSlotNames()) : null;
+    // A later step can rename an earlier one (E, E, E on Augusta becomes Strike, Leap, Plunge).
+    // It also runs with names hidden, for the right-click "which move is this" list.
+    const showNames = !!appState.showMoveNames;
+    const labelMove = createWwMoveLabeler(wwSlotNames());
+    const moveLabelEls = [];
+    // Moves picked from the right-click menu live in the saved inputs: lmb "Basic: X 1".
+    const savedTokens = splitInputsTokens(appState.savedInputs || '');
+    const savedSrcMap = buildRuntimeToSourceMap(savedTokens);
+    // The one input token behind a tile, or -1 (a collapsed chain or group spans several).
+    const tokenForStep = (step) => {
+        const idx = Array.isArray(step && step.step_indices) ? step.step_indices : [];
+        const toks = new Set(idx.map((r) => (savedSrcMap[r] && savedSrcMap[r].length ? Math.min(...savedSrcMap[r]) : -1)));
+        return toks.size === 1 ? [...toks][0] : -1;
+    };
+    const namedTiles = []; // tile of each named step, in labeler order (for onRevise)
+    labelMove.onRevise = (index, text) => {
+        const mc = namedTiles[index] && namedTiles[index]._moveChoice;
+        if (mc && mc.chosen) return; // a picked move stays
+        if (mc) mc.guess = mc.choices.find((n) => wwShortMoveName(n) === text) || mc.guess;
+        const el = moveLabelEls[index];
+        if (el) { el.title = el.title.replace(el.textContent, text); el.textContent = text; }
+    };
     function appendMoveLabel(tile, step, slot) {
-        if (!labelMove) return;
-        const text = labelMove(step, slot);
-        if (!text) return;
+        const tokIdx = tokenForStep(step);
+        const chosen = tokIdx >= 0 ? splitMoveName(savedTokens[tokIdx])[1] : null;
+        const text = labelMove(step, slot, chosen);
+        if (tokIdx >= 0 && text && labelMove.choices.length > 1) {
+            tile._moveChoice = {
+                runtimeIdx: step.step_indices[0], choices: labelMove.choices, inputs: labelMove.choiceInputs,
+                frames: labelMove.choiceFrames, chosen, guess: labelMove.choices[0],
+            };
+        }
+        if (text) namedTiles.push(tile);
+        if (!text || !showNames) { if (text) moveLabelEls.push(null); return; }
         const el = document.createElement('span');
         el.className = 'step-move';
         el.textContent = text;
-        el.title = text;
+        const conc = slot ? labelMove.concerto(slot) : 0;
+        el.title = conc > 0 ? `${text}\nConcerto after this ≈ ${Math.round(conc)}/100` : text;
         tile.appendChild(el);
+        moveLabelEls.push(el);
     }
 
     const viewport = getEl('comboTimelineViewport');
@@ -615,28 +691,10 @@ function updateTimeline(steps, opts) {
             .map(v => Number.parseInt(v, 10))
             .filter(v => Number.isFinite(v) && v >= 0);
     };
-    const attachStepDeleteControl = (el, stepIndices) => {
-        const indices = parseStepIndices(stepIndices);
-        if (!appState.stepEditMode || indices.length === 0) return;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'step-delete-btn';
-        btn.title = 'Delete this step';
-        btn.setAttribute('aria-label', 'Delete this step');
-        btn.textContent = '🗑';
-        btn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            pushEditStepsUndoSnapshot();
-            sendMessage('delete_timeline_step', { step_indices: indices });
-        });
-        el.appendChild(btn);
-    };
-
     // Drag-to-reorder: the first runtime index stored in step_indices is used as the drag handle identifier.
     const attachStepDragControl = (el, stepIndices) => {
         const indices = parseStepIndices(stepIndices);
-        if (!appState.stepEditMode || indices.length === 0) return;
+        if (indices.length === 0) return;
         const fromRuntimeIdx = indices[0];
         el.setAttribute('draggable', 'true');
         el.dataset.runtimeIdx = String(fromRuntimeIdx);
@@ -731,6 +789,7 @@ function updateTimeline(steps, opts) {
         }
         if (it.optional) el.classList.add('optional');
         if (it.optional && it.completed && !it.was_skipped) el.classList.add('was-pressed');
+        markOptionalWait(el, it);
 
         if (it.active) el.classList.add('active');
         if (it.completed) el.classList.add('completed');
@@ -802,7 +861,6 @@ function updateTimeline(steps, opts) {
             }
         });
         tile.appendChild(items);
-        attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
@@ -838,6 +896,7 @@ function updateTimeline(steps, opts) {
             itEl.className = 'step sequence-item';
             if (it.optional) itEl.classList.add('optional');
             if (it.optional && it.completed && !it.was_skipped) itEl.classList.add('was-pressed');
+            markOptionalWait(itEl, it);
             if (it.active) itEl.classList.add('active');
             if (it.completed) itEl.classList.add('completed');
             appendStepContent(itEl, it, nextChar, ctx);
@@ -845,7 +904,6 @@ function updateTimeline(steps, opts) {
             items.appendChild(itEl);
         });
         tile.appendChild(items);
-        attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
@@ -879,6 +937,7 @@ function updateTimeline(steps, opts) {
         if (s.type) tile.classList.add(s.type.replace(/_/g, '-'));
         if (s.optional) tile.classList.add('optional');
         if (s.optional && s.completed && !s.was_skipped) tile.classList.add('was-pressed');
+        markOptionalWait(tile, s);
         let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
         if (s.type === 'wait' || s.type === 'press_wait' || s.type === 'spam') {
             tile.style.setProperty('--wait-pct', `${pct}%`);
@@ -899,7 +958,6 @@ function updateTimeline(steps, opts) {
 
         appendStepContent(tile, s, nextChar, ctx, runtimeIdxNormal);
         appendMoveLabel(tile, s, nextChar);
-        attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
@@ -1322,3 +1380,121 @@ function applyAutoScroll(scrollOpts) {
     timeline.style.transform = `translateX(${newX}px)`;
 }
 
+
+// ---------------------------------------------------------------------------
+// Right-click menu on Combo Steps tiles (replaces the browser's menu there only; text boxes
+// keep theirs). Add entries in tileMenuItems.
+// ---------------------------------------------------------------------------
+
+// Entries for a tile: { label, run, danger?, checked?, separator? }.
+function tileMenuItems(tile, indices) {
+    const items = [];
+    // Which move this step is, when the keys alone could mean more than one (dodge into A1 vs
+    // Dodge Counter, Heavy 1 vs Heavy 2, ...). The pick is saved in the inputs.
+    const mc = tile._moveChoice;
+    if (mc) {
+        items.push({ heading: 'Which move is this?' });
+        // One move is always checked: the pick, else the best guess. Picking the best guess clears
+        // the saved pick (it's the default anyway); clicking the checked move does nothing.
+        const current = (mc.chosen && mc.choices.find((n) => n.toLowerCase() === mc.chosen.toLowerCase())) || mc.guess;
+        mc.choices.forEach((name, i) => items.push({
+            label: wwShortMoveName(name),
+            hint: mc.inputs[i],
+            frames: mc.frames && mc.frames[i],
+            title: name,
+            checked: name === current,
+            run: () => {
+                if (name === current) return;
+                setStepMoveName(mc.runtimeIdx, name === mc.guess ? null : name);
+            },
+        }));
+        items.push({ separator: true });
+    }
+    items.push({
+        label: 'Delete step',
+        danger: true,
+        run: () => {
+            pushEditStepsUndoSnapshot();
+            sendMessage('delete_timeline_step', { step_indices: indices });
+        },
+    });
+    return items;
+}
+
+let tileMenuEl = null;
+
+function closeTileMenu() {
+    if (!tileMenuEl) return;
+    tileMenuEl.remove();
+    tileMenuEl = null;
+}
+
+function openTileMenu(x, y, tile, indices) {
+    closeTileMenu();
+    const menu = document.createElement('div');
+    menu.className = 'ctx-menu';
+    menu.setAttribute('role', 'menu');
+    tileMenuItems(tile, indices).forEach((item) => {
+        if (item.separator) {
+            const hr = document.createElement('div');
+            hr.className = 'ctx-menu-sep';
+            menu.appendChild(hr);
+            return;
+        }
+        if (item.heading) {
+            const h = document.createElement('div');
+            h.className = 'ctx-menu-heading';
+            h.textContent = item.heading;
+            menu.appendChild(h);
+            return;
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `ctx-menu-item${item.danger ? ' danger' : ''}${item.checked ? ' checked' : ''}`;
+        btn.setAttribute('role', item.checked !== undefined ? 'menuitemradio' : 'menuitem');
+        if (item.checked !== undefined) btn.setAttribute('aria-checked', String(!!item.checked));
+        if (item.title) btn.title = item.title;
+        btn.textContent = item.label;
+        if (item.frames) {
+            const f = document.createElement('span');
+            f.className = 'ctx-menu-frames';
+            f.textContent = item.frames;
+            btn.appendChild(f);
+        }
+        if (item.hint) {
+            const hint = document.createElement('code');
+            hint.className = 'ctx-menu-hint';
+            hint.textContent = item.hint;
+            btn.appendChild(hint);
+        }
+        btn.addEventListener('click', () => { closeTileMenu(); item.run(); });
+        menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    // Keep it on screen.
+    const r = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - r.width - 4))}px`;
+    menu.style.top = `${Math.max(4, Math.min(y, window.innerHeight - r.height - 4))}px`;
+    tileMenuEl = menu;
+    menu.querySelector('button')?.focus();
+}
+
+{
+    const timeline = getEl('comboTimeline');
+    if (timeline) {
+        timeline.addEventListener('contextmenu', (ev) => {
+            const tile = [...timeline.children].find((c) => c.contains(ev.target));
+            const indices = (tile?.dataset.stepIndices || '')
+                .split(',').map((v) => Number.parseInt(v, 10)).filter((v) => Number.isFinite(v) && v >= 0);
+            if (!indices.length) return;
+            ev.preventDefault();
+            openTileMenu(ev.clientX, ev.clientY, tile, indices);
+        });
+    }
+    document.addEventListener('mousedown', (ev) => { if (tileMenuEl && !tileMenuEl.contains(ev.target)) closeTileMenu(); }, true);
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeTileMenu(); });
+    window.addEventListener('blur', closeTileMenu);
+    window.addEventListener('resize', closeTileMenu);
+    // wheel, not scroll: the timeline scrolls itself on updates, which shouldn't close the menu.
+    document.addEventListener('wheel', closeTileMenu, { passive: true });
+}

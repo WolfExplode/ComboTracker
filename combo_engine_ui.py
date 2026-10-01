@@ -322,6 +322,8 @@ def _render_sequence_items(
             prog = _wait_progress(nxt, now)
             if prog is not None:
                 pw["progress"] = prog
+            if nxt.optional:
+                pw["wait_optional"] = True
             seq_items.append(pw)
             j += 2
             continue
@@ -341,6 +343,8 @@ def _render_sequence_items(
             prog = _wait_progress(sub, now)
             if prog is not None:
                 wait_dict["progress"] = prog
+            if sub.optional:
+                wait_dict["optional"] = True
             seq_items.append(wait_dict)
         elif isinstance(sub, HoldState):
             seq_items.append(
@@ -482,13 +486,16 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                         if len(seq.steps) >= 2 and isinstance(seq.steps[1], WaitState):
                             dur = seq.steps[1].required_ms
                         pw_active = step.active_item is item
-                        items_payload.append({
+                        pw_item = {
                             "type": "press_wait",
                             "input": inp,
                             "duration": dur,
                             "active": (idx == cur) and pw_active,
                             "completed": comp,
-                        })
+                        }
+                        if len(seq.steps) >= 2 and isinstance(seq.steps[1], WaitState) and seq.steps[1].optional:
+                            pw_item["wait_optional"] = True
+                        items_payload.append(pw_item)
                     elif item.kind == "sequence" and isinstance(item.state, SequenceState):
                         seq = item.state
                         parent_is_active = bool((idx == cur) and (step.active_item is item))
@@ -545,6 +552,8 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                     if getattr(step, "optional", False):
                         pw["optional"] = True
                         pw["was_skipped"] = getattr(step, "was_skipped", False)
+                    if nxt.optional:
+                        pw["wait_optional"] = True
                     steps.append(pw)
                     i += 1
                     continue
@@ -635,6 +644,8 @@ def _timeline_steps_from_runtime(engine, now: float | None = None) -> TimelineSt
                 prog = _wait_progress(step, now)
                 if prog is not None:
                     w["progress"] = prog
+                if step.optional:
+                    w["optional"] = True
                 steps.append(w)
                 i += 1
                 continue

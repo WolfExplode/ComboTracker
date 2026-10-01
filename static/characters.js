@@ -1,12 +1,14 @@
 // Characters page: each character's key-input moves (static/data/ww_characters.json, drafted from
-// encore.moe and checked by hand) and community team rotations (AntoCrasher's compilation +
-// rotation transcripts, served by ui_server.py under /api/ww/).
+// encore.moe and checked by hand), ability frame timings (static/data/ww_timings.json, from
+// WuwaLAB) and community team rotations (AntoCrasher's compilation + rotation transcripts,
+// served by ui_server.py under /api/ww/).
 
 // Shown inside the main app's Characters page: hide this page's own back link and title.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
 const ELEMENTS = ['Aero', 'Electro', 'Fusion', 'Glacio', 'Havoc', 'Spectro'];
 const MOVES_URL = 'data/ww_characters.json';
+const TIMINGS_URL = 'data/ww_timings.json';
 
 // Abbreviations from AntoCrasher's rotation hub; each rotation's own list (if any) wins.
 const DEFAULT_GLOSSARY = {
@@ -26,11 +28,24 @@ const state = {
     selectedId: null,
     tab: 'moves',
     moves: new Map(),       // character id -> entry from ww_characters.json
+    timings: null,          // ww_timings.json: {fps, fetched_at, characters: {id: {url, abilities}}}
+    timingFilter: '',
+    timingUnit: readPref('ww-timing-unit', 'f'),   // 'f' frames or 's' seconds
+    openTimings: new Set(),  // section|name of Timings rows whose frame strip is open
     transcripts: new Map(),
     tracker: null,
+    notes: null,            // your notes per character id, saved in the tracker (null = not loaded yet)
 };
 
 const $ = (id) => document.getElementById(id);
+
+function readPref(key, fallback) {
+    try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
+}
+
+function writePref(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* storage blocked: keep it for this visit only */ }
+}
 
 function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -102,6 +117,13 @@ function watchTracker() {
     state.tracker = connectTracker({
         onMessage: (msg) => {
             // The character list rides along in the editor payload (init and later editor updates).
+            const notes = msg.type === 'ww_character_notes' ? msg.notes
+                : ((msg.editor && msg.editor.ww_character_notes) || msg.ww_character_notes);
+            if (notes && typeof notes === 'object') {
+                state.notes = { ...notes };
+                // Don't swap the text out from under someone typing in it.
+                if (state.tab === 'moves' && document.activeElement?.id !== 'charNotes') renderDetail();
+            }
             const chars = (msg.editor && msg.editor.ww_characters) || msg.ww_characters;
             if (Array.isArray(chars)) {
                 state.mine = chars.map((c) => nameTokens(c.name || c.name_key));
@@ -180,6 +202,7 @@ function detailHeader(c) {
     const icon = safeUrl(c.icon);
     const { main, featured } = rotationsFor(c.name);
     const count = (main ? main.teams.length : 0) + featured.length;
+    const t = timingsFor(c);
     return `<div class="detail-head">
         ${icon ? `<img src="${esc(icon)}" alt="">` : ''}
         <div>
@@ -189,6 +212,7 @@ function detailHeader(c) {
     </div>
     <div class="tabs" role="tablist">
         <button type="button" role="tab" data-tab="moves" class="${state.tab === 'moves' ? 'on' : ''}">Moves</button>
+        <button type="button" role="tab" data-tab="timings" class="${state.tab === 'timings' ? 'on' : ''}">Timings${t ? ` <span class="count">${t.abilities.length}</span>` : ''}</button>
         <button type="button" role="tab" data-tab="rotations" class="${state.tab === 'rotations' ? 'on' : ''}">Team rotations <span class="count">${count}</span></button>
     </div>`;
 }
@@ -196,7 +220,9 @@ function detailHeader(c) {
 function renderDetail() {
     const c = state.roster.find((x) => x.id === state.selectedId);
     if (!c) return;
-    const body = state.tab === 'moves' ? renderMoves(c) : renderRotations(c);
+    const body = state.tab === 'moves' ? renderMoves(c)
+        : state.tab === 'timings' ? renderTimings(c)
+        : renderRotations(c);
     $('detail').innerHTML = detailHeader(c) + body;
 }
 
@@ -225,14 +251,6 @@ function renderMoves(c) {
         .filter(([k]) => CHAIN_AFTER[k])
         .map(([k, stage]) => `<li>LMB right after ${esc(CHAIN_AFTER[k])} starts at <strong>A${stage}</strong></li>`).join('');
 
-    const withInput = (m.moves || []).filter((x) => x.input);
-    const other = (m.moves || []).filter((x) => !x.input);
-    const moveRows = withInput.map((x) =>
-        `<tr><td class="inp">${keycap(x.input)}</td><td>${esc(x.name)}${x.type ? ` <span class="muted small">${esc(x.type)}</span>` : ''}</td></tr>`).join('');
-    const otherByType = {};
-    other.forEach((x) => { (otherByType[x.type || 'Other'] ||= []).push(x.name); });
-    const otherHtml = Object.entries(otherByType).map(([t, names]) =>
-        `<p><span class="muted">${esc(t)}:</span> ${names.map(esc).join(', ')}</p>`).join('');
     const follow = (m.followups || []).filter((f) => !f.basic_stage).map((f) =>
         `<li>${keycap(f.press)} right after <strong>${esc(f.after)}</strong> casts <strong>${esc(f.gives)}</strong></li>`).join('');
 
@@ -245,14 +263,170 @@ function renderMoves(c) {
             ${hits ? `<ol class="hits">${hits}</ol>` : ''}
             <p><span class="keycap">HOLD LMB</span> ${hold}</p>
             ${entries ? `<ul class="entries">${entries}</ul>` : ''}
+            ${(m.skill_chain || []).length > 1 ? `<p><span class="keycap">E</span><span class="plus">in a row</span> ${m.skill_chain.map(esc).join(' → ')}</p>` : ''}
         </section>
-        ${m.notes ? `<section class="move-card notes"><h3>Notes</h3><p>${esc(m.notes)}</p></section>` : ''}
-        <section class="move-card">
-            <h3>Moves</h3>
-            <table class="moves"><tbody>${moveRows}</tbody></table>
-            ${otherHtml ? `<div class="other-moves"><h4>Other named moves</h4>${otherHtml}</div>` : ''}
-        </section>
+        ${renderNotes(c, m)}
         ${follow ? `<section class="move-card"><h3>Follow-ups</h3><ul class="follow">${follow}</ul></section>` : ''}`;
+}
+
+// Notes: your own, saved in the tracker when you stop typing or leave the box. Until you write
+// some, the box starts with the shipped notes from ww_characters.json.
+function renderNotes(c, m) {
+    const mine = state.notes && Object.prototype.hasOwnProperty.call(state.notes, String(c.id));
+    const text = mine ? state.notes[String(c.id)] : (m.notes || '');
+    const live = state.tracker && state.tracker.isOpen();
+    return `<section class="move-card notes">
+        <h3>Notes <span class="muted small" id="notesStatus">${live ? '' : 'Start ComboTracker to save notes'}</span></h3>
+        <textarea id="charNotes" rows="4" placeholder="Your notes on ${esc(c.name)}: rotations, cancels, things to remember…">${esc(text)}</textarea>
+    </section>`;
+}
+
+let notesTimer = null;
+function saveNotes() {
+    clearTimeout(notesTimer);
+    const ta = $('charNotes');
+    if (!ta || state.selectedId == null) return;
+    const id = String(state.selectedId);
+    const text = ta.value.trim();
+    const status = $('notesStatus');
+    const current = state.notes && Object.prototype.hasOwnProperty.call(state.notes, id) ? state.notes[id] : null;
+    if (current === text) return;
+    const sent = state.tracker && state.tracker.isOpen() && state.tracker.send('save_character_note', { id, text });
+    if (sent === false || !state.tracker || !state.tracker.isOpen()) {
+        if (status) status.textContent = 'Not saved: ComboTracker isn\'t running';
+        return;
+    }
+    state.notes = { ...(state.notes || {}), [id]: text };
+    if (status) status.textContent = 'Saved';
+}
+
+// --- Timings (frame data from WuwaLAB; static/data/ww_timings.json) ------------
+
+// Columns in WuwaLAB's order, timing columns only (no damage).
+const TIMING_COLS = [
+    { key: 'hits', label: 'Hits', tip: 'Number of hits', frames: false },
+    { key: 'frames', label: 'Frames', tip: 'Full animation length', frames: true },
+    { key: 'cancel', label: 'Cancel', tip: 'Earliest frame the next action can cancel this one', frames: true },
+    { key: 'noswap', label: 'No swap', tip: "Frames before you can swap out", frames: true },
+    { key: 'tstop', label: 'T.stop', tip: 'Time stop: the whole field freezes', frames: true },
+    { key: 'mstop', label: 'M.stop', tip: 'Motion stop: hit-stop on the character', frames: true },
+    { key: 'concerto', label: 'Concerto', tip: 'Concerto Energy gained (full = 100). A full bar lets the Outro fire on swap and unlocks moves like Iuno\'s Absolute Fullness', concerto: true },
+    { key: 'cd', label: 'CD', tip: 'Cooldown', frames: true },
+];
+
+// WuwaLAB counts Concerto in hundredths (1,000 = 10 points, -10,000 = the Outro emptying the bar).
+function fmtConcerto(v) {
+    if (v == null) return '<span class="zero">—</span>';
+    const pts = v / 100;
+    const text = Number.isInteger(pts) ? String(pts) : pts.toFixed(2).replace(/0$/, '');
+    if (v === 0) return `<span class="zero">${text}</span>`;
+    return `<span class="${v < 0 ? 'neg' : 'conc'}">${text}</span>`;
+}
+
+function timingsFor(c) {
+    return state.timings && state.timings.characters ? state.timings.characters[String(c.id)] : null;
+}
+
+// 73 -> "73f" or "1.22s", per the unit toggle. Zero and missing values are dimmed.
+function fmtFrames(n) {
+    if (n == null) return '<span class="zero">—</span>';
+    const fps = (state.timings && state.timings.fps) || 60;
+    const text = state.timingUnit === 's' ? `${(n / fps).toFixed(2)}s` : `${n}f`;
+    return n === 0 ? `<span class="zero">${text}</span>` : text;
+}
+
+function timingCell(a, col) {
+    const v = a[col.key];
+    if (col.concerto) return fmtConcerto(v);
+    if (!col.frames) return v ? String(v) : `<span class="zero">${v ?? '—'}</span>`;
+    return fmtFrames(v);
+}
+
+const timingKey = (a) => `${a.section}|${a.name}`;
+
+// WuwaLAB's frame strip: the animation as a bar, a tick per hit, and the part after the cancel
+// frame shaded (from there the next action can cut it short).
+function timingStrip(a) {
+    const total = a.frames || 0;
+    if (!total) return '<p class="muted small">No animation frames listed for this ability.</p>';
+    const pct = (f) => `${Math.min(100, Math.max(0, (f / total) * 100)).toFixed(3)}%`;
+    const hits = (a.hit_frames || []).filter((f) => f <= total);
+    const cancel = a.cancel > 0 && a.cancel < total ? a.cancel : null;
+    // Axis labels, most useful first; a label too close to one already placed is left off
+    // (its tick keeps a tooltip).
+    const want = [[0, '', fmtFrames(0)], [total, 'end', fmtFrames(total)]];
+    if (cancel != null) want.push([cancel, 'cancel', `C ${fmtFrames(cancel)}`]);
+    hits.forEach((f) => want.push([f, '', fmtFrames(f)]));
+    const placed = [];
+    for (const [f, cls, text] of want) {
+        if (placed.some((p) => Math.abs(p[0] - f) / total < 0.06)) continue;
+        placed.push([f, cls, text]);
+    }
+    const marks = placed.map(([f, cls, text]) =>
+        `<span class="tick-lbl${f === 0 ? ' start' : ''}${cls ? ` ${cls}` : ''}" style="left:${pct(f)}">${text}</span>`);
+    const zones = (a.zones || []).filter((z) => z.to > z.from).map((z) =>
+        `<div class="zone ${z.kind}" style="left:${pct(z.from)};width:calc(${pct(z.to)} - ${pct(z.from)})" title="${z.kind === 'ts' ? 'Time stop' : 'Motion stop'} ${z.from}-${z.to}f">${z.kind.toUpperCase()}</div>`).join('');
+    return `<div class="fstrip" role="img" aria-label="${esc(`${a.name}: ${total} frames, hits at ${hits.join(', ') || 'none'}${cancel != null ? `, cancel at ${cancel}` : ''}`)}">
+            ${cancel != null ? `<div class="after-cancel" style="left:${pct(cancel)}" title="After the cancel frame"></div><div class="cancel-line" style="left:${pct(cancel)}"></div>` : ''}
+            ${zones}
+            ${hits.map((f, i) => `<div class="hit" style="left:${pct(f)}" title="Hit ${i + 1}: ${f}f"></div>`).join('')}
+        </div>
+        <div class="fstrip-axis">${marks.join('')}</div>`;
+}
+
+function timingRow(a) {
+    const tags = (a.tags || []).map((t) => `<span class="ttag">${esc(t)}</span>`).join('');
+    const cells = TIMING_COLS.map((col) =>
+        `<td class="num${col.key === 'frames' ? ' strong' : ''}">${timingCell(a, col)}</td>`).join('');
+    const hitFrames = (a.hit_frames || []).map((f) => fmtFrames(f)).join(' <span class="sep">·</span> ');
+    const key = timingKey(a);
+    const open = state.openTimings.has(key);
+    return `<tr class="trow${open ? ' open' : ''}" data-tkey="${esc(key)}" aria-expanded="${open}" title="Show the frame strip">
+        <td class="tname"><div><span class="caret">▸</span>${esc(a.name)}</div>${tags ? `<div class="ttags">${tags}</div>` : ''}</td>
+        <td class="tinput">${wwAbilityInput(a) ? `<code>${esc(wwAbilityInput(a))}</code>` : '<span class="zero">—</span>'}</td>
+        ${cells}
+        <td class="hitf">${hitFrames || '<span class="zero">—</span>'}</td>
+    </tr>${open ? `<tr class="tstrip"><td colspan="${TIMING_COLS.length + 3}">${timingStrip(a)}</td></tr>` : ''}`;
+}
+
+function timingRows(t) {
+    const q = state.timingFilter.toLowerCase();
+    const list = t.abilities.filter((a) => !q || a.name.toLowerCase().includes(q) || a.section.toLowerCase().includes(q));
+    const span = TIMING_COLS.length + 3;
+    let html = '';
+    let section = null;
+    for (const a of list) {
+        if (a.section !== section) {
+            section = a.section;
+            html += `<tr class="tsection"><td colspan="${span}">${esc(section)}</td></tr>`;
+        }
+        html += timingRow(a);
+    }
+    return html || `<tr><td colspan="${span}" class="muted">No abilities match.</td></tr>`;
+}
+
+function renderTimings(c) {
+    const t = timingsFor(c);
+    if (!state.timings) return '<p class="muted">Loading timings…</p>';
+    if (!t) return `<p class="muted">WuwaLAB has no frame data for ${esc(c.name)} yet.</p>`;
+    const fps = state.timings.fps || 60;
+    const head = TIMING_COLS.map((col) =>
+        `<th class="num${col.key === 'frames' ? ' strong' : ''}" title="${esc(col.tip)}">${esc(col.label)}</th>`).join('');
+    const unit = (u, label) =>
+        `<button type="button" data-unit="${u}" class="${state.timingUnit === u ? 'on' : ''}">${label}</button>`;
+    const url = safeUrl(t.url);
+    return `<div class="toolbar">
+            <input type="search" id="timingFilter" placeholder="Filter abilities…" value="${esc(state.timingFilter)}" autocomplete="off">
+            <div class="seg" role="group" aria-label="Units">${unit('f', 'Frames')}${unit('s', 'Seconds')}</div>
+            <span class="muted small">${fps} fps · 1f = ${(1000 / fps).toFixed(2)} ms</span>
+        </div>
+        <div class="timings-wrap">
+            <table class="timings">
+                <thead><tr><th>Name</th><th title="Keys that cast it, written like combo inputs (lmb2 = the 2nd LMB of the Basic chain)">Input</th>${head}<th title="Frame each hit lands on">Hit frames</th></tr></thead>
+                <tbody id="timingRows">${timingRows(t)}</tbody>
+            </table>
+        </div>
+        <p class="src-line">Frame data from ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">WuwaLAB</a>` : 'WuwaLAB'}${state.timings.fetched_at ? `, copied ${esc(state.timings.fetched_at.split(' ')[0])}` : ''}. Timing columns and Concerto only (Concerto is the total a move gives, in-game points). Hover a column name for what it means.</p>`;
 }
 
 // --- Rotations ----------------------------------------------------------------
@@ -381,6 +555,55 @@ function saveAsCombo(teamEl) {
 // Events + boot
 // ---------------------------------------------------------------------------
 
+// Drag the bar between the roster and the detail panel to resize the roster (remembered per
+// browser); double-click resets it.
+const ROSTER_WIDTH_KEY = 'ww-roster-width';
+const ROSTER_MIN = 200, ROSTER_MAX = 900;
+
+function setRosterWidth(px) {
+    const w = Math.round(Math.min(ROSTER_MAX, Math.max(ROSTER_MIN, px)));
+    document.documentElement.style.setProperty('--roster-w', `${w}px`);
+    return w;
+}
+
+function bindResizer() {
+    const saved = Number(readPref(ROSTER_WIDTH_KEY, 0));
+    if (saved) setRosterWidth(saved);
+    let bar = $('rosterResizer');
+    if (!bar) {
+        // A stale cached characters.html may predate the bar; add it so dragging still works.
+        bar = document.createElement('div');
+        bar.id = 'rosterResizer';
+        bar.className = 'splitter';
+        bar.setAttribute('role', 'separator');
+        bar.setAttribute('aria-orientation', 'vertical');
+        bar.setAttribute('aria-label', 'Resize character list');
+        bar.title = 'Drag to resize. Double-click to reset.';
+        $('roster').after(bar);
+    }
+    bar.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        bar.setPointerCapture(e.pointerId);
+        document.body.classList.add('resizing');
+        const startX = e.clientX;
+        const startW = $('roster').getBoundingClientRect().width;
+        let width = startW;
+        const move = (ev) => { width = setRosterWidth(startW + ev.clientX - startX); };
+        const up = () => {
+            bar.removeEventListener('pointermove', move);
+            document.body.classList.remove('resizing');
+            writePref(ROSTER_WIDTH_KEY, String(width));
+        };
+        bar.addEventListener('pointermove', move);
+        bar.addEventListener('pointerup', up, { once: true });
+        bar.addEventListener('pointercancel', up, { once: true });
+    });
+    bar.addEventListener('dblclick', () => {
+        document.documentElement.style.removeProperty('--roster-w');
+        try { localStorage.removeItem(ROSTER_WIDTH_KEY); } catch { /* ignore */ }
+    });
+}
+
 function bindEvents() {
     $('search').addEventListener('input', (e) => {
         state.query = e.target.value.trim();
@@ -404,6 +627,23 @@ function bindEvents() {
             renderDetail();
             return;
         }
+        const unit = e.target.closest('[data-unit]');
+        if (unit) {
+            state.timingUnit = unit.dataset.unit;
+            writePref('ww-timing-unit', state.timingUnit);
+            renderDetail();
+            return;
+        }
+        const trow = e.target.closest('tr.trow');
+        if (trow) {
+            const key = trow.dataset.tkey;
+            if (state.openTimings.has(key)) state.openTimings.delete(key);
+            else state.openTimings.add(key);
+            const c = state.roster.find((x) => x.id === state.selectedId);
+            const t = c && timingsFor(c);
+            if (t) $('timingRows').innerHTML = timingRows(t);
+            return;
+        }
         const act = e.target.closest('[data-act]');
         if (!act) return;
         const teamEl = act.closest('.team');
@@ -416,6 +656,22 @@ function bindEvents() {
             );
         } else if (act.dataset.act === 'save') saveAsCombo(teamEl);
     });
+    // Filtering re-renders only the table body so the filter box keeps focus.
+    $('detail').addEventListener('input', (e) => {
+        if (e.target.id === 'charNotes') {
+            const status = $('notesStatus');
+            if (status) status.textContent = 'Editing…';
+            clearTimeout(notesTimer);
+            notesTimer = setTimeout(saveNotes, 1000);
+            return;
+        }
+        if (e.target.id !== 'timingFilter') return;
+        state.timingFilter = e.target.value.trim();
+        const c = state.roster.find((x) => x.id === state.selectedId);
+        const t = c && timingsFor(c);
+        if (t) $('timingRows').innerHTML = timingRows(t);
+    });
+    $('detail').addEventListener('focusout', (e) => { if (e.target.id === 'charNotes') saveNotes(); });
     $('rawBtn').addEventListener('click', downloadRaw);
     window.addEventListener('hashchange', () => {
         const id = Number(location.hash.slice(1));
@@ -441,6 +697,16 @@ async function load() {
     renderRoster();
     const id = Number(location.hash.slice(1)) || state.selectedId;
     if (id) selectCharacter(id, { pushHash: false });
+
+    try {
+        const res = await fetch(TIMINGS_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        state.timings = await res.json();
+    } catch (e) {
+        state.timings = { characters: {} };
+        showNotice(`Couldn't load ability timings: ${e.message}`, 'warn');
+    }
+    if (state.selectedId) renderDetail();
 
     try {
         const rot = await api('rotations');
@@ -474,5 +740,6 @@ async function downloadRaw() {
 
 renderFilters();
 bindEvents();
+bindResizer();
 watchTracker();
 load();

@@ -176,6 +176,15 @@ textarea {
     border-radius: var(--border-radius);
 }
 
+/* Text behind the timeline tile being dragged or selected (setInputMarkForTile in app/combos.js).
+   Background only, so the overlay keeps lining up with the textarea text. */
+.combo-input-highlight mark.combo-hl-focus {
+    background: rgba(46, 197, 234, 0.28);
+    color: inherit;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(46, 197, 234, 0.7);
+}
+
 /* Token colors */
 .combo-input-highlight .combo-hl-wait { color: #e6c229; }
 .combo-input-highlight .combo-hl-anim-wait { color: #e6c229; }
@@ -183,6 +192,7 @@ textarea {
 .combo-input-highlight .combo-hl-optional { color: var(--text-secondary); }
 .combo-input-highlight .combo-hl-bracket { color: #7acc7a; }
 .combo-input-highlight .combo-hl-sequence { color: #c97acc; }
+.combo-input-highlight .combo-hl-name { color: #e69a5a; }
 .combo-input-highlight .combo-hl-punct { color: var(--text-secondary); }
 
 .help-text {
@@ -1192,31 +1202,6 @@ button.danger:hover {
     box-shadow: 4px 0 0 0 var(--accent-blue), 0 0 8px rgba(74, 158, 255, 0.35);
 }
 
-.step-delete-btn {
-    position: absolute;
-    top: 4px;
-    left: 6px;
-    width: 18px;
-    height: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.45);
-    color: #ff8f8f;
-    font-size: 11px;
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 5;
-}
-
-.step-delete-btn:hover {
-    background: rgba(255, 74, 74, 0.2);
-    border-color: rgba(255, 74, 74, 0.6);
-}
-
 .step-primary {
     font-size: 30px;
     font-weight: 700;
@@ -1483,6 +1468,12 @@ button.danger:hover {
     opacity: 0.6;
 }
 
+/* Optional wait (-wait:Xs, or key + -wait:Xs): dashed edge where the wait can be cut short */
+.step.wait-optional {
+    border-right-style: dashed;
+    border-right-color: var(--text-secondary);
+}
+
 /* Tables */
 .results-table {
     max-height: 300px;
@@ -1711,7 +1702,9 @@ body.timeline-window-view #openTimelineWindowBtn {
 
 /* Wuthering Waves move name under each step (see ww_moves.js) */
 .step-move {
-    max-width: 100%;
+    /* Never widen the tile: the name gets no say in the tile's width and is cut with "…" (full name on hover) */
+    width: 100%;
+    contain: inline-size;
     margin-top: 3px;
     font-family: system-ui, sans-serif;
     font-size: 10px;

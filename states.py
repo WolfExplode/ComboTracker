@@ -162,6 +162,7 @@ class SpamState:
             "type": "spam",
             "input": self.expected,
             "duration": self.required_ms,
+            "optional": self.optional,
             "in_progress": self.in_progress,
             "completed": self.completed,
         }
@@ -373,6 +374,7 @@ class WaitState:
     required_ms: int
     mode: Literal["soft", "hard", "mandatory"]
     wait_for: str | None = None  # for mandatory waits
+    optional: bool = False  # -wait:Xs: a press during the wait ends it and counts for the next step
 
     # Runtime mutable state
     in_progress: bool = False
@@ -399,6 +401,12 @@ class WaitState:
         # Wait still in progress
         if self.mode == "mandatory":
             return IgnoreResult()
+
+        # Optional wait: the press ends it early and is re-processed against the next step.
+        if self.optional:
+            self.completed = True
+            self.in_progress = False
+            return CompleteResult()
 
         if self.mode == "hard":
             return FailResult("early press during hard wait")
@@ -788,7 +796,7 @@ def build_runtime_state(node: StepNode) -> StepState:
             return SpamState(expected=key, required_ms=ms)
 
         case WaitNode(duration_ms=ms, mode=mode, wait_for=wf):
-            return WaitState(required_ms=ms, mode=mode, wait_for=wf)
+            return WaitState(required_ms=ms, mode=mode, wait_for=wf, optional=getattr(node, "optional", False))
 
         case SequenceNode(steps=steps):
             is_mandatory = _is_composite_mandatory(node)

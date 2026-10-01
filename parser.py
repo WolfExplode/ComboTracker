@@ -5,6 +5,7 @@ Parses tokens into immutable AST nodes. Use build_state() to convert
 AST to dict format for the existing engine (compatibility layer).
 """
 
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import uuid4
@@ -50,6 +51,7 @@ class WaitNode:
     duration_ms: int
     mode: Literal["soft", "hard", "mandatory"]
     wait_for: str | None = None  # for mandatory waits
+    optional: bool = False  # -wait:Xs: any key press during the wait ends it early (no fail)
 
 
 @dataclass(frozen=True)
@@ -80,14 +82,22 @@ def split_inputs(keys_str: str) -> list[str]:
     """
     Split a user-entered Inputs string into top-level comma-separated tokens.
 
-    Shallow parser: avoids splitting commas inside (), {}, [].
+    Shallow parser: avoids splitting commas inside (), {}, [] and "move names".
     """
     s = keys_str or ""
     out: list[str] = []
     buf: list[str] = []
     paren = brace = bracket = 0
+    quoted = False
 
     for ch in s:
+        if ch == '"':
+            quoted = not quoted
+            buf.append(ch)
+            continue
+        if quoted:
+            buf.append(ch)
+            continue
         if ch == "(":
             paren += 1
         elif ch == ")":
@@ -113,6 +123,26 @@ def split_inputs(keys_str: str) -> list[str]:
     if token:
         out.append(token)
     return out
+
+
+# A step can name the move it casts: lmb "Basic: Origin Calculus 2 (Dodge Counter)". The name is
+# for the timeline label only (picked from the step's right-click menu); the engine ignores it.
+_MOVE_NAME_RE = re.compile(r'\s*"([^"]*)"\s*$')
+
+
+def split_move_name(token: str) -> tuple[str, str | None]:
+    """'lmb "Basic: X 1"' -> ('lmb', 'Basic: X 1'); a token without a name -> (token, None)."""
+    t = token or ""
+    m = _MOVE_NAME_RE.search(t)
+    if not m:
+        return t, None
+    return t[: m.start()], m.group(1)
+
+
+def lower_outside_quotes(token: str) -> str:
+    """Lowercase the keys of a token but keep a "Move Name" as written."""
+    parts = (token or "").split('"')
+    return '"'.join(p.lower() if i % 2 == 0 else p for i, p in enumerate(parts))
 
 
 def _parse_duration(raw: str) -> int | None:
@@ -150,7 +180,7 @@ def parse_step(token: str) -> StepNode | None:
 
     Returns None for empty/invalid tokens.
     """
-    t = (token or "").strip()
+    t = split_move_name((token or "").strip())[0].strip()
     if not t:
         return None
 
@@ -273,11 +303,13 @@ def parse_step(token: str) -> StepNode | None:
                     return GroupNode(tuple(items))
 
     # Wait gate: wait:0.1 (only form; use after a key e.g. f, wait:0.23s)
-    if tl.startswith("wait:"):
-        dur = tl[len("wait:"):].strip()
+    # Optional wait: -wait:0.15s, which the next press may cut short.
+    optional_wait = tl.startswith("-wait:")
+    if tl.startswith("wait:") or optional_wait:
+        dur = tl[tl.index(":") + 1:].strip()
         wait_ms = _parse_duration(dur)
         if wait_ms is not None:
-            return WaitNode(wait_ms, "soft", None)
+            return WaitNode(wait_ms, "soft", None, optional=optional_wait)
 
     # Repeated taps over a duration: spam(lmb, 4.4s)
     if tl.startswith("spam(") and tl.endswith(")"):

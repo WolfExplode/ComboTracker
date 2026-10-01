@@ -137,7 +137,16 @@ def make_static_server() -> ThreadedHTTPServer:
         }
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._no_store = False
             super().__init__(*args, directory=str(static_dir), **kwargs)
+
+        def end_headers(self) -> None:
+            # Make the browser re-check static files on every load (a cheap 304 when unchanged).
+            # Without this it can keep an old page with newer scripts after an update, which breaks
+            # the page until a hard refresh, and Ctrl+F5 doesn't reach the Characters iframe.
+            if not self._no_store:
+                self.send_header("Cache-Control", "no-cache")
+            super().end_headers()
 
         def do_GET(self) -> None:
             # Character library (static/characters.html) is served as JSON; everything else is a static file.
@@ -165,6 +174,7 @@ def make_static_server() -> ThreadedHTTPServer:
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self._no_store = True
             self.end_headers()
             self.wfile.write(body)
 
@@ -273,6 +283,10 @@ async def ws_handler(websocket: ServerConnection) -> None:
                 ok, err = engine.delete_ww_character(str(msg.get("name") or ""))
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "alert_notice", "text": err}))
+            elif mtype == "save_character_note":
+                ok, err = engine.save_ww_character_note(str(msg.get("id") or ""), str(msg.get("text") or ""))
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "update_ww_dash":
                 engine.update_ww_dash(str(msg.get("dash_image") or ""))
             elif mtype == "select_team":

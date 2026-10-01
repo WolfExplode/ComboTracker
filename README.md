@@ -75,9 +75,9 @@ Notes:
 ### Building the Windows release
 You can package ComboTracker so others can run it without installing Python.
 
-1. Install build tooling (once):
+1. Install the requirements, which include PyInstaller (once):
    ```bash
-   python -m pip install -r requirements-build.txt
+   python -m pip install -r requirements.txt
    ```
 2. From the project root, build:
    ```bash
@@ -127,9 +127,10 @@ A built-in, NohBoard-style key display for streams and recordings: WASD, Shift, 
 The **Characters** page (in the sidebar, or `http://localhost:8737/characters.html`) shows what each Wuthering Waves character's buttons do. It covers inputs only: no damage numbers.
 
 - **Moves**: the Basic Attack chain (A1, A2, ...), what holding LMB does, which hit LMB lands on after the Intro, Skill, Liberation, a Heavy, a Dodge Counter or a Mid-air Attack, and each move with its key. The timeline's move names use the same data.
+- **Timings**: each ability's frame data from [WuwaLAB](https://wuwalab.com), laid out like WuwaLAB's Abilities tab: hits, total frames, the earliest cancel frame, how long until you can swap, time stop, motion stop, cooldown and the frame each hit lands on. Switch between frames and seconds (60 fps), and filter by name.
 - **Team rotations**: the community's team setups for that character with author and video, from [AntoCrasher's rotation compilation](https://docs.google.com/spreadsheets/d/1mdl9J08N-0_j-U2zNP5OTHGBKprwmJEmz_Iy4IOJfPk/edit). **Combo** opens the move-by-move rotation transcript, converts it to tracker inputs (swaps use the team's slot order; no timings), and **Save as combo** adds it to your combos with the video attached.
 
-The move data ships with the app in `static/data/ww_characters.json`. It was drafted from the [encore.moe](https://encore.moe) API and checked by hand for the characters marked "Checked by hand"; edit that file to fix or add details. **Download raw data** saves encore.moe's unedited files to `data/encore_raw/` without changing anything shown; `python tools/ww_build_moves.py` then drafts any new characters from them (hand-checked entries are left alone). Rotations are downloaded when you open them and cached in `ww_library_cache/`.
+The move data ships with the app in `static/data/ww_characters.json`. It was drafted from the [encore.moe](https://encore.moe) API and checked by hand for the characters marked "Checked by hand"; edit that file to fix or add details. **Download raw data** saves encore.moe's unedited files to `data/encore_raw/` without changing anything shown; `python tools/ww_build_moves.py` then drafts any new characters from them (hand-checked entries are left alone). The timings ship in `static/data/ww_timings.json`; to update them, scrape WuwaLAB's ability pages into one JSON file and run `python tools/ww_import_timings.py that-file.json` (damage columns are dropped). Rotations are downloaded when you open them and cached in `ww_library_cache/`.
 
 ---
 

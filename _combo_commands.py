@@ -10,7 +10,7 @@ from typing import Any
 import combo_engine_ui as ui
 import format_utils
 import stats_recording
-from parser import split_inputs
+from parser import lower_outside_quotes, split_inputs
 from persistence import fresh_combo_stats
 
 
@@ -120,7 +120,7 @@ def save_or_update_combo(
         if not (0.0 <= user_diff_val <= 10.0):
             return False, "Invalid Your difficulty. Use a number from 0 to 10."
 
-    input_list = [k.strip().lower() for k in split_inputs(keys_str) if k.strip()]
+    input_list = [lower_outside_quotes(k.strip()) for k in split_inputs(keys_str) if k.strip()]
     if not input_list:
         return False, "Please provide at least one input."
 

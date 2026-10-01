@@ -43,6 +43,10 @@ class WutheringWavesGame:
     # Global dash / RMB icon (shared across all teams)
     ww_dash_image: str = ""
 
+    # Your own notes per character (Characters page), keyed by the character id in
+    # static/data/ww_characters.json. They replace the shipped notes for that character.
+    ww_character_notes: dict[str, str] = field(default_factory=dict)
+
     # Active character slot during an attempt ("1", "2", or "3").
     ww_active_character: str | None = None
 
@@ -205,6 +209,7 @@ class WutheringWavesGame:
             "ww_team_lmb_images": team_lmb_images,
             "ww_team_ability_images": team_ability_images,
             "ww_characters": ww_chars_list,
+            "ww_character_notes": dict(self.ww_character_notes),
         }
 
     # -------------------------
@@ -388,6 +393,21 @@ def delete_ww_character_cmd(engine, *, name: str) -> tuple[bool, str | None]:
         return False, err
     engine.save_combos()
     engine._send({"type": "init", **engine.init_payload()})
+    return True, None
+
+
+def save_ww_character_note_cmd(engine, *, char_id: str, text: str) -> tuple[bool, str | None]:
+    cid = str(char_id or "").strip()
+    if not cid or len(cid) > 32:
+        return False, "Unknown character."
+    note = str(text or "").replace("\r\n", "\n").strip()
+    if len(note) > 20000:
+        return False, "That note is too long to save."
+    if engine.ww.ww_character_notes.get(cid) == note:
+        return True, None
+    engine.ww.ww_character_notes[cid] = note
+    engine.save_combos()
+    engine._send({"type": "ww_character_notes", "notes": dict(engine.ww.ww_character_notes)})
     return True, None
 
 
