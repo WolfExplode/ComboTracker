@@ -165,7 +165,10 @@ function splitInputsTokens(str) {
     const out = [];
     let buf = '';
     let paren = 0, brace = 0, bracket = 0;
+    let quoted = false; // inside a "Move Name" (it may hold commas)
     for (const ch of (str || '')) {
+        if (ch === '"') { quoted = !quoted; buf += ch; continue; }
+        if (quoted) { buf += ch; continue; }
         if (ch === '(') paren++;
         else if (ch === ')') paren = Math.max(0, paren - 1);
         else if (ch === '{') brace++;
@@ -233,6 +236,19 @@ function parseDurationToMs(raw) {
  * `s` is the step data dict from the backend.
  * `oldSourceToken` — original combo-input token when rebuilding complex holds (hold-with-body).
  */
+// A step can carry the move it casts, picked from its right-click menu:
+// lmb "Basic: Origin Calculus 2 (Dodge Counter)". Same as split_move_name in parser.py.
+function splitMoveName(token) {
+    const m = String(token || '').match(/\s*"([^"]*)"\s*$/);
+    if (!m) return [String(token || ''), null];
+    return [String(token).slice(0, m.index), m[1]];
+}
+
+function withMoveName(token, name) {
+    const base = splitMoveName(token)[0].trim();
+    return name ? `${base} "${name.replace(/"/g, '')}"` : base;
+}
+
 function extractHoldWithBodyParts(oldSourceToken) {
     const t = (oldSourceToken || '').trim();
     if (!t.toLowerCase().startsWith('hold(') || !t.endsWith(')')) return null;
@@ -380,9 +396,10 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     if (!srcIndices || srcIndices.length === 0) return false;
 
     const minSrc = Math.min(...srcIndices);
-    const oldSourceToken = currentTokens[minSrc];
-    const newTokens = reconstructTokensForEdit(s, field, newValue, oldSourceToken);
+    const [oldSourceToken, moveName] = splitMoveName(currentTokens[minSrc]);
+    const newTokens = reconstructTokensForEdit(s, field, newValue, oldSourceToken.trim());
     if (!newTokens) return false;
+    if (moveName) newTokens[0] = withMoveName(newTokens[0], moveName); // keep a picked move
 
     // Splice: replace source token(s) at srcIndices with newTokens.
     const result = [];
@@ -400,12 +417,17 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
     }
     if (result.length === 0) return false;
 
-    const newInputs = result.join(', ');
     pushEditStepsUndoSnapshot();
+    saveComboInputs(result.join(', '));
+    return true;
+}
+
+/** Put new inputs in the Inputs box and save them, the same way as the Save button. */
+function saveComboInputs(newInputs) {
+    const inputsEl = getEl('comboInputs');
+    if (!inputsEl) return;
     inputsEl.value = newInputs;
     if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
-
-    // Save via the same path as the Save/Update button.
     const toggle = getEl('stepDisplayToggle');
     sendMessage('save_combo', {
         name: (getEl('comboName')?.value || '').toString(),
@@ -419,6 +441,22 @@ function commitStepFieldEdit(runtimeIdx, s, field, newValue) {
         target_game: appState.targetGame,
         ww_team_id: appState.wwTeamId || '',
     });
+}
+
+/**
+ * Pick (or clear, with name null) the move for the timeline step at runtimeIdx: writes
+ * lmb "Basic: X 1" into its input token and saves. Returns false if it can't be mapped.
+ */
+function setStepMoveName(runtimeIdx, name) {
+    const inputsEl = getEl('comboInputs');
+    if (!inputsEl) return false;
+    const tokens = splitInputsTokens(inputsEl.value || '');
+    const src = buildRuntimeToSourceMap(tokens)[runtimeIdx];
+    if (!src || !src.length) return false;
+    const i = Math.min(...src);
+    tokens[i] = withMoveName(tokens[i], name);
+    pushEditStepsUndoSnapshot();
+    saveComboInputs(tokens.join(', '));
     return true;
 }
 
@@ -430,14 +468,14 @@ function buildRuntimeToSourceMap(tokens) {
     const srcMap = [];
     let i = 0;
     while (i < tokens.length) {
-        const tok = tokens[i].trim().toLowerCase();
+        const tok = splitMoveName(tokens[i])[0].trim().toLowerCase();
         if (!tok) { i++; continue; }
 
         // press + following soft/hard wait -> one runtime SequenceNode (press_wait tile)
         if (!tok.startsWith('wait') && !tok.startsWith('-wait') && !tok.startsWith('hold(') && !tok.startsWith('spam(') && !tok.startsWith('[') && !tok.startsWith('{')) {
             // Could be a plain press followed by wait:Xs
             if (i + 1 < tokens.length) {
-                const nxt = tokens[i + 1].trim().toLowerCase();
+                const nxt = splitMoveName(tokens[i + 1])[0].trim().toLowerCase();
                 if (nxt.startsWith('wait:') || nxt.startsWith('-wait:')) {
                     srcMap.push([i, i + 1]);
                     i += 2;
@@ -564,18 +602,33 @@ function updateTimeline(steps, opts) {
 
     // Names each step's move ("Zani Basic 2"); steps must be labeled in timeline order.
     // A later step can rename an earlier one (E, E, E on Augusta becomes Strike, Leap, Plunge).
-    const labelMove = appState.showMoveNames ? createWwMoveLabeler(wwSlotNames()) : null;
+    // It also runs with names hidden, for the right-click "which move is this" list.
+    const showNames = !!appState.showMoveNames;
+    const labelMove = createWwMoveLabeler(wwSlotNames());
     const moveLabelEls = [];
-    if (labelMove) {
+    // Moves picked from the right-click menu live in the saved inputs: lmb "Basic: X 1".
+    const savedTokens = splitInputsTokens(appState.savedInputs || '');
+    const savedSrcMap = buildRuntimeToSourceMap(savedTokens);
+    // The one input token behind a tile, or -1 (a collapsed chain or group spans several).
+    const tokenForStep = (step) => {
+        const idx = Array.isArray(step && step.step_indices) ? step.step_indices : [];
+        const toks = new Set(idx.map((r) => (savedSrcMap[r] && savedSrcMap[r].length ? Math.min(...savedSrcMap[r]) : -1)));
+        return toks.size === 1 ? [...toks][0] : -1;
+    };
+    if (showNames) {
         labelMove.onRevise = (index, text) => {
             const el = moveLabelEls[index];
             if (el) { el.title = el.title.replace(el.textContent, text); el.textContent = text; }
         };
     }
     function appendMoveLabel(tile, step, slot) {
-        if (!labelMove) return;
-        const text = labelMove(step, slot);
-        if (!text) return;
+        const tokIdx = tokenForStep(step);
+        const chosen = tokIdx >= 0 ? splitMoveName(savedTokens[tokIdx])[1] : null;
+        const text = labelMove(step, slot, chosen);
+        if (tokIdx >= 0 && text && labelMove.choices.length > 1) {
+            tile._moveChoice = { runtimeIdx: step.step_indices[0], choices: labelMove.choices, chosen };
+        }
+        if (!text || !showNames) return;
         const el = document.createElement('span');
         el.className = 'step-move';
         el.textContent = text;
@@ -1324,19 +1377,36 @@ function applyAutoScroll(scrollOpts) {
 
 // ---------------------------------------------------------------------------
 // Right-click menu on Combo Steps tiles (replaces the browser's menu there only; text boxes
-// keep theirs). Add an entry to TILE_MENU_ITEMS to grow it.
+// keep theirs). Add entries in tileMenuItems.
 // ---------------------------------------------------------------------------
 
-const TILE_MENU_ITEMS = [
-    {
+// Entries for a tile: { label, run, danger?, checked?, separator? }.
+function tileMenuItems(tile, indices) {
+    const items = [];
+    // Which move this step is, when the keys alone could mean more than one (dodge into A1 vs
+    // Dodge Counter, Heavy 1 vs Heavy 2, ...). The pick is saved in the inputs.
+    const mc = tile._moveChoice;
+    if (mc) {
+        items.push({ heading: 'Which move is this?' });
+        mc.choices.forEach((name) => items.push({
+            label: wwShortMoveName(name),
+            title: name,
+            checked: name === mc.chosen,
+            run: () => setStepMoveName(mc.runtimeIdx, name === mc.chosen ? null : name),
+        }));
+        if (mc.chosen) items.push({ label: 'Back to the guess', run: () => setStepMoveName(mc.runtimeIdx, null) });
+        items.push({ separator: true });
+    }
+    items.push({
         label: 'Delete step',
         danger: true,
-        run: (indices) => {
+        run: () => {
             pushEditStepsUndoSnapshot();
             sendMessage('delete_timeline_step', { step_indices: indices });
         },
-    },
-];
+    });
+    return items;
+}
 
 let tileMenuEl = null;
 
@@ -1346,18 +1416,33 @@ function closeTileMenu() {
     tileMenuEl = null;
 }
 
-function openTileMenu(x, y, indices) {
+function openTileMenu(x, y, tile, indices) {
     closeTileMenu();
     const menu = document.createElement('div');
     menu.className = 'ctx-menu';
     menu.setAttribute('role', 'menu');
-    TILE_MENU_ITEMS.forEach((item) => {
+    tileMenuItems(tile, indices).forEach((item) => {
+        if (item.separator) {
+            const hr = document.createElement('div');
+            hr.className = 'ctx-menu-sep';
+            menu.appendChild(hr);
+            return;
+        }
+        if (item.heading) {
+            const h = document.createElement('div');
+            h.className = 'ctx-menu-heading';
+            h.textContent = item.heading;
+            menu.appendChild(h);
+            return;
+        }
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = `ctx-menu-item${item.danger ? ' danger' : ''}`;
-        btn.setAttribute('role', 'menuitem');
+        btn.className = `ctx-menu-item${item.danger ? ' danger' : ''}${item.checked ? ' checked' : ''}`;
+        btn.setAttribute('role', item.checked !== undefined ? 'menuitemradio' : 'menuitem');
+        if (item.checked !== undefined) btn.setAttribute('aria-checked', String(!!item.checked));
+        if (item.title) btn.title = item.title;
         btn.textContent = item.label;
-        btn.addEventListener('click', () => { closeTileMenu(); item.run(indices); });
+        btn.addEventListener('click', () => { closeTileMenu(); item.run(); });
         menu.appendChild(btn);
     });
     document.body.appendChild(menu);
@@ -1378,7 +1463,7 @@ function openTileMenu(x, y, indices) {
                 .split(',').map((v) => Number.parseInt(v, 10)).filter((v) => Number.isFinite(v) && v >= 0);
             if (!indices.length) return;
             ev.preventDefault();
-            openTileMenu(ev.clientX, ev.clientY, indices);
+            openTileMenu(ev.clientX, ev.clientY, tile, indices);
         });
     }
     document.addEventListener('mousedown', (ev) => { if (tileMenuEl && !tileMenuEl.contains(ev.target)) closeTileMenu(); }, true);

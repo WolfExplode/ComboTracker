@@ -155,3 +155,24 @@ test('a bare slot key is a plain swap, not an Intro', () => {
     assert.strictEqual(label.concerto('1'), before); // no Outro either
     assert.strictEqual(label(press('lmb'), '2'), 'Augusta Basic 1'); // no Intro chain entry
 });
+
+test('a step lists the moves it could be, and a picked move names it and steers the chain', () => {
+    const { setWwTimingData } = require('../static/ww_moves.js');
+    setWwTimingData(require('../static/data/ww_timings.json'));
+    const label = createWwMoveLabeler({ '1': 'Shorekeeper' });
+    label(press('rmb'), '1');
+    assert.strictEqual(label(press('lmb'), '1'), 'Shorekeeper Dodge Counter?');
+    assert.deepStrictEqual(label.choices.slice(0, 2),
+        ['Basic: Origin Calculus 2 (Dodge Counter)', 'Basic: Origin Calculus 1']);
+
+    const picked = createWwMoveLabeler({ '1': 'Shorekeeper' });
+    picked(press('rmb'), '1');
+    assert.strictEqual(picked(press('lmb'), '1', 'Basic: Origin Calculus 1'), 'Origin Calculus 1');
+    assert.strictEqual(picked.concerto('1'), 1.6);
+    assert.strictEqual(picked(press('lmb'), '1'), 'Shorekeeper Basic 2'); // chain goes on from A1
+
+    // A name that isn't one of the character's moves is ignored.
+    const other = createWwMoveLabeler({ '1': 'Shorekeeper' });
+    assert.strictEqual(other(press('lmb'), '1', 'Nope'), 'Shorekeeper Basic 1');
+    assert.deepStrictEqual(createWwMoveLabeler({ '1': 'Shorekeeper' })(press('q'), '1') && [], []);
+});

@@ -419,6 +419,14 @@ function tokenizeComboInput(text) {
             tokens.push({ type: 'optional', text: text.slice(start, i) });
             continue;
         }
+        // "Move Name" picked from a step's right-click menu
+        if (text[i] === '"') {
+            const close = text.indexOf('"', i + 1);
+            const end = close === -1 ? len : close + 1;
+            tokens.push({ type: 'name', text: text.slice(i, end) });
+            i = end;
+            continue;
+        }
         // brackets and braces
         if (text[i] === '[' || text[i] === ']') {
             tokens.push({ type: 'bracket', text: text[i] });
@@ -494,6 +502,7 @@ function splitInputsTokenSpans(str) {
     const spans = [];
     let depth = 0;
     let start = 0;
+    let quoted = false; // inside a "Move Name"
     const push = (end) => {
         const raw = str.slice(start, end);
         const lead = raw.length - raw.trimStart().length;
@@ -502,6 +511,8 @@ function splitInputsTokenSpans(str) {
     };
     for (let i = 0; i < str.length; i++) {
         const ch = str[i];
+        if (ch === '"') { quoted = !quoted; continue; }
+        if (quoted) continue;
         if (ch === '(' || ch === '{' || ch === '[') depth++;
         else if (ch === ')' || ch === '}' || ch === ']') depth = Math.max(0, depth - 1);
         else if (ch === ',' && depth === 0) { push(i); start = i + 1; }

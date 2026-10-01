@@ -192,6 +192,7 @@ textarea {
 .combo-input-highlight .combo-hl-optional { color: var(--text-secondary); }
 .combo-input-highlight .combo-hl-bracket { color: #7acc7a; }
 .combo-input-highlight .combo-hl-sequence { color: #c97acc; }
+.combo-input-highlight .combo-hl-name { color: #e69a5a; }
 .combo-input-highlight .combo-hl-punct { color: var(--text-secondary); }
 
 .help-text {

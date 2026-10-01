@@ -38,7 +38,7 @@ const WW_DEFAULT_RULE = { key: '', basic: 0, hold: 'Heavy', holdFull: null, entr
 
 // Concerto in WuwaLAB's units: 100 = 1 point, a full bar is 100 points.
 const WW_CONCERTO_FULL = 10000;
-let wwConcertoTables = {}; // name tokens -> [{ name, genre, concerto }] from ww_timings.json
+let wwAbilityTables = {}; // name tokens -> [{ name, genre, concerto }] from ww_timings.json
 
 // Own name of the move cast by `input` (ww_characters.json moves list), or ''.
 function wwMoveName(c, input, type) {
@@ -77,15 +77,61 @@ function setWwCharacterData(doc) {
     wwCharacterRules = rules;
 }
 
-/** Load ww_timings.json ({characters: {id: {name, abilities}}}) for Concerto tracking. */
+/** Load ww_timings.json ({characters: {id: {name, abilities}}}) for Concerto and move choices. */
 function setWwTimingData(doc) {
     const tables = {};
     Object.values((doc && doc.characters) || {}).forEach((c) => {
-        tables[wwNameTokens(c.name)] = (c.abilities || [])
-            .filter((a) => typeof a.concerto === 'number')
-            .map((a) => ({ name: String(a.name || ''), genre: String(a.genre || ''), concerto: a.concerto }));
+        tables[wwNameTokens(c.name)] = (c.abilities || []).map((a) => ({
+            name: String(a.name || ''),
+            genre: String(a.genre || ''),
+            concerto: typeof a.concerto === 'number' ? a.concerto : 0,
+        }));
     });
-    wwConcertoTables = tables;
+    wwAbilityTables = tables;
+}
+
+/** "Basic: Origin Calculus 2 (Dodge Counter)" -> "Origin Calculus 2 (Dodge Counter)". */
+function wwShortMoveName(name) {
+    return String(name || '').replace(/^[^:]+:\s*/, '');
+}
+
+// WuwaLAB move types each key (and holding it) can cast, for the right-click "which move" list.
+const WW_KEY_GENRES = {
+    lmb: ['BASIC', 'COUNTER'],
+    'hold:lmb': ['HEAVY', 'BASIC'],
+    e: ['SKILL'],
+    'hold:e': ['SKILL'],
+    r: ['LIBERATION'],
+    'hold:r': ['LIBERATION'],
+    intro: ['INTRO'],
+    tune_break: ['TUNEBREAK'],
+};
+
+/**
+ * Every WuwaLAB move this step could be, best guess first. move = what the labeler decided
+ * ({ kind, stage, name }), key = 'lmb', 'hold:lmb', 'e', 'intro', ...
+ */
+function wwMoveCandidates(rule, key, move) {
+    const rows = wwAbilityTables[rule && rule.key] || [];
+    const genres = WW_KEY_GENRES[key] || [];
+    const list = rows.filter((r) => genres.includes(r.genre));
+    if (list.length < 2) return list.map((r) => r.name);
+    const guess = wwDefaultRow(rule, move || {});
+    const stage = Number(move && move.stage) || 0;
+    const score = (r) => {
+        if (guess && r.name === guess.name) return 0;
+        if (move && move.kind === 'counter' && r.genre === 'COUNTER') return 1;
+        if (move && move.kind === 'counter' && new RegExp(`\\s1$`).test(r.name)) return 2;
+        if (stage && new RegExp(`\\s${stage}$`).test(r.name)) return 2;
+        return 3;
+    };
+    return list.map((r, i) => ({ r, i, s: score(r) })).sort((a, b) => a.s - b.s || a.i - b.i).map((x) => x.r.name);
+}
+
+/** The WuwaLAB row named `name` for this character, or null. */
+function wwRowNamed(rule, name) {
+    const n = String(name || '').toLowerCase();
+    return (wwAbilityTables[rule && rule.key] || []).find((r) => r.name.toLowerCase() === n) || null;
 }
 
 /**
@@ -94,8 +140,13 @@ function setWwTimingData(doc) {
  * Picks the first (base-form) WuwaLAB row of that type, or the one with the move's own name.
  */
 function wwConcertoGain(rule, move) {
-    const rows = wwConcertoTables[rule && rule.key];
-    if (!rows || !rows.length) return 0;
+    const row = wwDefaultRow(rule, move);
+    return row ? Math.max(0, row.concerto) : 0;
+}
+
+function wwDefaultRow(rule, move) {
+    const rows = wwAbilityTables[rule && rule.key];
+    if (!rows || !rows.length) return null;
     const of = (genre) => rows.filter((r) => r.genre === genre);
     const named = (list) => {
         const n = String(move.name || '').toLowerCase();
@@ -112,7 +163,7 @@ function wwConcertoGain(rule, move) {
     else if (move.kind === 'skill') row = named(of('SKILL'));
     else if (move.kind === 'liberation') row = of('LIBERATION')[0];
     else if (move.kind === 'tune_break') row = of('TUNEBREAK')[0];
-    return row ? Math.max(0, row.concerto) : 0;
+    return row || null;
 }
 
 // Team names are typed by hand ("Pheobe", "Agusta", "Rover"), so allow one typo, a missing word,
@@ -168,7 +219,9 @@ function createWwMoveLabeler(slotNames) {
     let skillRun = null; // { slot, count, firstIndex }: E presses in a row
     const concerto = {}; // slot -> Concerto (WuwaLAB units)
     let onField = null; // slot of the character on the field, for the Outro on swap
+    let stepMove = null; // the first move gain() saw for the current step, for its choices
     const gain = (slot, move) => {
+        if (!stepMove) stepMove = move;
         const v = (concerto[slot] || 0) + wwConcertoGain(rulesFor(slot), move);
         concerto[slot] = Math.min(WW_CONCERTO_FULL, v);
     };
@@ -186,12 +239,42 @@ function createWwMoveLabeler(slotNames) {
         return hits > 1 ? `${n} Basic ${first}-${last}` : `${n} Basic ${first}`;
     };
 
-    const label = function (step, slot) {
-        const text = name(step, slot);
+    /**
+     * Name the step. `chosen` is the move picked for it from its right-click list (a WuwaLAB
+     * name, saved in the inputs as lmb "Basic: X 1"); it replaces the guess, and the chain and
+     * Concerto follow it. After each call, label.choices lists what the step could be.
+     */
+    const label = function (step, slot, chosen) {
+        const s = slot || '1';
+        const key = wwStepKey(step);
+        const before = concerto[s] || 0;
+        stepMove = null;
+        let text = name(step, slot);
+        const isHold = step && (step.type === 'hold' || step.type === 'hold_with_body');
+        const choiceKey = WW_SLOTS.includes(key) ? 'intro'
+            : key === 'f' && text === 'Tune Break' ? 'tune_break'
+                : `${isHold ? 'hold:' : ''}${key}`;
+        label.choices = text && stepMove ? wwMoveCandidates(rulesFor(s), choiceKey, stepMove) : [];
+        const row = text && chosen ? wwRowNamed(rulesFor(s), chosen) : null;
+        if (row) {
+            concerto[s] = Math.min(WW_CONCERTO_FULL, before + Math.max(0, row.concerto));
+            const stage = Number((row.name.match(/\s(\d+)(\s*\([^)]*\))?$/) || [])[1]) || 0;
+            const g = row.genre;
+            if (g === 'BASIC' && /mid-air/i.test(row.name)) { basicCount = 0; after = 'midair'; }
+            else if (g === 'BASIC' && stage) { basicCount = stage; after = ''; }
+            else if (g === 'COUNTER') { basicCount = stage; after = 'dodge'; } // chain_entry.dodge still wins
+            else if (g === 'HEAVY') { basicCount = 0; after = 'heavy'; }
+            else if (g === 'SKILL') after = 'skill';
+            else if (g === 'LIBERATION') after = 'liberation';
+            else if (g === 'INTRO') after = 'intro';
+            else if (g === 'TUNEBREAK') after = 'tune_break';
+            text = wwShortMoveName(row.name);
+        }
         if (text) named += 1;
         return text;
     };
     label.onRevise = null;
+    label.choices = [];
     /** Concerto of the character in `slot` after the steps labeled so far, in points (0-100). */
     label.concerto = (slot) => (concerto[slot] || 0) / 100;
 
@@ -303,4 +386,4 @@ function createWwMoveLabeler(slotNames) {
     return label;
 }
 
-if (typeof module !== 'undefined') module.exports = { createWwMoveLabeler, wwStepKey, setWwCharacterData, setWwTimingData, wwRuleFor, wwConcertoGain };
+if (typeof module !== 'undefined') module.exports = { createWwMoveLabeler, wwStepKey, setWwCharacterData, setWwTimingData, wwRuleFor, wwConcertoGain, wwMoveCandidates, wwShortMoveName };

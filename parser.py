@@ -5,6 +5,7 @@ Parses tokens into immutable AST nodes. Use build_state() to convert
 AST to dict format for the existing engine (compatibility layer).
 """
 
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import uuid4
@@ -81,14 +82,22 @@ def split_inputs(keys_str: str) -> list[str]:
     """
     Split a user-entered Inputs string into top-level comma-separated tokens.
 
-    Shallow parser: avoids splitting commas inside (), {}, [].
+    Shallow parser: avoids splitting commas inside (), {}, [] and "move names".
     """
     s = keys_str or ""
     out: list[str] = []
     buf: list[str] = []
     paren = brace = bracket = 0
+    quoted = False
 
     for ch in s:
+        if ch == '"':
+            quoted = not quoted
+            buf.append(ch)
+            continue
+        if quoted:
+            buf.append(ch)
+            continue
         if ch == "(":
             paren += 1
         elif ch == ")":
@@ -114,6 +123,26 @@ def split_inputs(keys_str: str) -> list[str]:
     if token:
         out.append(token)
     return out
+
+
+# A step can name the move it casts: lmb "Basic: Origin Calculus 2 (Dodge Counter)". The name is
+# for the timeline label only (picked from the step's right-click menu); the engine ignores it.
+_MOVE_NAME_RE = re.compile(r'\s*"([^"]*)"\s*$')
+
+
+def split_move_name(token: str) -> tuple[str, str | None]:
+    """'lmb "Basic: X 1"' -> ('lmb', 'Basic: X 1'); a token without a name -> (token, None)."""
+    t = token or ""
+    m = _MOVE_NAME_RE.search(t)
+    if not m:
+        return t, None
+    return t[: m.start()], m.group(1)
+
+
+def lower_outside_quotes(token: str) -> str:
+    """Lowercase the keys of a token but keep a "Move Name" as written."""
+    parts = (token or "").split('"')
+    return '"'.join(p.lower() if i % 2 == 0 else p for i, p in enumerate(parts))
 
 
 def _parse_duration(raw: str) -> int | None:
@@ -151,7 +180,7 @@ def parse_step(token: str) -> StepNode | None:
 
     Returns None for empty/invalid tokens.
     """
-    t = (token or "").strip()
+    t = split_move_name((token or "").strip())[0].strip()
     if not t:
         return None
 

@@ -991,5 +991,10 @@ body.timeline-window-view #openTimelineWindowBtn { display: none !important; }
     cursor: pointer;
 }
 .ctx-menu .ctx-menu-item:hover, .ctx-menu .ctx-menu-item:focus-visible { background: var(--ct-hover); outline: none; transform: none; }
+.ctx-menu { max-height: 70vh; overflow-y: auto; }
+.ctx-menu-heading { padding: 6px 12px 4px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ct-muted); }
+.ctx-menu-sep { height: 1px; margin: 4px 6px; background: var(--ct-line-strong); }
+.ctx-menu .ctx-menu-item.checked::before { content: '✓'; position: absolute; left: 10px; color: var(--ct-accent); }
+.ctx-menu .ctx-menu-item { position: relative; padding-left: 28px; }
 .ctx-menu .ctx-menu-item.danger { background: transparent; color: var(--ct-danger); font-weight: 500; }
 .ctx-menu .ctx-menu-item.danger:hover, .ctx-menu .ctx-menu-item.danger:focus-visible { background: rgba(240, 90, 99, .14); }
