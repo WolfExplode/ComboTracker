@@ -49,7 +49,6 @@ const appState = {
     collapseChainedPresses: true,
     showMoveNames: readStoredFlag('showMoveNames', true),
     autoScrollEnabled: false,
-    stepEditMode: true,
     editStepsUndoStack: [],
     targetGame: 'wuthering_waves',
     wwAbilityImages: { "1": {}, "2": {}, "3": {} },

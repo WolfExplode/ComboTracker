@@ -373,15 +373,6 @@ if (moveNamesToggleEl) {
     });
 }
 
-const stepEditToggleEl = getEl('stepEditToggle');
-if (stepEditToggleEl) {
-    stepEditToggleEl.checked = !!appState.stepEditMode;
-    stepEditToggleEl.addEventListener('change', () => {
-        appState.stepEditMode = stepEditToggleEl.checked;
-        refreshTimelineIfLoaded();
-    });
-}
-
 const collapseChainsToggleEl = getEl('collapseChainsToggle');
 if (collapseChainsToggleEl) {
     collapseChainsToggleEl.checked = !!appState.collapseChainedPresses;

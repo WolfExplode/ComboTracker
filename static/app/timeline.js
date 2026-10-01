@@ -480,11 +480,10 @@ function buildRuntimeToSourceMap(tokens) {
 }
 
 /**
- * Make a span inline-editable on double-click when edit mode is active.
+ * Make a span inline-editable on double-click.
  * `s` = step dict, `field` = 'key' | 'duration', `runtimeIdx` = first runtime index.
  */
 function attachInlineEdit(span, s, field, runtimeIdx) {
-    if (!appState.stepEditMode) return;
     span.classList.add('step-field-editable');
     span.title = 'Double-click to edit';
 
@@ -633,28 +632,10 @@ function updateTimeline(steps, opts) {
             .map(v => Number.parseInt(v, 10))
             .filter(v => Number.isFinite(v) && v >= 0);
     };
-    const attachStepDeleteControl = (el, stepIndices) => {
-        const indices = parseStepIndices(stepIndices);
-        if (!appState.stepEditMode || indices.length === 0) return;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'step-delete-btn';
-        btn.title = 'Delete this step';
-        btn.setAttribute('aria-label', 'Delete this step');
-        btn.textContent = '🗑';
-        btn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            pushEditStepsUndoSnapshot();
-            sendMessage('delete_timeline_step', { step_indices: indices });
-        });
-        el.appendChild(btn);
-    };
-
     // Drag-to-reorder: the first runtime index stored in step_indices is used as the drag handle identifier.
     const attachStepDragControl = (el, stepIndices) => {
         const indices = parseStepIndices(stepIndices);
-        if (!appState.stepEditMode || indices.length === 0) return;
+        if (indices.length === 0) return;
         const fromRuntimeIdx = indices[0];
         el.setAttribute('draggable', 'true');
         el.dataset.runtimeIdx = String(fromRuntimeIdx);
@@ -821,7 +802,6 @@ function updateTimeline(steps, opts) {
             }
         });
         tile.appendChild(items);
-        attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
@@ -865,7 +845,6 @@ function updateTimeline(steps, opts) {
             items.appendChild(itEl);
         });
         tile.appendChild(items);
-        attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
@@ -920,7 +899,6 @@ function updateTimeline(steps, opts) {
 
         appendStepContent(tile, s, nextChar, ctx, runtimeIdxNormal);
         appendMoveLabel(tile, s, nextChar);
-        attachStepDeleteControl(tile, s.step_indices);
         attachStepDragControl(tile, s.step_indices);
         return { tile, nextActiveChar: nextChar };
     }
@@ -1343,3 +1321,70 @@ function applyAutoScroll(scrollOpts) {
     timeline.style.transform = `translateX(${newX}px)`;
 }
 
+
+// ---------------------------------------------------------------------------
+// Right-click menu on Combo Steps tiles (replaces the browser's menu there only; text boxes
+// keep theirs). Add an entry to TILE_MENU_ITEMS to grow it.
+// ---------------------------------------------------------------------------
+
+const TILE_MENU_ITEMS = [
+    {
+        label: 'Delete step',
+        danger: true,
+        run: (indices) => {
+            pushEditStepsUndoSnapshot();
+            sendMessage('delete_timeline_step', { step_indices: indices });
+        },
+    },
+];
+
+let tileMenuEl = null;
+
+function closeTileMenu() {
+    if (!tileMenuEl) return;
+    tileMenuEl.remove();
+    tileMenuEl = null;
+}
+
+function openTileMenu(x, y, indices) {
+    closeTileMenu();
+    const menu = document.createElement('div');
+    menu.className = 'ctx-menu';
+    menu.setAttribute('role', 'menu');
+    TILE_MENU_ITEMS.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `ctx-menu-item${item.danger ? ' danger' : ''}`;
+        btn.setAttribute('role', 'menuitem');
+        btn.textContent = item.label;
+        btn.addEventListener('click', () => { closeTileMenu(); item.run(indices); });
+        menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    // Keep it on screen.
+    const r = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - r.width - 4))}px`;
+    menu.style.top = `${Math.max(4, Math.min(y, window.innerHeight - r.height - 4))}px`;
+    tileMenuEl = menu;
+    menu.querySelector('button')?.focus();
+}
+
+{
+    const timeline = getEl('comboTimeline');
+    if (timeline) {
+        timeline.addEventListener('contextmenu', (ev) => {
+            const tile = [...timeline.children].find((c) => c.contains(ev.target));
+            const indices = (tile?.dataset.stepIndices || '')
+                .split(',').map((v) => Number.parseInt(v, 10)).filter((v) => Number.isFinite(v) && v >= 0);
+            if (!indices.length) return;
+            ev.preventDefault();
+            openTileMenu(ev.clientX, ev.clientY, indices);
+        });
+    }
+    document.addEventListener('mousedown', (ev) => { if (tileMenuEl && !tileMenuEl.contains(ev.target)) closeTileMenu(); }, true);
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeTileMenu(); });
+    window.addEventListener('blur', closeTileMenu);
+    window.addEventListener('resize', closeTileMenu);
+    // wheel, not scroll: the timeline scrolls itself on updates, which shouldn't close the menu.
+    document.addEventListener('wheel', closeTileMenu, { passive: true });
+}

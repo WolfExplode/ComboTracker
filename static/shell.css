@@ -964,3 +964,32 @@ body.timeline-window-view .editor { display: block; }
 body.timeline-window-view .main { padding: 20px; }
 body.timeline-window-view .app .timeline-section { border: 0; border-radius: 0; }
 body.timeline-window-view #openTimelineWindowBtn { display: none !important; }
+
+/* Right-click menu on Combo Steps tiles (openTileMenu in app/timeline.js). */
+.ctx-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 160px;
+    padding: 4px;
+    background: var(--ct-surface);
+    border: 1px solid var(--ct-line-strong);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+    font-family: var(--ct-font-body);
+}
+.ctx-menu .ctx-menu-item {
+    display: block;
+    width: 100%;
+    padding: 7px 12px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--ct-text);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.ctx-menu .ctx-menu-item:hover, .ctx-menu .ctx-menu-item:focus-visible { background: var(--ct-hover); outline: none; transform: none; }
+.ctx-menu .ctx-menu-item.danger { background: transparent; color: var(--ct-danger); font-weight: 500; }
+.ctx-menu .ctx-menu-item.danger:hover, .ctx-menu .ctx-menu-item.danger:focus-visible { background: rgba(240, 90, 99, .14); }

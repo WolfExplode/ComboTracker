@@ -15,7 +15,6 @@ function initializeUI(data) {
         wwTeamId: appState.wwTeamId,
         stepDisplayMode: appState.stepDisplayMode,
         noFailMode: !!getEl('noFailMode')?.checked,
-        stepEditMode: !!getEl('stepEditToggle')?.checked,
         collapseChainedPresses: !!getEl('collapseChainsToggle')?.checked,
         keyImages: { ...appState.keyImages },
     } : null;
@@ -31,9 +30,6 @@ function initializeUI(data) {
         if (stepToggle) stepToggle.checked = (appState.stepDisplayMode === 'images');
         const noFailEl = getEl('noFailMode');
         if (noFailEl) noFailEl.checked = preserved.noFailMode;
-        appState.stepEditMode = preserved.stepEditMode;
-        const stepEditToggle = getEl('stepEditToggle');
-        if (stepEditToggle) stepEditToggle.checked = preserved.stepEditMode;
         appState.collapseChainedPresses = preserved.collapseChainedPresses;
         const collapseChainsToggle = getEl('collapseChainsToggle');
         if (collapseChainsToggle) collapseChainsToggle.checked = preserved.collapseChainedPresses;
@@ -222,10 +218,10 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Ctrl/Cmd+Z: undo the last Edit Steps mutation (delete, reorder, or inline field edit)
+// Ctrl/Cmd+Z: undo the last step edit (delete, reorder, or inline field edit)
 document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
-        if (!appState.stepEditMode || appState.editStepsUndoStack.length === 0) return;
+        if (appState.editStepsUndoStack.length === 0) return;
         e.preventDefault();
         undoLastEditStep();
     }
