@@ -335,27 +335,6 @@ function fmtFrames(n) {
     return n === 0 ? `<span class="zero">${text}</span>` : text;
 }
 
-// The keys that cast a WuwaLAB move, in combo-input notation: lmb1, lmb2, hold(lmb), rmb, lmb,
-// e, r, f... Worked out from the move's type and name; '' for passives and follow-on effects.
-function abilityInput(a) {
-    const name = String(a.name || '');
-    const midAir = /mid-air/i.test(name);
-    const stage = (name.match(/\s(\d+)(\s*\([^)]*\))*$/) || [])[1];
-    const held = /\bhold\b|\bheld\b|charged/i.test(name);
-    switch (a.genre) {
-    case 'BASIC': return midAir ? 'airborne → lmb' : `lmb${stage || ''}`;
-    case 'COUNTER': return midAir ? 'airborne → rmb → lmb' : 'rmb → lmb';
-    case 'HEAVY': return midAir ? 'airborne → hold(lmb)' : 'hold(lmb)';
-    case 'SKILL': return held ? 'hold(e)' : 'e';
-    case 'LIBERATION': return 'r';
-    case 'INTRO': return 'swap in';
-    case 'OUTRO': return 'swap out';
-    case 'TUNEBREAK': return 'f';
-    case 'DODGE': case 'DASH': return 'rmb';
-    default: return '';
-    }
-}
-
 function timingCell(a, col) {
     const v = a[col.key];
     if (col.concerto) return fmtConcerto(v);
@@ -404,7 +383,7 @@ function timingRow(a) {
     const open = state.openTimings.has(key);
     return `<tr class="trow${open ? ' open' : ''}" data-tkey="${esc(key)}" aria-expanded="${open}" title="Show the frame strip">
         <td class="tname"><div><span class="caret">▸</span>${esc(a.name)}</div>${tags ? `<div class="ttags">${tags}</div>` : ''}</td>
-        <td class="tinput">${abilityInput(a) ? `<code>${esc(abilityInput(a))}</code>` : '<span class="zero">—</span>'}</td>
+        <td class="tinput">${wwAbilityInput(a) ? `<code>${esc(wwAbilityInput(a))}</code>` : '<span class="zero">—</span>'}</td>
         ${cells}
         <td class="hitf">${hitFrames || '<span class="zero">—</span>'}</td>
     </tr>${open ? `<tr class="tstrip"><td colspan="${TIMING_COLS.length + 3}">${timingStrip(a)}</td></tr>` : ''}`;

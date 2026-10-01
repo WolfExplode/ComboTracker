@@ -95,6 +95,27 @@ function wwShortMoveName(name) {
     return String(name || '').replace(/^[^:]+:\s*/, '');
 }
 
+// The keys that cast a WuwaLAB move, in combo-input notation: lmb1, lmb2, hold(lmb), rmb, lmb,
+// e, r, f... Worked out from the move's type and name; '' for passives and follow-on effects.
+function wwAbilityInput(a) {
+    const name = String(a.name || '');
+    const midAir = /mid-air/i.test(name);
+    const stage = (name.match(/\s(\d+)(\s*\([^)]*\))*$/) || [])[1];
+    const held = /\bhold\b|\bheld\b|charged/i.test(name);
+    switch (a.genre) {
+    case 'BASIC': return `${midAir ? 'airborne → ' : ''}lmb${stage || ''}`;
+    case 'COUNTER': return midAir ? 'airborne → rmb → lmb' : 'rmb → lmb';
+    case 'HEAVY': return midAir ? 'airborne → hold(lmb)' : 'hold(lmb)';
+    case 'SKILL': return held ? 'hold(e)' : 'e';
+    case 'LIBERATION': return 'r';
+    case 'INTRO': return 'swap in';
+    case 'OUTRO': return 'swap out';
+    case 'TUNEBREAK': return 'f';
+    case 'DODGE': case 'DASH': return 'rmb';
+    default: return '';
+    }
+}
+
 // WuwaLAB move types each key (and holding it) can cast, for the right-click "which move" list.
 const WW_KEY_GENRES = {
     lmb: ['BASIC', 'COUNTER'],
@@ -255,6 +276,8 @@ function createWwMoveLabeler(slotNames) {
             : key === 'f' && text === 'Tune Break' ? 'tune_break'
                 : `${isHold ? 'hold:' : ''}${key}`;
         label.choices = text && stepMove ? wwMoveCandidates(rulesFor(s), choiceKey, stepMove) : [];
+        // The keys for each choice (lmb2, rmb → lmb, ...), shown next to the names.
+        label.choiceInputs = label.choices.map((n) => wwAbilityInput(wwRowNamed(rulesFor(s), n) || {}));
         const row = text && chosen ? wwRowNamed(rulesFor(s), chosen) : null;
         if (row) {
             concerto[s] = Math.min(WW_CONCERTO_FULL, before + Math.max(0, row.concerto));
@@ -275,6 +298,7 @@ function createWwMoveLabeler(slotNames) {
     };
     label.onRevise = null;
     label.choices = [];
+    label.choiceInputs = [];
     /** Concerto of the character in `slot` after the steps labeled so far, in points (0-100). */
     label.concerto = (slot) => (concerto[slot] || 0) / 100;
 
@@ -386,4 +410,4 @@ function createWwMoveLabeler(slotNames) {
     return label;
 }
 
-if (typeof module !== 'undefined') module.exports = { createWwMoveLabeler, wwStepKey, setWwCharacterData, setWwTimingData, wwRuleFor, wwConcertoGain, wwMoveCandidates, wwShortMoveName };
+if (typeof module !== 'undefined') module.exports = { createWwMoveLabeler, wwStepKey, setWwCharacterData, setWwTimingData, wwRuleFor, wwConcertoGain, wwMoveCandidates, wwShortMoveName, wwAbilityInput };

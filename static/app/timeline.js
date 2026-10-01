@@ -626,7 +626,7 @@ function updateTimeline(steps, opts) {
         const chosen = tokIdx >= 0 ? splitMoveName(savedTokens[tokIdx])[1] : null;
         const text = labelMove(step, slot, chosen);
         if (tokIdx >= 0 && text && labelMove.choices.length > 1) {
-            tile._moveChoice = { runtimeIdx: step.step_indices[0], choices: labelMove.choices, chosen };
+            tile._moveChoice = { runtimeIdx: step.step_indices[0], choices: labelMove.choices, inputs: labelMove.choiceInputs, chosen };
         }
         if (!text || !showNames) return;
         const el = document.createElement('span');
@@ -1388,8 +1388,9 @@ function tileMenuItems(tile, indices) {
     const mc = tile._moveChoice;
     if (mc) {
         items.push({ heading: 'Which move is this?' });
-        mc.choices.forEach((name) => items.push({
+        mc.choices.forEach((name, i) => items.push({
             label: wwShortMoveName(name),
+            hint: mc.inputs[i],
             title: name,
             checked: name === mc.chosen,
             run: () => setStepMoveName(mc.runtimeIdx, name === mc.chosen ? null : name),
@@ -1442,6 +1443,12 @@ function openTileMenu(x, y, tile, indices) {
         if (item.checked !== undefined) btn.setAttribute('aria-checked', String(!!item.checked));
         if (item.title) btn.title = item.title;
         btn.textContent = item.label;
+        if (item.hint) {
+            const hint = document.createElement('code');
+            hint.className = 'ctx-menu-hint';
+            hint.textContent = item.hint;
+            btn.appendChild(hint);
+        }
         btn.addEventListener('click', () => { closeTileMenu(); item.run(); });
         menu.appendChild(btn);
     });
