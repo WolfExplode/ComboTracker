@@ -614,7 +614,8 @@ select.input { padding-right: 8px; }
 
 /* The tile for the input under the cursor in the Inputs box (see applyEditFocus in app/combos.js).
    An outline, so the tile's own border colors keep their meaning. */
-.app .timeline-section .step-edit-focus {
+.app .timeline-section .step-edit-focus,
+.app .timeline-section .step-selected {
     outline: 3px solid var(--ct-accent);
     outline-offset: 3px;
     box-shadow: 0 0 14px rgba(46, 197, 234, .55);

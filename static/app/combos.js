@@ -451,12 +451,24 @@ function tokenizeComboInput(text) {
     }).join('');
 }
 
+// [start, end) of the Inputs text to mark, for the timeline tile being dragged or selected
+// (see "Tile focus" below), or null.
+let comboInputMark = null;
+
 function updateComboInputHighlight() {
     const ta = getEl('comboInputs');
     const mirror = getEl('comboInputHighlight');
     if (!ta || !mirror) return;
     const raw = (ta.value || '');
-    mirror.innerHTML = raw ? tokenizeComboInput(raw) : '';
+    const m = comboInputMark;
+    if (raw && m && m.text === raw && m.start < m.end) {
+        // Marks fall on top-level token boundaries, so each slice tokenizes the same as the whole.
+        mirror.innerHTML = tokenizeComboInput(raw.slice(0, m.start))
+            + `<mark class="combo-hl-focus">${tokenizeComboInput(raw.slice(m.start, m.end))}</mark>`
+            + tokenizeComboInput(raw.slice(m.end));
+    } else {
+        mirror.innerHTML = raw ? tokenizeComboInput(raw) : '';
+    }
     mirror.scrollTop = ta.scrollTop;
     mirror.scrollLeft = ta.scrollLeft;
 }
@@ -544,4 +556,70 @@ if (inputsEl) {
     // Re-apply after every timeline re-render (live attempts, toggles, saves).
     const timeline = getEl('comboTimeline');
     if (timeline) new MutationObserver(() => { if (document.activeElement === inputsEl) applyEditFocus(); }).observe(timeline, { childList: true });
+}
+
+// ---------------------------------------------------------------------------
+// Tile focus: the reverse of editing focus. Dragging a Combo Steps tile, or clicking one, marks
+// its text in the Inputs box. Like editing focus it only follows tokens that still line up
+// with the saved combo.
+// ---------------------------------------------------------------------------
+
+/** [start, end) of the Inputs text behind these runtime steps, or null when it can't be matched. */
+function inputRangeForRuntime(runtimeIndices) {
+    const ta = getEl('comboInputs');
+    if (!ta || !runtimeIndices.length) return null;
+    const saved = splitInputsTokens(appState.savedInputs || '');
+    const srcMap = buildRuntimeToSourceMap(saved);
+    const tokIdx = new Set();
+    runtimeIndices.forEach((r) => (srcMap[r] || []).forEach((t) => tokIdx.add(t)));
+    if (!tokIdx.size) return null;
+    const spans = splitInputsTokenSpans(ta.value || '');
+    const last = Math.max(...tokIdx);
+    for (let i = 0; i <= last; i++) {
+        if (!spans[i] || (saved[i] || '').toLowerCase() !== spans[i].text.toLowerCase()) return null;
+    }
+    const first = Math.min(...tokIdx);
+    return { start: spans[first].start, end: spans[last].end, text: ta.value || '' };
+}
+
+function setInputMarkForTile(tile) {
+    const raw = tile ? (tile.dataset.stepIndices || '').trim() : '';
+    const indices = raw ? raw.split(',').map((v) => Number.parseInt(v, 10)).filter(Number.isFinite) : [];
+    comboInputMark = inputRangeForRuntime(indices);
+    updateComboInputHighlight();
+    if (!comboInputMark) return;
+    // Bring the marked text into view inside the Inputs box.
+    const ta = getEl('comboInputs');
+    const mark = getEl('comboInputHighlight')?.querySelector('.combo-hl-focus');
+    if (!ta || !mark) return;
+    const top = mark.offsetTop;
+    if (top < ta.scrollTop || top + mark.offsetHeight > ta.scrollTop + ta.clientHeight) {
+        ta.scrollTop = Math.max(0, top - ta.clientHeight / 3);
+        updateComboInputHighlight();
+    }
+}
+
+{
+    const timeline = getEl('comboTimeline');
+    const topTile = (target) => (timeline && target ? [...timeline.children].find((c) => c.contains(target)) : null);
+    if (timeline) {
+        timeline.addEventListener('dragstart', (ev) => setInputMarkForTile(topTile(ev.target)));
+        timeline.addEventListener('dragend', () => { comboInputMark = null; updateComboInputHighlight(); });
+        timeline.addEventListener('click', (ev) => {
+            if (ev.target.closest('button, input, [contenteditable="true"]')) return;
+            const tile = topTile(ev.target);
+            timeline.querySelectorAll('.step-selected').forEach((el) => el.classList.remove('step-selected'));
+            if (tile && tile.dataset.stepIndices) tile.classList.add('step-selected');
+            setInputMarkForTile(tile);
+        });
+    }
+    // Clicking anywhere else clears the mark; typing in the Inputs box drops it (offsets move).
+    document.addEventListener('click', (ev) => {
+        if (!comboInputMark || (timeline && timeline.contains(ev.target))) return;
+        if (ev.target.closest && ev.target.closest('#comboInputs')) return;
+        comboInputMark = null;
+        timeline?.querySelectorAll('.step-selected').forEach((el) => el.classList.remove('step-selected'));
+        updateComboInputHighlight();
+    });
+    getEl('comboInputs')?.addEventListener('input', () => { comboInputMark = null; });
 }

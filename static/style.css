@@ -176,6 +176,15 @@ textarea {
     border-radius: var(--border-radius);
 }
 
+/* Text behind the timeline tile being dragged or selected (setInputMarkForTile in app/combos.js).
+   Background only, so the overlay keeps lining up with the textarea text. */
+.combo-input-highlight mark.combo-hl-focus {
+    background: rgba(46, 197, 234, 0.28);
+    color: inherit;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(46, 197, 234, 0.7);
+}
+
 /* Token colors */
 .combo-input-highlight .combo-hl-wait { color: #e6c229; }
 .combo-input-highlight .combo-hl-anim-wait { color: #e6c229; }
