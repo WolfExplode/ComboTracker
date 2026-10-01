@@ -411,6 +411,11 @@
       "chain_entry": {
         "heavy": 2
       },
+      "skill_chain": [
+        "Strike",
+        "Leap",
+        "Plunge"
+      ],
       "followups": [],
       "notes": "With full Prowess, the Heavy becomes Thunderoar: Backstep, then press or release LMB for Spinslash and Uppercut."
     },

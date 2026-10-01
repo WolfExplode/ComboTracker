@@ -84,3 +84,27 @@ test('Lucilla holds through her Basic chain instead of a Heavy', () => {
     const label = createWwMoveLabeler({ '1': 'Lucilla' });
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 400 }, '1'), 'Lucilla Basic 1 (held)');
 });
+
+test('E pressed again in a row follows the skill chain (Augusta: Strike, Leap, Plunge)', () => {
+    const label = createWwMoveLabeler({ '1': 'Agusta', '2': 'Iuno' });
+    const revised = [];
+    label.onRevise = (index, text) => revised.push([index, text]);
+    assert.strictEqual(label(press('f'), '1'), 'Start fight');
+    assert.strictEqual(label(press('e'), '1'), 'Agusta Skill');
+    assert.strictEqual(label({ type: 'wait', mode: 'soft', duration: 800 }, '1'), '');
+    assert.strictEqual(label(press('e'), '1'), 'Agusta Leap');
+    assert.deepStrictEqual(revised, [[1, 'Agusta Strike']]);
+    assert.strictEqual(label(press('e'), '1'), 'Agusta Plunge');
+    // Past the end of the chain, and after any other move, E is a plain Skill again.
+    assert.strictEqual(label(press('e'), '1'), 'Agusta Skill');
+    assert.strictEqual(label(press('lmb'), '1'), 'Agusta Basic 1');
+    assert.strictEqual(label(press('e'), '1'), 'Agusta Skill');
+    assert.strictEqual(revised.length, 1);
+});
+
+test('characters without a skill chain keep naming every E "Skill"', () => {
+    const label = createWwMoveLabeler(names);
+    label.onRevise = () => assert.fail('nothing to revise');
+    assert.strictEqual(label(press('e'), '1'), 'Zani Skill');
+    assert.strictEqual(label(press('e'), '1'), 'Zani Skill');
+});

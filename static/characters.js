@@ -262,6 +262,7 @@ function renderMoves(c) {
             ${hits ? `<ol class="hits">${hits}</ol>` : ''}
             <p><span class="keycap">HOLD LMB</span> ${hold}</p>
             ${entries ? `<ul class="entries">${entries}</ul>` : ''}
+            ${(m.skill_chain || []).length > 1 ? `<p><span class="keycap">E</span><span class="plus">in a row</span> ${m.skill_chain.map(esc).join(' → ')}</p>` : ''}
         </section>
         ${m.notes ? `<section class="move-card notes"><h3>Notes</h3><p>${esc(m.notes)}</p></section>` : ''}
         <section class="move-card">

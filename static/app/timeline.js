@@ -556,7 +556,15 @@ function updateTimeline(steps, opts) {
     };
 
     // Names each step's move ("Zani Basic 2"); steps must be labeled in timeline order.
+    // A later step can rename an earlier one (E, E, E on Augusta becomes Strike, Leap, Plunge).
     const labelMove = appState.showMoveNames ? createWwMoveLabeler(wwSlotNames()) : null;
+    const moveLabelEls = [];
+    if (labelMove) {
+        labelMove.onRevise = (index, text) => {
+            const el = moveLabelEls[index];
+            if (el) { el.textContent = text; el.title = text; }
+        };
+    }
     function appendMoveLabel(tile, step, slot) {
         if (!labelMove) return;
         const text = labelMove(step, slot);
@@ -566,6 +574,7 @@ function updateTimeline(steps, opts) {
         el.textContent = text;
         el.title = text;
         tile.appendChild(el);
+        moveLabelEls.push(el);
     }
 
     const viewport = getEl('comboTimelineViewport');
