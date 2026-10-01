@@ -163,6 +163,7 @@ input[type="search"], select, textarea {
     border-radius: var(--radius);
     padding: 20px;
     min-height: 300px;
+    min-width: 0; /* let the wide Timings table scroll inside it instead of widening the page */
 }
 .empty, .loading { color: var(--text-secondary); padding: 40px 0; text-align: center; }
 .error { color: var(--accent-red); padding: 20px 0; }
@@ -213,6 +214,54 @@ input[type="search"], select, textarea {
 .moves td.inp { width: 1%; white-space: nowrap; }
 .other-moves { margin-top: 12px; font-size: 13px; }
 .other-moves h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin: 0 0 4px; }
+
+/* --- Timings (WuwaLAB frame data) --- */
+.toolbar #timingFilter { width: 220px; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
+.seg button { border: none; border-radius: 0; padding: 4px 10px; font-size: 12px; background: transparent; color: var(--text-secondary); }
+.seg button.on { background: #152E38; color: var(--text-primary); }
+.timings-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-primary); }
+.timings { border-collapse: collapse; width: 100%; font-size: 13px; }
+.timings th {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    text-align: left;
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+    cursor: help;
+}
+.timings th.strong { color: var(--accent-yellow); }
+.timings td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.timings .num { text-align: right; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+.timings td.strong { font-weight: 700; color: var(--text-primary); }
+.timings .zero { color: #4E5866; }
+.timings .tname { min-width: 220px; }
+.timings .hitf { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--text-secondary); min-width: 140px; }
+.timings .sep { color: #4E5866; }
+.timings tr.tsection td {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent-red);
+    padding-top: 16px;
+}
+.timings tbody tr:not(.tsection):hover { background: var(--bg-secondary); }
+.ttags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.ttag {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--accent-yellow);
+    border: 1px solid var(--accent-yellow);
+    border-radius: 3px;
+    padding: 0 5px;
+}
 
 /* --- Rotations --- */
 .detail h3 { font-size: 15px; margin: 18px 0 10px; }
@@ -268,6 +317,8 @@ input[type="search"], select, textarea {
     .topbar { padding: 10px 12px; position: static; }
     .topbar input[type="search"] { flex: 1; width: auto; }
     .who { width: 70px; }
+    .toolbar #timingFilter { flex: 1; width: auto; }
+    .timings .tname { min-width: 170px; }
 }
 
 /* Embedded as the main app's Characters page (characters.html?embed=1): the app shell has the title and nav. */

@@ -1,12 +1,14 @@
 // Characters page: each character's key-input moves (static/data/ww_characters.json, drafted from
-// encore.moe and checked by hand) and community team rotations (AntoCrasher's compilation +
-// rotation transcripts, served by ui_server.py under /api/ww/).
+// encore.moe and checked by hand), ability frame timings (static/data/ww_timings.json, from
+// WuwaLAB) and community team rotations (AntoCrasher's compilation + rotation transcripts,
+// served by ui_server.py under /api/ww/).
 
 // Shown inside the main app's Characters page: hide this page's own back link and title.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
 const ELEMENTS = ['Aero', 'Electro', 'Fusion', 'Glacio', 'Havoc', 'Spectro'];
 const MOVES_URL = 'data/ww_characters.json';
+const TIMINGS_URL = 'data/ww_timings.json';
 
 // Abbreviations from AntoCrasher's rotation hub; each rotation's own list (if any) wins.
 const DEFAULT_GLOSSARY = {
@@ -26,11 +28,22 @@ const state = {
     selectedId: null,
     tab: 'moves',
     moves: new Map(),       // character id -> entry from ww_characters.json
+    timings: null,          // ww_timings.json: {fps, fetched_at, characters: {id: {url, abilities}}}
+    timingFilter: '',
+    timingUnit: readPref('ww-timing-unit', 'f'),   // 'f' frames or 's' seconds
     transcripts: new Map(),
     tracker: null,
 };
 
 const $ = (id) => document.getElementById(id);
+
+function readPref(key, fallback) {
+    try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
+}
+
+function writePref(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* storage blocked: keep it for this visit only */ }
+}
 
 function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -180,6 +193,7 @@ function detailHeader(c) {
     const icon = safeUrl(c.icon);
     const { main, featured } = rotationsFor(c.name);
     const count = (main ? main.teams.length : 0) + featured.length;
+    const t = timingsFor(c);
     return `<div class="detail-head">
         ${icon ? `<img src="${esc(icon)}" alt="">` : ''}
         <div>
@@ -189,6 +203,7 @@ function detailHeader(c) {
     </div>
     <div class="tabs" role="tablist">
         <button type="button" role="tab" data-tab="moves" class="${state.tab === 'moves' ? 'on' : ''}">Moves</button>
+        <button type="button" role="tab" data-tab="timings" class="${state.tab === 'timings' ? 'on' : ''}">Timings${t ? ` <span class="count">${t.abilities.length}</span>` : ''}</button>
         <button type="button" role="tab" data-tab="rotations" class="${state.tab === 'rotations' ? 'on' : ''}">Team rotations <span class="count">${count}</span></button>
     </div>`;
 }
@@ -196,7 +211,9 @@ function detailHeader(c) {
 function renderDetail() {
     const c = state.roster.find((x) => x.id === state.selectedId);
     if (!c) return;
-    const body = state.tab === 'moves' ? renderMoves(c) : renderRotations(c);
+    const body = state.tab === 'moves' ? renderMoves(c)
+        : state.tab === 'timings' ? renderTimings(c)
+        : renderRotations(c);
     $('detail').innerHTML = detailHeader(c) + body;
 }
 
@@ -253,6 +270,89 @@ function renderMoves(c) {
             ${otherHtml ? `<div class="other-moves"><h4>Other named moves</h4>${otherHtml}</div>` : ''}
         </section>
         ${follow ? `<section class="move-card"><h3>Follow-ups</h3><ul class="follow">${follow}</ul></section>` : ''}`;
+}
+
+// --- Timings (frame data from WuwaLAB; static/data/ww_timings.json) ------------
+
+// Columns in WuwaLAB's order, timing columns only (no damage).
+const TIMING_COLS = [
+    { key: 'hits', label: 'Hits', tip: 'Number of hits', frames: false },
+    { key: 'frames', label: 'Frames', tip: 'Full animation length', frames: true },
+    { key: 'cancel', label: 'Cancel', tip: 'Earliest frame the next action can cancel this one', frames: true },
+    { key: 'noswap', label: 'No swap', tip: "Frames before you can swap out", frames: true },
+    { key: 'tstop', label: 'T.stop', tip: 'Time stop: the whole field freezes', frames: true },
+    { key: 'mstop', label: 'M.stop', tip: 'Motion stop: hit-stop on the character', frames: true },
+    { key: 'cd', label: 'CD', tip: 'Cooldown', frames: true },
+];
+
+function timingsFor(c) {
+    return state.timings && state.timings.characters ? state.timings.characters[String(c.id)] : null;
+}
+
+// 73 -> "73f" or "1.22s", per the unit toggle. Zero and missing values are dimmed.
+function fmtFrames(n) {
+    if (n == null) return '<span class="zero">—</span>';
+    const fps = (state.timings && state.timings.fps) || 60;
+    const text = state.timingUnit === 's' ? `${(n / fps).toFixed(2)}s` : `${n}f`;
+    return n === 0 ? `<span class="zero">${text}</span>` : text;
+}
+
+function timingCell(a, col) {
+    const v = a[col.key];
+    if (!col.frames) return v ? String(v) : `<span class="zero">${v ?? '—'}</span>`;
+    return fmtFrames(v);
+}
+
+function timingRow(a) {
+    const tags = (a.tags || []).map((t) => `<span class="ttag">${esc(t)}</span>`).join('');
+    const cells = TIMING_COLS.map((col) =>
+        `<td class="num${col.key === 'frames' ? ' strong' : ''}">${timingCell(a, col)}</td>`).join('');
+    const hitFrames = (a.hit_frames || []).map((f) => fmtFrames(f)).join(' <span class="sep">·</span> ');
+    return `<tr>
+        <td class="tname"><div>${esc(a.name)}</div>${tags ? `<div class="ttags">${tags}</div>` : ''}</td>
+        ${cells}
+        <td class="hitf">${hitFrames || '<span class="zero">—</span>'}</td>
+    </tr>`;
+}
+
+function timingRows(t) {
+    const q = state.timingFilter.toLowerCase();
+    const list = t.abilities.filter((a) => !q || a.name.toLowerCase().includes(q) || a.section.toLowerCase().includes(q));
+    const span = TIMING_COLS.length + 2;
+    let html = '';
+    let section = null;
+    for (const a of list) {
+        if (a.section !== section) {
+            section = a.section;
+            html += `<tr class="tsection"><td colspan="${span}">${esc(section)}</td></tr>`;
+        }
+        html += timingRow(a);
+    }
+    return html || `<tr><td colspan="${span}" class="muted">No abilities match.</td></tr>`;
+}
+
+function renderTimings(c) {
+    const t = timingsFor(c);
+    if (!state.timings) return '<p class="muted">Loading timings…</p>';
+    if (!t) return `<p class="muted">WuwaLAB has no frame data for ${esc(c.name)} yet.</p>`;
+    const fps = state.timings.fps || 60;
+    const head = TIMING_COLS.map((col) =>
+        `<th class="num${col.key === 'frames' ? ' strong' : ''}" title="${esc(col.tip)}">${esc(col.label)}</th>`).join('');
+    const unit = (u, label) =>
+        `<button type="button" data-unit="${u}" class="${state.timingUnit === u ? 'on' : ''}">${label}</button>`;
+    const url = safeUrl(t.url);
+    return `<div class="toolbar">
+            <input type="search" id="timingFilter" placeholder="Filter abilities…" value="${esc(state.timingFilter)}" autocomplete="off">
+            <div class="seg" role="group" aria-label="Units">${unit('f', 'Frames')}${unit('s', 'Seconds')}</div>
+            <span class="muted small">${fps} fps · 1f = ${(1000 / fps).toFixed(2)} ms</span>
+        </div>
+        <div class="timings-wrap">
+            <table class="timings">
+                <thead><tr><th>Name</th>${head}<th title="Frame each hit lands on">Hit frames</th></tr></thead>
+                <tbody id="timingRows">${timingRows(t)}</tbody>
+            </table>
+        </div>
+        <p class="src-line">Frame data from ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">WuwaLAB</a>` : 'WuwaLAB'}${state.timings.fetched_at ? `, copied ${esc(state.timings.fetched_at.split(' ')[0])}` : ''}. Timing columns only. Hover a column name for what it means.</p>`;
 }
 
 // --- Rotations ----------------------------------------------------------------
@@ -404,6 +504,13 @@ function bindEvents() {
             renderDetail();
             return;
         }
+        const unit = e.target.closest('[data-unit]');
+        if (unit) {
+            state.timingUnit = unit.dataset.unit;
+            writePref('ww-timing-unit', state.timingUnit);
+            renderDetail();
+            return;
+        }
         const act = e.target.closest('[data-act]');
         if (!act) return;
         const teamEl = act.closest('.team');
@@ -415,6 +522,14 @@ function bindEvents() {
                 () => { ta.select(); document.execCommand('copy'); }
             );
         } else if (act.dataset.act === 'save') saveAsCombo(teamEl);
+    });
+    // Filtering re-renders only the table body so the filter box keeps focus.
+    $('detail').addEventListener('input', (e) => {
+        if (e.target.id !== 'timingFilter') return;
+        state.timingFilter = e.target.value.trim();
+        const c = state.roster.find((x) => x.id === state.selectedId);
+        const t = c && timingsFor(c);
+        if (t) $('timingRows').innerHTML = timingRows(t);
     });
     $('rawBtn').addEventListener('click', downloadRaw);
     window.addEventListener('hashchange', () => {
@@ -441,6 +556,16 @@ async function load() {
     renderRoster();
     const id = Number(location.hash.slice(1)) || state.selectedId;
     if (id) selectCharacter(id, { pushHash: false });
+
+    try {
+        const res = await fetch(TIMINGS_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        state.timings = await res.json();
+    } catch (e) {
+        state.timings = { characters: {} };
+        showNotice(`Couldn't load ability timings: ${e.message}`, 'warn');
+    }
+    if (state.selectedId) renderDetail();
 
     try {
         const rot = await api('rotations');
