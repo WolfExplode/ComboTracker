@@ -496,6 +496,7 @@ function bindResizer() {
     const saved = Number(readPref(ROSTER_WIDTH_KEY, 0));
     if (saved) setRosterWidth(saved);
     const bar = $('rosterResizer');
+    if (!bar) return;
     bar.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         bar.setPointerCapture(e.pointerId);
