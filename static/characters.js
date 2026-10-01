@@ -343,9 +343,9 @@ function abilityInput(a) {
     const stage = (name.match(/\s(\d+)(\s*\([^)]*\))*$/) || [])[1];
     const held = /\bhold\b|\bheld\b|charged/i.test(name);
     switch (a.genre) {
-    case 'BASIC': return midAir ? 'space, lmb' : `lmb${stage || ''}`;
-    case 'COUNTER': return midAir ? 'space, rmb, lmb' : 'rmb, lmb';
-    case 'HEAVY': return midAir ? 'space, hold(lmb)' : 'hold(lmb)';
+    case 'BASIC': return midAir ? 'airborne → lmb' : `lmb${stage || ''}`;
+    case 'COUNTER': return midAir ? 'airborne → rmb → lmb' : 'rmb → lmb';
+    case 'HEAVY': return midAir ? 'airborne → hold(lmb)' : 'hold(lmb)';
     case 'SKILL': return held ? 'hold(e)' : 'e';
     case 'LIBERATION': return 'r';
     case 'INTRO': return 'swap in';
