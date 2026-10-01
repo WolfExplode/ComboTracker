@@ -481,6 +481,44 @@ function saveAsCombo(teamEl) {
 // Events + boot
 // ---------------------------------------------------------------------------
 
+// Drag the bar between the roster and the detail panel to resize the roster (remembered per
+// browser); double-click resets it.
+const ROSTER_WIDTH_KEY = 'ww-roster-width';
+const ROSTER_MIN = 200, ROSTER_MAX = 900;
+
+function setRosterWidth(px) {
+    const w = Math.round(Math.min(ROSTER_MAX, Math.max(ROSTER_MIN, px)));
+    document.documentElement.style.setProperty('--roster-w', `${w}px`);
+    return w;
+}
+
+function bindResizer() {
+    const saved = Number(readPref(ROSTER_WIDTH_KEY, 0));
+    if (saved) setRosterWidth(saved);
+    const bar = $('rosterResizer');
+    bar.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        bar.setPointerCapture(e.pointerId);
+        document.body.classList.add('resizing');
+        const startX = e.clientX;
+        const startW = $('roster').getBoundingClientRect().width;
+        let width = startW;
+        const move = (ev) => { width = setRosterWidth(startW + ev.clientX - startX); };
+        const up = () => {
+            bar.removeEventListener('pointermove', move);
+            document.body.classList.remove('resizing');
+            writePref(ROSTER_WIDTH_KEY, String(width));
+        };
+        bar.addEventListener('pointermove', move);
+        bar.addEventListener('pointerup', up, { once: true });
+        bar.addEventListener('pointercancel', up, { once: true });
+    });
+    bar.addEventListener('dblclick', () => {
+        document.documentElement.style.removeProperty('--roster-w');
+        try { localStorage.removeItem(ROSTER_WIDTH_KEY); } catch { /* ignore */ }
+    });
+}
+
 function bindEvents() {
     $('search').addEventListener('input', (e) => {
         state.query = e.target.value.trim();
@@ -599,5 +637,6 @@ async function downloadRaw() {
 
 renderFilters();
 bindEvents();
+bindResizer();
 watchTracker();
 load();

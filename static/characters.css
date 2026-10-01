@@ -13,6 +13,7 @@
     --line: #232933;
     --line-strong: #343C48;
     --radius: 10px;
+    --roster-w: 360px;
 
     --el-aero: #55d6a8;
     --el-electro: #b67cff;
@@ -115,8 +116,8 @@ input[type="search"], select, textarea {
 /* --- Layout --- */
 .layout {
     display: grid;
-    grid-template-columns: minmax(260px, 360px) 1fr;
-    gap: 20px;
+    grid-template-columns: var(--roster-w) 12px minmax(0, 1fr);
+    gap: 4px;
     padding: 20px;
     align-items: start;
 }
@@ -305,9 +306,25 @@ input[type="search"], select, textarea {
 .as-inputs .row { display: flex; flex-wrap: wrap; gap: 6px; }
 .src-line { margin-top: 14px; font-size: 12px; color: var(--text-secondary); }
 
+/* Drag handle between the roster and the detail panel (characters.js) */
+.splitter {
+    position: sticky;
+    top: 76px;
+    align-self: stretch;
+    max-height: calc(100vh - 96px);
+    cursor: col-resize;
+    display: flex;
+    justify-content: center;
+}
+.splitter::before { content: ''; width: 2px; border-radius: 1px; background: var(--line); }
+.splitter:hover::before,
+.resizing .splitter::before { background: var(--accent-blue); }
+.resizing { cursor: col-resize; user-select: none; }
+
 /* --- Phones / narrow windows --- */
 @media (max-width: 900px) {
-    .layout { grid-template-columns: 1fr; padding: 12px; }
+    .layout { grid-template-columns: 1fr; padding: 12px; gap: 20px; }
+    .splitter { display: none; }
     .roster { position: static; max-height: 260px; }
     .skill-body { grid-template-columns: 1fr; }
     .team { grid-template-columns: 1fr auto; }
@@ -324,5 +341,6 @@ input[type="search"], select, textarea {
 .embed .topbar { position: static; background: transparent; padding: 14px 16px 0; border-bottom: 0; }
 .embed .topbar .back,
 .embed .topbar h1 { display: none; }
-.embed .roster { top: 12px; max-height: calc(100vh - 24px); }
+.embed .roster,
+.embed .splitter { top: 12px; max-height: calc(100vh - 24px); }
 .embed .layout { padding: 16px; }
