@@ -176,3 +176,30 @@ test('a step lists the moves it could be, and a picked move names it and steers 
     assert.strictEqual(other(press('lmb'), '1', 'Nope'), 'Shorekeeper Basic 1');
     assert.deepStrictEqual(createWwMoveLabeler({ '1': 'Shorekeeper' })(press('q'), '1') && [], []);
 });
+
+test('the step before rules moves out of the list', () => {
+    const { setWwTimingData } = require('../static/ww_moves.js');
+    setWwTimingData(require('../static/data/ww_timings.json'));
+    const sk = () => createWwMoveLabeler({ '1': 'Shorekeeper' });
+    const short = (l) => l.choices.map((n) => n.replace(/^[^:]+:\s*/, ''));
+
+    // After a dodge: the Dodge Counter or Basic 1 (plus Forte moves, which keys can't rule out).
+    let label = sk();
+    label(press('rmb'), '1');
+    label(press('lmb'), '1');
+    assert.deepStrictEqual(short(label).slice(0, 2), ['Origin Calculus 2 (Dodge Counter)', 'Origin Calculus 1']);
+    assert.ok(!short(label).some((n) => /Calculus [234]$|Mid-Air/.test(n)), short(label).join(', '));
+
+    // Mid-chain: the next Basic or Basic 1, never a Counter or Mid-Air attack.
+    label = sk();
+    label(press('lmb'), '1');
+    label(press('lmb'), '1');
+    assert.ok(short(label).includes('Origin Calculus 2'));
+    assert.ok(!short(label).some((n) => /Calculus [34]$|Dodge Counter|Mid-Air/.test(n)), short(label).join(', '));
+
+    // After a jump: only Mid-Air attacks.
+    label = sk();
+    label(press('space'), '1');
+    label(press('lmb'), '1');
+    assert.ok(short(label).length > 0 && short(label).every((n) => /Mid-Air/.test(n)), short(label).join(', '));
+});

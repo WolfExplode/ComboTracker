@@ -78,6 +78,14 @@ function setWwCharacterData(doc) {
 }
 
 /** Load ww_timings.json ({characters: {id: {name, abilities}}}) for Concerto and move choices. */
+let wwTimingFps = 60;
+
+/** A move's animation length: "48f · 0.80s" ('' when unknown). */
+function wwFramesText(row) {
+    const f = row && row.frames;
+    return f > 0 ? `${f}f · ${(f / wwTimingFps).toFixed(2)}s` : '';
+}
+
 function setWwTimingData(doc) {
     const tables = {};
     Object.values((doc && doc.characters) || {}).forEach((c) => {
@@ -85,9 +93,11 @@ function setWwTimingData(doc) {
             name: String(a.name || ''),
             genre: String(a.genre || ''),
             concerto: typeof a.concerto === 'number' ? a.concerto : 0,
+            frames: typeof a.frames === 'number' ? a.frames : 0,
         }));
     });
     wwAbilityTables = tables;
+    wwTimingFps = Number(doc && doc.fps) || 60;
 }
 
 /** "Basic: Origin Calculus 2 (Dodge Counter)" -> "Origin Calculus 2 (Dodge Counter)". */
@@ -129,13 +139,37 @@ const WW_KEY_GENRES = {
 };
 
 /**
+ * Drop the moves the step before rules out. ctx = { prevKey, nextStage }: the key pressed just
+ * before, and the Basic stage the chain is on (1 after a reset). LMB right after a jump is a
+ * Mid-Air attack; after a dodge it's the Dodge Counter or Basic 1; otherwise it's the next Basic
+ * in the chain (or Basic 1), never a Mid-Air attack or Counter. Moves without a stage number
+ * (Forte moves like Shorekeeper's Transmutation) depend on state the keys don't show, so they stay.
+ */
+function wwPossibleRows(list, key, ctx) {
+    if (!ctx || (key !== 'lmb' && key !== 'hold:lmb')) return list;
+    const midAir = (r) => /mid-air/i.test(r.name);
+    const stageOf = (r) => Number((r.name.match(/\s(\d+)(\s*\([^)]*\))*$/) || [])[1]) || 0;
+    const airborne = ctx.prevKey === 'space';
+    const keep = list.filter((r) => {
+        if (midAir(r) !== airborne) return false;
+        if (airborne) return true;
+        const stage = stageOf(r);
+        if (r.genre === 'COUNTER') return ctx.prevKey === 'rmb';
+        if (r.genre !== 'BASIC' || !stage) return true;
+        if (ctx.prevKey === 'rmb') return stage === 1;
+        return stage === 1 || stage === ctx.nextStage;
+    });
+    return keep.length ? keep : list;
+}
+
+/**
  * Every WuwaLAB move this step could be, best guess first. move = what the labeler decided
  * ({ kind, stage, name }), key = 'lmb', 'hold:lmb', 'e', 'intro', ...
  */
-function wwMoveCandidates(rule, key, move) {
+function wwMoveCandidates(rule, key, move, ctx) {
     const rows = wwAbilityTables[rule && rule.key] || [];
     const genres = WW_KEY_GENRES[key] || [];
-    const list = rows.filter((r) => genres.includes(r.genre));
+    const list = wwPossibleRows(rows.filter((r) => genres.includes(r.genre)), key, ctx);
     if (list.length < 2) return list.map((r) => r.name);
     const guess = wwDefaultRow(rule, move || {});
     const stage = Number(move && move.stage) || 0;
@@ -270,14 +304,18 @@ function createWwMoveLabeler(slotNames) {
         const key = wwStepKey(step);
         const before = concerto[s] || 0;
         stepMove = null;
+        const r0 = rulesFor(s);
+        const entry = after && r0.entry ? Number(r0.entry[after]) : 0;
+        const ctx = { prevKey: lastKey, nextStage: entry > 0 ? entry : (r0.basic > 0 ? (basicCount % r0.basic) + 1 : basicCount + 1) };
         let text = name(step, slot);
         const isHold = step && (step.type === 'hold' || step.type === 'hold_with_body');
         const choiceKey = WW_SLOTS.includes(key) ? 'intro'
             : key === 'f' && text === 'Tune Break' ? 'tune_break'
                 : `${isHold ? 'hold:' : ''}${key}`;
-        label.choices = text && stepMove ? wwMoveCandidates(rulesFor(s), choiceKey, stepMove) : [];
+        label.choices = text && stepMove ? wwMoveCandidates(rulesFor(s), choiceKey, stepMove, ctx) : [];
         // The keys for each choice (lmb2, rmb → lmb, ...), shown next to the names.
         label.choiceInputs = label.choices.map((n) => wwAbilityInput(wwRowNamed(rulesFor(s), n) || {}));
+        label.choiceFrames = label.choices.map((n) => wwFramesText(wwRowNamed(rulesFor(s), n)));
         const row = text && chosen ? wwRowNamed(rulesFor(s), chosen) : null;
         if (row) {
             concerto[s] = Math.min(WW_CONCERTO_FULL, before + Math.max(0, row.concerto));
@@ -299,6 +337,7 @@ function createWwMoveLabeler(slotNames) {
     label.onRevise = null;
     label.choices = [];
     label.choiceInputs = [];
+    label.choiceFrames = [];
     /** Concerto of the character in `slot` after the steps labeled so far, in points (0-100). */
     label.concerto = (slot) => (concerto[slot] || 0) / 100;
 
