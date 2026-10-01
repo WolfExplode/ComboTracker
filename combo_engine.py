@@ -226,7 +226,7 @@ class ComboTrackerEngine:
                 logger.debug("Emitter raised while sending message", exc_info=True)
 
     def _emit_stats_and_fail(self):
-        self._send({"type": "stat_update", "stats": self.stats_text()})
+        self._send(ui.stat_update_payload(self))
         self._send({"type": "fail_update", "fail_by_step": self.failures_by_step()})
 
     # -------------------------
@@ -337,6 +337,9 @@ class ComboTrackerEngine:
 
     def stats_text(self):
         return ui.stats_text(self)
+
+    def stat_update_payload(self) -> dict[str, Any]:
+        return ui.stat_update_payload(self)
 
     def failures_by_step(self) -> dict[str, int]:
         return ui.failures_by_step(self)
@@ -711,7 +714,12 @@ class ComboTrackerEngine:
                 self._emit_stats_and_fail()
                 self._send({"type": "timeline_update", "steps": self.timeline_steps()})
                 self._send({"type": "status", "text": st.text, "color": st.color})
-                self._send({"type": "combo_list", "combos": sorted(self.combos.keys()), "active": self.active_combo_name})
+                self._send({
+                    "type": "combo_list",
+                    "combos": sorted(self.combos.keys()),
+                    "active": self.active_combo_name,
+                    "overview": ui.combo_overview(self),
+                })
 
     # -------------------------
     # Core state machine

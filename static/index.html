@@ -5,328 +5,463 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WuWa Combo Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <base target="_blank">
+    <link rel="stylesheet" href="shell.css">
 </head>
 
 <body>
-    <div class="container">
+    <div class="app" id="app">
 
-        <!-- SECTION 1: Combo -->
-        <section class="section">
-            <details open class="section-details">
-                <summary>
-                    <h2>Combo Input</h2>
-                </summary>
-                <div class="form-grid">
-                    <label>Selected:</label>
-                    <div class="two-col-row">
-                        <select id="comboSelector">
-                            <option value="">— Select Combo —</option>
-                        </select>
-                        <input type="text" id="comboName" placeholder="Combo name">
+        <!-- Left rail (BetterGhub-style): logo, pages, collapse, connection status -->
+        <aside class="rail" aria-label="Combo Tracker">
+            <div class="brand">
+                <div class="brand-mark">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 9 11 13 14 20 6"/><polyline points="15 6 20 6 20 11"/></svg>
+                </div>
+                <span class="wordmark">Combo Tracker</span>
+            </div>
+
+            <nav class="rail-nav" aria-label="Pages">
+                <button type="button" class="navbtn" data-page="practice" title="Practice">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                    <span class="navlabel">Practice</span>
+                </button>
+                <button type="button" class="navbtn" data-page="combos" title="Combos">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="14" y2="13"/></svg>
+                    <span class="navlabel">Combos</span>
+                </button>
+                <button type="button" class="navbtn" data-page="teams" title="Teams">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M15 14.5c2.8 0 5 2.2 5 5"/></svg>
+                    <span class="navlabel">Teams</span>
+                </button>
+                <button type="button" class="navbtn" data-page="characters" title="Characters">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    <span class="navlabel">Characters</span>
+                </button>
+                <button type="button" class="navbtn" data-page="history" title="History">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>
+                    <span class="navlabel">History</span>
+                </button>
+                <button type="button" class="navbtn" data-page="settings" title="Settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+                    <span class="navlabel">Settings</span>
+                </button>
+            </nav>
+
+            <div class="rail-spacer"></div>
+
+            <button type="button" class="navbtn" id="railToggle" title="Collapse or expand the sidebar" aria-label="Collapse or expand the sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
+                <span class="navlabel">Collapse sidebar</span>
+            </button>
+
+            <div class="status-card" id="railStatus" title="Connecting…">
+                <div class="status-card-row">
+                    <span class="status-dot" id="railStatusDot"></span>
+                    <span class="status-text status-title" id="railStatusTitle">Connecting…</span>
+                </div>
+                <span class="status-text status-detail" id="railStatusDetail">Waiting for the tracker</span>
+            </div>
+        </aside>
+
+        <main class="main">
+            <!-- Page header: overline + title, and the active combo picker -->
+            <header class="head">
+                <div class="head-titles">
+                    <span class="overline" id="pageOverline">Now practicing</span>
+                    <h1 id="pageTitle">Practice</h1>
+                </div>
+                <div class="picker">
+                    <button type="button" id="comboPicker" class="picker-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="comboMenu" aria-label="Choose the active combo">
+                        <span class="avatars" id="pickerAvatars"></span>
+                        <span class="picker-text">
+                            <span class="picker-team" id="pickerTeam">No team</span>
+                            <span class="picker-name" id="pickerName">Select a combo</span>
+                        </span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="comboMenu" class="picker-menu" role="listbox" aria-label="Combos" hidden></div>
+                </div>
+            </header>
+
+            <!-- ============ PRACTICE ============ -->
+            <section class="page" data-page="practice" aria-label="Practice">
+                <!-- Compact stat cards; values are filled from the backend's "Label: value" texts -->
+                <div class="stat-cards">
+                    <div class="stat-card" id="statsResult"><span class="stat-label">Success / fail</span><span class="stat-value">—</span></div>
+                    <div class="stat-card" id="statsBest"><span class="stat-label">Best</span><span class="stat-value">—</span></div>
+                    <div class="stat-card" id="statsAvg"><span class="stat-label">Average</span><span class="stat-value">—</span></div>
+                    <div class="stat-card time-display-with-help" tabindex="0" id="minTimeDisplay" aria-describedby="min-time-help-tooltip">
+                        <span class="stat-label">Fastest</span><span class="stat-value">—</span>
+                        <div id="min-time-help-tooltip" class="input-help-tooltip" role="tooltip">
+                            <p>This combo tracker is meant to track real time, timing data. not in game timing data.</p>
+                            <p>For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s</p>
+                        </div>
                     </div>
+                    <div class="stat-card" id="difficultyDisplay"><span class="stat-label">Difficulty</span><span class="stat-value">—</span></div>
+                    <div class="stat-card" id="userDifficultyDisplay"><span class="stat-label">Your difficulty</span><span class="stat-value">—</span></div>
+                    <div class="stat-card" id="apmDisplay"><span class="stat-label">Practical APM</span><span class="stat-value">—</span></div>
+                    <div class="stat-card" id="apmMaxDisplay"><span class="stat-label">Max APM</span><span class="stat-value">—</span></div>
+                </div>
 
-                    <label>Manage:</label>
-                    <div class="two-col-buttons">
-                        <button id="saveBtn" type="button">Save / Update</button>
-                        <button id="newBtn" type="button">New Combo</button>
-                        <button id="deleteBtn" type="button" class="danger">Delete</button>
-                        <button id="loadJsonBtn" type="button" title="loads from combos.json file in same directory as the app (discards unsaved editor changes)">Load from JSON</button>
+                <!-- Visual Combo Timeline (kept as before; also the OBS ?view=timeline overlay) -->
+                <section class="section timeline-section">
+                    <div class="combo-steps-header">
+                        <h2 style="margin: 0;">Combo Steps</h2>
+                        <div class="combo-steps-controls">
+                            <span class="toggle-label">Images</span>
+                            <input type="checkbox" id="stepDisplayToggle" class="toggle-switch" title="Toggle custom images for combo steps">
+
+                            <span class="toggle-label">Auto scroll</span>
+                            <input type="checkbox" id="autoScrollToggle" class="toggle-switch" title="Auto scroll combo steps as you advance">
+
+                            <span class="toggle-label">Move names</span>
+                            <input type="checkbox" id="moveNamesToggle" class="toggle-switch" title="Name each step's move, like Zani Basic 2 or Phoebe Liberation">
+
+                            <span class="toggle-label">Show attempt history</span>
+                            <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
+
+                            <span class="toggle-label">Edit steps</span>
+                            <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps" checked>
+
+                            <span class="toggle-label">Collapse chains</span>
+                            <input type="checkbox" id="collapseChainsToggle" class="toggle-switch" title="Show adjacent LMB press+wait steps as one chained tile">
+
+                            <span class="toggle-label">No fail</span>
+                            <input type="checkbox" id="noFailMode" class="toggle-switch" title="No fail: missed inputs are marked red and the combo continues (no retry)">
+
+                            <button type="button" id="legendBtn" class="subtle icon-btn" title="What the colors mean" aria-label="Show color legend" aria-expanded="false" aria-controls="legendPanel">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            </button>
+                            <button type="button" id="openTimelineWindowBtn" class="subtle icon-btn" title="Open timeline in a new window for OBS Window Capture" aria-label="Open timeline in new window">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                            </button>
+                        </div>
                     </div>
+                    <div id="legendPanel" class="legend-panel hidden" role="region" aria-label="Color legend">
+                        <div class="legend-group">
+                            <h4>Step types</h4>
+                            <div class="legend-item"><span class="legend-swatch sw-press"></span>Tap a key</div>
+                            <div class="legend-item"><span class="legend-swatch sw-wait"></span>Tap, then wait (fills yellow as time passes)</div>
+                            <div class="legend-item"><span class="legend-swatch sw-short"></span>Short wait, 150ms or less</div>
+                            <div class="legend-item"><span class="legend-swatch sw-hold"></span>Hold the key (fills green while held)</div>
+                            <div class="legend-item"><span class="legend-swatch sw-optional"></span>Optional step, can be skipped</div>
+                            <div class="legend-item"><span class="legend-swatch sw-group"></span>Group: press these in any order</div>
+                            <div class="legend-item"><span class="legend-swatch sw-sequence"></span>Sequence inside a group, in order</div>
+                        </div>
+                        <div class="legend-group">
+                            <h4>Progress</h4>
+                            <div class="legend-item"><span class="legend-swatch sw-active"></span>Current step (pulses)</div>
+                            <div class="legend-item"><span class="legend-swatch sw-done"></span>Done</div>
+                            <div class="legend-item"><span class="legend-swatch sw-miss"></span>Missed, wrong key or too early</div>
+                        </div>
+                        <div class="legend-group">
+                            <h4>On each tile</h4>
+                            <div class="legend-item"><span class="legend-key">E</span>Corner letter: the key to press</div>
+                            <div class="legend-item"><span class="legend-key">x3</span>Chained LMB presses shown as one tile</div>
+                            <div class="legend-item"><span class="legend-key">ms</span>Wait or hold length; wider tiles last longer</div>
+                            <div class="legend-item"><span class="legend-key">Aa</span>Bottom text: the move's name</div>
+                        </div>
+                    </div>
+                    <div id="statusDisplay" class="status-ready" style="margin-bottom: 8px;">Status: Select a combo to start
+                    </div>
+                    <div id="comboTimelineViewport" class="timeline-viewport">
+                        <div id="comboTimeline" class="timeline timeline-track">
+                            <!-- Steps will be rendered here -->
+                        </div>
+                    </div>
+                </section>
 
-                    <label>Auto transcribe</label>
-                    <div class="transcribe-row">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="transcribeModeToggle" title="Press your start key to begin; Esc stops. Include the start key in Valid keys so it is recorded.">
-                            Record combo (Esc to stop)
-                        </label>
-                        <div id="transcribeValidKeysWrap" class="transcribe-valid-keys-wrap hidden">
-                            <label>Start key (press this key to begin recording):</label>
-                            <input type="text" id="transcribeStartKey" placeholder="f" maxlength="32" class="transcribe-valid-input transcribe-start-key-input" title="Single key token (e.g. f, q, space, lmb). Must appear in Valid keys to be transcribed.">
-                            <label>Valid keys (only these keys will be transcribed):</label>
-                            <input type="text" id="transcribeValidKeys" placeholder="f, e, q, r, lmb, rmb, 1, 2, 3" class="transcribe-valid-input">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="transcribeStripWaitToggle" checked>
-                                Strip timings for key presses under:
-                                <input type="text" id="transcribeStripWaitMs" maxlength="8" inputmode="numeric"
-                                    class="transcribe-valid-input transcribe-start-key-input" placeholder=""
-                                    title="Will not strip timings if left empty"
+                <!-- Attempt log -->
+                <section class="card attempt-card">
+                    <div class="attempt-header">
+                        <h2 class="card-title">Attempt log</h2>
+                        <div class="attempt-header-actions">
+                            <label class="attempt-log-toggle" title="When off, attempts are not added to the log below">
+                                <span class="toggle-label">Log attempts</span>
+                                <input type="checkbox" id="logAttemptsToggle" class="toggle-switch">
                             </label>
+                            <button id="clearBtn" type="button" class="btn danger" title="Clear history and stats for this combo">Clear history</button>
                         </div>
                     </div>
-
-                    <label class="label-with-input-help">Inputs:
-                        <span class="input-help-icon" tabindex="0" aria-describedby="input-help-tooltip">ⓘ</span>
-                        <span id="input-help-tooltip" class="input-help-tooltip" role="tooltip">
-                            <strong>Mouse:</strong> LMB, RMB, MMB<br>
-                            <strong>Hold:</strong> <code>hold(space,0.2)</code><br>
-                            <strong>Spam:</strong> <code>spam(lmb,4.4s)</code> repeatedly taps for that span<br>
-                            <strong>Animation lock:</strong> <code>wait(r, 1.5)</code> for the key and its non-interruptible animation<br>
-                            <strong>Key + wait:</strong> <code>f, wait:0.23s</code> for the key and its interruptible animation<br>
-                            <strong>Any-order:</strong> <code>[q, e, lmb, 1]</code> can press in any order<br>
-                            <strong>Sequence:</strong> <code>{hold(e, 0.30), e}</code> must do in that order<br>
-                            <strong>Examples:</strong><br>
-                            <code>[lmb, rmb, {hold(e, 0.30), e}]</code> can press in any order but must complete sequence once started<br>
-                        </span>
-                    </label>
-                    <div class="combo-input-wrap">
-                        <div class="combo-input-highlight" id="comboInputHighlight" aria-hidden="true"></div>
-                        <textarea id="comboInputs" rows="6" spellcheck="false"
-                            placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
-                    </div>
-
-                    <label>Expected time:</label>
-                    <input type="text" id="comboExpectedTime" placeholder="e.g., 1.05s or 1050ms">
-
-                    <label>Your difficulty:</label>
-                    <input type="text" id="comboUserDifficulty" placeholder="0–10 (optional)">
-
-                    <label class="label-with-input-help">Combo Enders:
-                        <span class="input-help-icon" tabindex="0" aria-describedby="enders-help-tooltip">ⓘ</span>
-                        <span id="enders-help-tooltip" class="input-help-tooltip" role="tooltip">
-                            End the combo when pressed, but only if that ability is off cooldown.<br>
-                            <strong>Notation:</strong> <code>key:cooldown</code> e.g. <code>q:1.05s</code>
-                        </span>
-                    </label>
-                    <input type="text" id="comboEnders" placeholder="1:3s, 2:3s, 3:3s, e:2s, q:2s, r:2s, space:2s">
-
-                    <label class="no-fail-label">Practice mode?</label>
-                    <div class="two-col-row no-fail-row">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="noFailMode" title="No fail: missed inputs are marked red and the combo continues (no retry)">
-                            (Combo does not end on missed inputs)
-                        </label>
-                    </div>
-
-                    <label class="no-fail-label">Auto replay mode</label>
-                    <div class="transcribe-row">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="macroModeToggle" title="play the current combo like a macro. Esc always stops.">
-                            key input macro (Esc always hard-stops)
-                        </label>
-                        <div id="macroSettingsWrap" class="transcribe-valid-keys-wrap hidden">
-                            <label>Start key (press to begin replay):</label>
-                            <input type="text" id="macroStartKey" placeholder="f8" maxlength="32"
-                                class="transcribe-valid-input transcribe-start-key-input"
-                                title="Key token to start replaying (e.g. f8, home). Must not appear in your combo inputs.">
-                            <label>Stop key (press to abort replay):</label>
-                            <input type="text" id="macroStopKey" placeholder="f9" maxlength="32"
-                                class="transcribe-valid-input transcribe-start-key-input"
-                                title="Key token to stop the macro mid-playback. Leave blank to use only Esc. Must not appear in your combo inputs.">
-                            <label>Spam keys delay in ms:</label>
-                            <input type="text" id="macroSpamIntervalMs" placeholder="100" maxlength="8" inputmode="numeric"
-                                class="transcribe-valid-input transcribe-start-key-input"
-                                title="presses chained keys to mimic player input buffering (will not spam if left empty)">
+                    <div id="resultsTable" class="results-table">
+                        <div class="table-header">
+                            <span>Input</span>
+                            <span>Step Time (ms)</span>
+                            <span>Total Time(ms)</span>
+                            <span>Avg Step Time (ms)</span>
                         </div>
+                        <div id="resultsBody"></div>
                     </div>
-                    
-                    <details class="collapsible demo-video-details" id="demoVideoDetails">
-                        <summary>Demo video</summary>
-                        <div class="collapsible-body">
-                            <div class="demo-video-row">
-                                <input type="url" id="comboDemoVideo" placeholder="https://youtu.be/... or https://www.youtube.com/watch?v=..." class="demo-video-input">
+                    <p class="muted small" id="attemptLogOffNote">Turn on Log attempts to list each step's time here.</p>
+                </section>
+            </section>
+
+            <!-- ============ COMBOS ============ -->
+            <section class="page" data-page="combos" aria-label="Combos" hidden>
+                <div class="editor">
+                    <section class="card combo-list-card">
+                        <div class="combo-list-tools">
+                            <label for="comboSearch" class="sr-only">Search combos</label>
+                            <input id="comboSearch" type="search" class="input" placeholder="Search combos" autocomplete="off">
+                            <button id="newBtn" type="button" class="btn primary icon-only" title="New combo" aria-label="New combo">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            </button>
+                        </div>
+                        <div id="comboList" class="combo-list" role="listbox" aria-label="Your combos"></div>
+                    </section>
+
+                    <div class="editor-main">
+                        <section class="card">
+                            <div class="formgrid">
+                                <div class="field">
+                                    <label for="comboName">Combo name</label>
+                                    <input type="text" id="comboName" class="input" placeholder="Combo name">
+                                </div>
+                                <div class="field">
+                                    <label for="wwTeamSelect">Team</label>
+                                    <select id="wwTeamSelect" class="input">
+                                        <option value="">— No team —</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="comboInputs" class="label-with-input-help">Inputs
+                                    <span class="input-help-icon" tabindex="0" aria-describedby="input-help-tooltip">ⓘ</span>
+                                    <span id="input-help-tooltip" class="input-help-tooltip" role="tooltip">
+                                        <strong>Mouse:</strong> LMB, RMB, MMB<br>
+                                        <strong>Hold:</strong> <code>hold(space,0.2)</code><br>
+                                        <strong>Spam:</strong> <code>spam(lmb,4.4s)</code> repeatedly taps for that span<br>
+                                        <strong>Animation lock:</strong> <code>wait(r, 1.5)</code> for the key and its non-interruptible animation<br>
+                                        <strong>Key + wait:</strong> <code>f, wait:0.23s</code> for the key and its interruptible animation<br>
+                                        <strong>Any-order:</strong> <code>[q, e, lmb, 1]</code> can press in any order<br>
+                                        <strong>Sequence:</strong> <code>{hold(e, 0.30), e}</code> must do in that order<br>
+                                        <strong>Examples:</strong><br>
+                                        <code>[lmb, rmb, {hold(e, 0.30), e}]</code> can press in any order but must complete sequence once started<br>
+                                    </span>
+                                </label>
+                                <div class="combo-input-wrap">
+                                    <div class="combo-input-highlight" id="comboInputHighlight" aria-hidden="true"></div>
+                                    <textarea id="comboInputs" rows="5" spellcheck="false"
+                                        placeholder="a, w, wait:0.2, LMB, hold(space,0.3), d, RMB"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="reads-as" id="readsAs" hidden>
+                                <span class="reads-as-label">Reads as</span>
+                                <div class="reads-as-items" id="readsAsItems"></div>
+                            </div>
+
+                            <div class="formgrid">
+                                <div class="field">
+                                    <label for="comboExpectedTime">Target time</label>
+                                    <input type="text" id="comboExpectedTime" class="input" placeholder="e.g., 1.05s or 1050ms">
+                                </div>
+                                <div class="field">
+                                    <label for="comboUserDifficulty">Your difficulty (0 to 10)</label>
+                                    <input type="text" id="comboUserDifficulty" class="input" placeholder="Optional">
+                                </div>
+                                <div class="field">
+                                    <label for="comboEnders" class="label-with-input-help">Combo enders
+                                        <span class="input-help-icon" tabindex="0" aria-describedby="enders-help-tooltip">ⓘ</span>
+                                        <span id="enders-help-tooltip" class="input-help-tooltip" role="tooltip">
+                                            End the combo when pressed, but only if that ability is off cooldown.<br>
+                                            <strong>Notation:</strong> <code>key:cooldown</code> e.g. <code>q:1.05s</code>
+                                        </span>
+                                    </label>
+                                    <input type="text" id="comboEnders" class="input" placeholder="1:3s, 2:3s, 3:3s, e:2s, q:2s, r:2s, space:2s">
+                                </div>
+                                <div class="field">
+                                    <label for="comboDemoVideo">Demo video</label>
+                                    <input type="url" id="comboDemoVideo" class="input" placeholder="https://youtu.be/...">
+                                </div>
                             </div>
                             <div id="demoVideoEmbedWrap" class="demo-video-embed-wrap hidden">
                                 <iframe id="demoVideoEmbed" width="560" height="315" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
                             </div>
-                        </div>
-                    </details>
+
+                            <div class="form-actions">
+                                <button id="deleteBtn" type="button" class="btn danger">Delete</button>
+                                <div class="form-actions-right">
+                                    <button id="practiceBtn" type="button" class="btn">Practice it</button>
+                                    <button id="saveBtn" type="button" class="btn primary" title="Save (Ctrl+S)">Save</button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="card">
+                            <h2 class="card-title">Record or replay</h2>
+                            <div class="chips">
+                                <label class="chip" title="Press your start key to begin; Esc stops. Include the start key in Keys to record so it is recorded.">
+                                    <input type="checkbox" id="transcribeModeToggle" class="chip-input">
+                                    <span class="sw" aria-hidden="true"></span>Record combo from key presses
+                                </label>
+                                <label class="chip" title="Play the current combo like a macro. Esc always stops.">
+                                    <input type="checkbox" id="macroModeToggle" class="chip-input">
+                                    <span class="sw" aria-hidden="true"></span>Replay as macro
+                                </label>
+                            </div>
+                            <p class="muted small" id="recordHelp">Recording starts when you press your start key and stops on Esc. Macro replay has its own start and stop keys, and Esc always stops it. Keys and delays are set in <a href="#settings" data-page-link="settings" target="_self">Settings</a>.</p>
+                        </section>
+                    </div>
                 </div>
-            </details>
-        </section>
+            </section>
 
-        <!-- SECTION 2: Team & characters -->
-        <section class="section">
-            <details class="section-details">
-                <summary>
-                    <h3>Team &amp; Characters</h3>
-                </summary>
-                <div class="form-grid">
-                    <div id="wwPanels" class="full-row">
+            <!-- ============ TEAMS ============ -->
+            <section class="page" data-page="teams" aria-label="Teams" hidden>
+                <div class="page-tools">
+                    <button id="newTeamBtn" type="button" class="btn primary">New team</button>
+                </div>
+                <div class="cards3" id="teamCards"></div>
 
-                        <!-- Teams panel -->
-                        <div class="ww-panel">
-                            <div class="ww-panel-header">
-                                <h4 class="ww-panel-title">Teams</h4>
-                                <select id="wwTeamSelect" class="ww-panel-select">
-                                    <option value="">— New Team —</option>
-                                </select>
-                                <input type="text" id="wwTeamName" placeholder="Team name" class="ww-panel-name-input">
-                                <button id="saveTeamBtn" type="button">Save / Update</button>
-                                <button id="newTeamBtn" type="button">New Team</button>
-                                <button id="deleteTeamBtn" type="button" class="danger">Delete</button>
-                            </div>
-                            <div id="wwTeamSlots" class="ww-team-slots">
-                                <!-- Slot rows rendered by JS -->
-                            </div>
+                <div class="settings">
+                    <!-- Team editor: edits the team picked above, separate from the combo's own team -->
+                    <section class="card" id="teamEditorCard">
+                        <h2 class="card-title" id="teamEditorTitle">New team</h2>
+                        <div class="field">
+                            <label for="wwTeamName">Team name</label>
+                            <input type="text" id="wwTeamName" class="input" placeholder="Team name">
                         </div>
-
-                        <!-- Characters panel -->
-                        <div class="ww-panel">
-                            <div class="ww-panel-header">
-                                <h4 class="ww-panel-title">Characters</h4>
-                                <div id="wwCharPicker" class="ww-char-picker"></div>
-                            </div>
-                            <div class="ww-char-sync">
-                                <input type="text" id="wwSyncCharName" placeholder="Character name" class="ww-panel-name-input" autocomplete="off">
-                                <button id="wwSyncCharBtn" type="button" title="Download this character's portrait and skill icons from wuthering.gg">Add from wuthering.gg</button>
-                                <button id="wwSyncAllBtn" type="button" class="subtle" title="Re-download icons for every saved character">Refresh all icons</button>
-                                <a href="characters.html" class="subtle ww-moves-link" title="Every character's moves and the community's team rotations">Moves &amp; rotations</a>
-                            </div>
-                            <div id="wwCharEditor" class="ww-char-editor">
-                                <!-- Character editor rendered by JS -->
-                            </div>
+                        <div id="wwTeamSlots" class="ww-team-slots">
+                            <!-- Slot rows rendered by JS -->
                         </div>
+                        <div class="form-actions">
+                            <button id="deleteTeamBtn" type="button" class="btn danger">Delete</button>
+                            <button id="saveTeamBtn" type="button" class="btn primary">Save team</button>
+                        </div>
+                    </section>
 
-                        <!-- Dash / global RMB icon -->
-                        <div class="ww-panel ww-dash-panel">
-                            <span class="ww-panel-title">Dash / RMB:</span>
+                    <!-- Character icon library (portraits and skill icons used on team slots and timeline tiles) -->
+                    <section class="card">
+                        <div class="card-head">
+                            <h2 class="card-title">Character icons</h2>
+                            <div id="wwCharPicker" class="ww-char-picker"></div>
+                        </div>
+                        <div class="ww-char-sync">
+                            <input type="text" id="wwSyncCharName" class="input" placeholder="Character name" autocomplete="off">
+                            <button id="wwSyncCharBtn" type="button" class="btn" title="Download this character's portrait and skill icons from wuthering.gg">Add from wuthering.gg</button>
+                        </div>
+                        <div id="wwCharEditor" class="ww-char-editor">
+                            <!-- Character editor rendered by JS -->
+                        </div>
+                        <div class="ww-dash-panel">
+                            <span class="ww-ability-label">Dash / RMB</span>
                             <div class="ww-ability-controls">
-                                <input type="text" id="wwDashImageInput" placeholder="https://... or 💨">
+                                <input type="text" id="wwDashImageInput" class="input" placeholder="https://... or 💨">
                                 <div id="wwDashPreview" class="ww-ability-preview"></div>
                             </div>
                         </div>
+                    </section>
+                </div>
+            </section>
 
+            <!-- ============ CHARACTERS ============ -->
+            <section class="page page-fill" data-page="characters" aria-label="Characters" hidden>
+                <!-- The Characters page (moves from encore.moe, rotations from AntoCrasher's sheet), loaded on first visit -->
+                <iframe id="charactersFrame" class="characters-frame" title="Characters: moves and team rotations" data-src="characters.html?embed=1"></iframe>
+            </section>
+
+            <!-- ============ HISTORY ============ -->
+            <section class="page" data-page="history" aria-label="History" hidden>
+                <section class="card">
+                    <div class="history-row history-head">
+                        <span>Combo</span><span>Success / fail</span><span>Best</span><span class="hide-small">Average</span><span class="hide-small">Target</span>
                     </div>
-                </div>
-            </details>
-        </section>
+                    <div id="historyBody" class="history-body"></div>
+                    <p class="muted small" id="historyNote"></p>
+                </section>
+            </section>
 
-        <!-- SECTION 3: Status & Stats -->
-        <section class="section status-section">
+            <!-- ============ SETTINGS ============ -->
+            <section class="page" data-page="settings" aria-label="Settings" hidden>
+                <div class="settings">
+                    <section class="card">
+                        <h2 class="card-title">Recording</h2>
+                        <div class="field">
+                            <label for="transcribeStartKey">Start key</label>
+                            <input type="text" id="transcribeStartKey" class="input" placeholder="f" maxlength="32" title="Single key token (e.g. f, q, space, lmb). Must appear in Keys to record to be transcribed.">
+                        </div>
+                        <div class="field">
+                            <label for="transcribeValidKeys">Keys to record</label>
+                            <input type="text" id="transcribeValidKeys" class="input" placeholder="f, e, q, r, lmb, rmb, 1, 2, 3">
+                        </div>
+                        <div class="field">
+                            <label for="transcribeStripWaitMs">Drop waits shorter than (ms)</label>
+                            <div class="inline-field">
+                                <input type="checkbox" id="transcribeStripWaitToggle" class="toggle-switch" checked title="Strip timings for key presses under this many ms">
+                                <input type="text" id="transcribeStripWaitMs" class="input" maxlength="8" inputmode="numeric" placeholder="100" title="Will not strip timings if left empty">
+                            </div>
+                        </div>
+                        <p class="muted small">Changes apply while recording is on.</p>
+                    </section>
 
-            <!-- Compact stat cards; values are filled from the backend's "Label: value" texts -->
-            <div class="stat-cards">
-                <div class="stat-card" id="statsResult"><span class="stat-label">Success / fail</span><span class="stat-value">—</span></div>
-                <div class="stat-card" id="statsBest"><span class="stat-label">Best</span><span class="stat-value">—</span></div>
-                <div class="stat-card" id="statsAvg"><span class="stat-label">Average</span><span class="stat-value">—</span></div>
-                <div class="stat-card time-display-with-help" tabindex="0" id="minTimeDisplay" aria-describedby="min-time-help-tooltip">
-                    <span class="stat-label">Fastest</span><span class="stat-value">—</span>
-                    <div id="min-time-help-tooltip" class="input-help-tooltip" role="tooltip">
-                        <p>This combo tracker is meant to track real time, timing data. not in game timing data.</p>
-                        <p>For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s</p>
-                    </div>
-                </div>
-                <div class="stat-card" id="difficultyDisplay"><span class="stat-label">Difficulty</span><span class="stat-value">—</span></div>
-                <div class="stat-card" id="userDifficultyDisplay"><span class="stat-label">Your difficulty</span><span class="stat-value">—</span></div>
-                <div class="stat-card" id="apmDisplay"><span class="stat-label">Practical APM</span><span class="stat-value">—</span></div>
-                <div class="stat-card" id="apmMaxDisplay"><span class="stat-label">Max APM</span><span class="stat-value">—</span></div>
-            </div>
-        </section>
+                    <section class="card">
+                        <h2 class="card-title">Macro replay</h2>
+                        <div class="field">
+                            <label for="macroStartKey">Start key</label>
+                            <input type="text" id="macroStartKey" class="input" placeholder="f8" maxlength="32" title="Key token to start replaying (e.g. f8, home). Must not appear in your combo inputs.">
+                        </div>
+                        <div class="field">
+                            <label for="macroStopKey">Stop key</label>
+                            <input type="text" id="macroStopKey" class="input" placeholder="f9" maxlength="32" title="Key token to stop the macro mid-playback. Leave blank to use only Esc. Must not appear in your combo inputs.">
+                        </div>
+                        <div class="field">
+                            <label for="macroSpamIntervalMs">Spam delay (ms)</label>
+                            <input type="text" id="macroSpamIntervalMs" class="input" placeholder="100" maxlength="8" inputmode="numeric" title="Presses chained keys to mimic player input buffering (will not spam if left empty)">
+                        </div>
+                        <p class="muted small">Changes apply while replay is on. Esc always stops a replay.</p>
+                    </section>
 
-        <!-- SECTION 4: Visual Combo Timeline -->
-        <section class="section timeline-section">
-            <div class="combo-steps-header">
-                <h2 style="margin: 0;">Combo Steps</h2>
-                <div class="combo-steps-controls">
-                    <span class="toggle-label">Images</span>
-                    <input type="checkbox" id="stepDisplayToggle" class="toggle-switch" title="Toggle custom images for combo steps">
-                    
-                    <span class="toggle-label">Auto scroll</span>
-                    <input type="checkbox" id="autoScrollToggle" class="toggle-switch" title="Auto scroll combo steps as you advance">
+                    <section class="card">
+                        <h2 class="card-title">Stream overlays</h2>
+                        <p class="muted small">Add these as OBS Browser Sources. They keep their current look.</p>
+                        <div class="url-row">
+                            <span class="url-text" id="timelineOverlayUrl"></span>
+                            <button type="button" class="btn ghost" id="copyOverlayUrlBtn" title="Copy URL for OBS Browser Source">Copy</button>
+                        </div>
+                        <div class="url-row">
+                            <span class="url-text" id="keysOverlayUrl"></span>
+                            <button type="button" class="btn ghost" id="copyKeysUrlBtn" title="Copy URL for OBS Browser Source">Copy</button>
+                            <a class="btn ghost" id="keyOverlayLink" href="keys.html">Open</a>
+                        </div>
+                    </section>
 
-                    <span class="toggle-label">Move names</span>
-                    <input type="checkbox" id="moveNamesToggle" class="toggle-switch" title="Name each step's move, like Zani Basic 2 or Phoebe Liberation">
+                    <section class="card">
+                        <h2 class="card-title">Data</h2>
+                        <p class="muted small">Combos, teams and stats live in combos.json next to the app.</p>
+                        <div class="button-wrap">
+                            <button id="loadJsonBtn" type="button" class="btn" title="Loads from combos.json in the app's folder (discards unsaved editor changes)">Reload combos.json</button>
+                            <button id="wwSyncAllBtn" type="button" class="btn" title="Re-download icons for every saved character">Refresh character icons</button>
+                            <button id="clearAllBtn" type="button" class="btn danger" title="Clear history and stats for every combo">Clear all history</button>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        </main>
 
-                    <span class="toggle-label">Show attempt history</span>
-                    <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
+        <!-- Phone bottom navigation (below 900px) -->
+        <nav class="bottomnav" aria-label="Pages">
+            <button type="button" class="navbtn" data-page="practice"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>Practice</button>
+            <button type="button" class="navbtn" data-page="combos"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="14" y2="13"/></svg>Combos</button>
+            <button type="button" class="navbtn" data-page="teams"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Teams</button>
+            <button type="button" class="navbtn" data-page="history"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>History</button>
+            <button type="button" class="navbtn" data-page="settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>Settings</button>
+        </nav>
 
-                    <span class="toggle-label">Edit steps</span>
-                    <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps" checked>
-
-                    <span class="toggle-label">Collapse chains</span>
-                    <input type="checkbox" id="collapseChainsToggle" class="toggle-switch" title="Show adjacent LMB press+wait steps as one chained tile">
-
-                    <button type="button" id="legendBtn" class="subtle icon-btn" title="What the colors mean" aria-label="Show color legend" aria-expanded="false" aria-controls="legendPanel">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    </button>
-                    <button type="button" id="copyOverlayUrlBtn" class="subtle icon-btn" title="Copy URL for OBS Browser Source" aria-label="Copy URL for OBS Browser Source">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    </button>
-                    <a href="keys.html" id="keyOverlayLink" class="subtle icon-btn" title="Live key overlay: open it, or add http://localhost:8737/keys.html as an OBS Browser Source" aria-label="Open live key overlay">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
-                    </a>
-                    <a href="characters.html" id="charactersLink" class="subtle icon-btn" title="Characters: every move and the community's team rotations" aria-label="Open character moves and rotations">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                    </a>
-                    <button type="button" id="openTimelineWindowBtn" class="subtle icon-btn" title="Open timeline in a new window for OBS Window Capture" aria-label="Open timeline in new window">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    </button>
-                </div>
-            </div>
-            <div id="legendPanel" class="legend-panel hidden" role="region" aria-label="Color legend">
-                <div class="legend-group">
-                    <h4>Step types</h4>
-                    <div class="legend-item"><span class="legend-swatch sw-press"></span>Tap a key</div>
-                    <div class="legend-item"><span class="legend-swatch sw-wait"></span>Tap, then wait (fills yellow as time passes)</div>
-                    <div class="legend-item"><span class="legend-swatch sw-short"></span>Short wait, 150ms or less</div>
-                    <div class="legend-item"><span class="legend-swatch sw-hold"></span>Hold the key (fills green while held)</div>
-                    <div class="legend-item"><span class="legend-swatch sw-optional"></span>Optional step, can be skipped</div>
-                    <div class="legend-item"><span class="legend-swatch sw-group"></span>Group: press these in any order</div>
-                    <div class="legend-item"><span class="legend-swatch sw-sequence"></span>Sequence inside a group, in order</div>
-                </div>
-                <div class="legend-group">
-                    <h4>Progress</h4>
-                    <div class="legend-item"><span class="legend-swatch sw-active"></span>Current step (pulses)</div>
-                    <div class="legend-item"><span class="legend-swatch sw-done"></span>Done</div>
-                    <div class="legend-item"><span class="legend-swatch sw-miss"></span>Missed, wrong key or too early</div>
-                </div>
-                <div class="legend-group">
-                    <h4>On each tile</h4>
-                    <div class="legend-item"><span class="legend-key">E</span>Corner letter: the key to press</div>
-                    <div class="legend-item"><span class="legend-key">x3</span>Chained LMB presses shown as one tile</div>
-                    <div class="legend-item"><span class="legend-key">ms</span>Wait or hold length; wider tiles last longer</div>
-                    <div class="legend-item"><span class="legend-key">Aa</span>Bottom text: the move's name</div>
-                </div>
-            </div>
-            <details class="collapsible" id="keyImagesDetails">
-                <summary>Key images</summary>
-                <div class="collapsible-body">
-                    <div class="help-text" style="margin: 0 0 8px 0;">
-                        Paste an image URL per key (leave blank to use the default icon/text). Keys are parsed from
-                        Inputs.
-                    </div>
-                    <div id="keyImagesEditor" class="key-images-editor"></div>
-                </div>
-            </details>
-            <div id="statusDisplay" class="status-ready" style="margin-bottom: 8px;">Status: Select a combo to start
-            </div>
-            <div id="comboTimelineViewport" class="timeline-viewport">
-                <div id="comboTimeline" class="timeline timeline-track">
-                    <!-- Steps will be rendered here -->
-                </div>
-            </div>
-        </section>
-
-        <!-- SECTION 5: Live Results -->
-        <section class="section">
-            <div class="attempt-header">
-                <h3 style="margin: 0;">Attempt Log</h3>
-                <div class="attempt-header-actions">
-                    <label class="attempt-log-toggle" title="When off, attempts are not added to the log below">
-                        <span class="toggle-label">Log attempts</span>
-                        <input type="checkbox" id="logAttemptsToggle" class="toggle-switch">
-                    </label>
-                    <button id="clearBtn" type="button" class="danger subtle">Clear History</button>
-                    <button id="clearAllBtn" type="button" class="danger subtle" title="Clear history and stats for every combo">Clear All History</button>
-                </div>
-            </div>
-            <div id="resultsTable" class="results-table">
-                <div class="table-header">
-                    <span>Input</span>
-                    <span>Step Time (ms)</span>
-                    <span>Total Time(ms)</span>
-                    <span>Avg Step Time (ms)</span>
-                </div>
-                <div id="resultsBody"></div>
-            </div>
-        </section>
-
+        <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     </div>
 
+    <script src="ws.js"></script>
     <script src="ww_moves.js"></script>
-    <script src="app.js"></script>
+    <script src="app/core.js"></script>
+    <script src="app/timeline.js"></script>
+    <script src="app/practice.js"></script>
+    <script src="app/combos.js"></script>
+    <script src="app/teams.js"></script>
+    <script src="app/shell.js"></script>
 </body>
 
 </html>

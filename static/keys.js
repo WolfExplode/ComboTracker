@@ -1,8 +1,6 @@
 // Live key overlay: lights up keys as the backend reports them (type "key_input"),
 // and labels 1/2/3 with the selected team's characters.
-const WS_URL = 'ws://localhost:8765';
 const keyEls = new Map(Array.from(document.querySelectorAll('.key')).map((el) => [el.dataset.key, el]));
-let reconnectDelayMs = 500;
 
 function setDown(key, down) {
     const el = keyEls.get(key);
@@ -36,25 +34,15 @@ function applyTeam(editor) {
     });
 }
 
-function connect() {
-    const socket = new WebSocket(WS_URL);
-    socket.onopen = () => {
-        reconnectDelayMs = 500;
-        keyEls.forEach((el) => el.classList.remove('offline'));
-    };
-    socket.onclose = () => {
+connectTracker({
+    onOpen: () => keyEls.forEach((el) => el.classList.remove('offline')),
+    onClose: () => {
         releaseAll();
         keyEls.forEach((el) => el.classList.add('offline'));
-        setTimeout(connect, reconnectDelayMs);
-        reconnectDelayMs = Math.min(reconnectDelayMs * 2, 5000);
-    };
-    socket.onmessage = (event) => {
-        let msg;
-        try { msg = JSON.parse(event.data); } catch (_) { return; }
+    },
+    onMessage: (msg) => {
         if (msg.type === 'key_input') setDown(msg.key, msg.down);
         else if (msg.type === 'init') applyTeam(msg.editor);
         else if (msg.type === 'combo_data') applyTeam(msg);
-    };
-}
-
-connect();
+    },
+});

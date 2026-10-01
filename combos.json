@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_active_combo": "Hiyuki Lucilla Suisui",
+  "last_active_combo": "Agusta, Iuno, Shorekeeper Double intro",
   "no_fail_mode": true,
   "macro_start_key": "f",
   "macro_stop_key": "esc",
@@ -751,7 +751,7 @@
       "slot3": "suisui"
     }
   },
-  "ww_active_team_id": "8f6a67b57d",
+  "ww_active_team_id": "a8e3fa33e9",
   "combo_ww_team": {
     "Aemeath, Lynae, Mornye": "3fab25fc2a",
     "Agusta, Iuno, Shorekeeper Double intro": "a8e3fa33e9",

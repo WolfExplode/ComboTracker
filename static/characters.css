@@ -1,15 +1,18 @@
 /* Characters page. Colors match style.css (the main tracker page). */
 :root {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2a2a2a;
-    --bg-hover: #3a3a3a;
-    --text-primary: #e0e0e0;
-    --text-secondary: #a0a0a0;
-    --accent-blue: #4a9eff;
-    --accent-green: #4aff88;
-    --accent-yellow: #ffdd4a;
-    --accent-red: #ff4a4a;
-    --radius: 8px;
+    /* BetterGhub theme, same tokens as shell.css on the main page */
+    --bg-primary: #0B0D10;
+    --bg-secondary: #14181E;
+    --bg-hover: #222832;
+    --text-primary: #ECEFF3;
+    --text-secondary: #8D97A5;
+    --accent-blue: #2EC5EA;
+    --accent-green: #3DDC84;
+    --accent-yellow: #F4B740;
+    --accent-red: #F05A63;
+    --line: #232933;
+    --line-strong: #343C48;
+    --radius: 10px;
 
     --el-aero: #55d6a8;
     --el-electro: #b67cff;
@@ -24,7 +27,7 @@
 body {
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    font-family: 'IBM Plex Sans', 'Segoe UI', 'Roboto', sans-serif;
     font-size: 14px;
     line-height: 1.5;
 }
@@ -37,7 +40,7 @@ a { color: var(--accent-blue); }
 button, .btn {
     background: var(--bg-hover);
     color: var(--text-primary);
-    border: 1px solid #4a4a4a;
+    border: 1px solid var(--line-strong);
     border-radius: 6px;
     padding: 6px 12px;
     font: inherit;
@@ -54,7 +57,7 @@ button.subtle, .btn.subtle { background: transparent; }
 input[type="search"], select, textarea {
     background: var(--bg-primary);
     color: var(--text-primary);
-    border: 1px solid #4a4a4a;
+    border: 1px solid var(--line-strong);
     border-radius: 6px;
     padding: 6px 10px;
     font: inherit;
@@ -71,7 +74,7 @@ input[type="search"], select, textarea {
     gap: 10px 14px;
     padding: 12px 20px;
     background: var(--bg-secondary);
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--line);
 }
 .topbar h1 { font-size: 18px; }
 .topbar .back { text-decoration: none; color: var(--text-secondary); }
@@ -81,7 +84,7 @@ input[type="search"], select, textarea {
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { padding: 3px 10px; border-radius: 999px; font-size: 13px; }
-.chip.on { background: var(--accent-blue); border-color: var(--accent-blue); color: #0b1a2c; }
+.chip.on { background: #152E38; border-color: var(--accent-blue); color: var(--text-primary); }
 
 .dot {
     display: inline-block;
@@ -153,7 +156,7 @@ input[type="search"], select, textarea {
     max-width: 100%;
 }
 .char-name .dot { width: 6px; height: 6px; margin-right: 4px; }
-.char.selected { border-color: var(--accent-blue); background: #23303f; }
+.char.selected { border-color: var(--accent-blue); background: #152E38; }
 
 .detail {
     background: var(--bg-secondary);
@@ -168,7 +171,7 @@ input[type="search"], select, textarea {
 .detail-head img { width: 72px; height: 72px; border-radius: 50%; background: var(--bg-hover); }
 .detail-head h2 { font-size: 22px; }
 
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid #3a3a3a; margin-bottom: 16px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
 .tabs button {
     border: none;
     border-bottom: 2px solid transparent;
@@ -217,7 +220,7 @@ input[type="search"], select, textarea {
 .desc h5:first-child { margin-top: 0; }
 .desc p { margin: 0 0 4px; color: #cfcfcf; }
 .mult { border-collapse: collapse; width: 100%; font-size: 13px; align-self: start; }
-.mult th, .mult td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #333; }
+.mult th, .mult td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
 .mult th { color: var(--text-secondary); font-weight: 500; }
 .mult td:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
@@ -245,15 +248,15 @@ input[type="search"], select, textarea {
 }
 .team-name { font-weight: 600; }
 .team-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; margin: 2px 0 6px; }
-.tag { background: #23303f; color: #a9cfff; border-radius: 4px; padding: 0 6px; }
+.tag { background: #152E38; color: #9BE6F7; border-radius: 4px; padding: 0 6px; }
 .tag.subtle { background: var(--bg-hover); color: var(--text-primary); }
-.dps-bar { height: 4px; background: #333; border-radius: 2px; overflow: hidden; }
+.dps-bar { height: 4px; background: var(--line-strong); border-radius: 2px; overflow: hidden; }
 .dps-bar span { display: block; height: 100%; background: var(--accent-blue); }
 .team-num { text-align: right; display: flex; flex-direction: column; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .team-num .muted { font-size: 11px; }
 .team-actions { display: flex; gap: 6px; }
 .team-actions button, .team-actions .btn { padding: 4px 10px; font-size: 13px; }
-.transcript { grid-column: 1 / -1; border-top: 1px solid #333; padding-top: 10px; margin-top: 4px; }
+.transcript { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }
 .transcript h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); margin: 10px 0 6px; }
 .transcript h4:first-child { margin-top: 0; }
 .step { display: flex; gap: 10px; align-items: baseline; padding: 3px 0; }
@@ -267,7 +270,7 @@ input[type="search"], select, textarea {
     padding: 1px 6px;
 }
 .move[title] { cursor: help; text-decoration: underline dotted #777; }
-.move.swap { background: #23303f; color: #a9cfff; }
+.move.swap { background: #152E38; color: #9BE6F7; }
 .arrow { color: #666; }
 .glossary { margin-top: 10px; font-size: 12px; }
 .glossary summary { cursor: pointer; color: var(--text-secondary); }
@@ -289,3 +292,11 @@ input[type="search"], select, textarea {
     .topbar input[type="search"] { flex: 1; width: auto; }
     .who { width: 70px; }
 }
+
+/* Embedded as the main app's Characters page (characters.html?embed=1): the app shell has the title and nav. */
+.embed body { background: var(--bg-secondary); }
+.embed .topbar { position: static; background: transparent; padding: 14px 16px 0; border-bottom: 0; }
+.embed .topbar .back,
+.embed .topbar h1 { display: none; }
+.embed .roster { top: 12px; max-height: calc(100vh - 24px); }
+.embed .layout { padding: 16px; }

@@ -1,7 +1,9 @@
 // Characters page: every character's moves (encore.moe) and community team rotations
 // (AntoCrasher's calc compilation + rotation transcripts), served by ui_server.py under /api/ww/.
 
-const WS_URL = 'ws://localhost:8765';
+// Shown inside the main app's Characters page: hide this page's own back link and title.
+if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
+
 const ELEMENTS = ['Aero', 'Electro', 'Fusion', 'Glacio', 'Havoc', 'Spectro'];
 const MAX_SKILL_LEVEL = 10;
 
@@ -25,7 +27,7 @@ const state = {
     level: MAX_SKILL_LEVEL,
     kits: new Map(),
     transcripts: new Map(),
-    socket: null,
+    tracker: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -96,35 +98,20 @@ async function api(path, refresh = false) {
 // Tracker connection (optional): marks your characters and saves rotations as combos
 // ---------------------------------------------------------------------------
 
-function connectTracker() {
-    let socket;
-    try {
-        socket = new WebSocket(WS_URL);
-    } catch {
-        return;
-    }
-    socket.onmessage = (ev) => {
-        let msg;
-        try {
-            msg = JSON.parse(ev.data);
-        } catch {
-            return;
-        }
-        // The character list rides along in the editor payload (init and later editor updates).
-        const chars = (msg.editor && msg.editor.ww_characters) || msg.ww_characters;
-        if (Array.isArray(chars)) {
-            state.mine = chars.map((c) => nameTokens(c.name || c.name_key));
-            renderRoster();
-        }
-        if (msg.type === 'status' && msg.text && msg.color === 'fail') {
-            showNotice(msg.text, 'warn');
-        }
-    };
-    socket.onopen = () => (state.socket = socket);
-    socket.onclose = () => {
-        state.socket = null;
-        setTimeout(connectTracker, 3000);
-    };
+function watchTracker() {
+    state.tracker = connectTracker({
+        onMessage: (msg) => {
+            // The character list rides along in the editor payload (init and later editor updates).
+            const chars = (msg.editor && msg.editor.ww_characters) || msg.ww_characters;
+            if (Array.isArray(chars)) {
+                state.mine = chars.map((c) => nameTokens(c.name || c.name_key));
+                renderRoster();
+            }
+            if (msg.type === 'status' && msg.text && msg.color === 'fail') {
+                showNotice(msg.text, 'warn');
+            }
+        },
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -353,7 +340,7 @@ function renderTranscript(t, tr) {
             ${unmapped}
             <div class="row">
                 <button type="button" data-act="copy">Copy inputs</button>
-                <button type="button" data-act="save" ${state.socket ? '' : 'disabled title="Start ComboTracker to save combos"'}>Save as combo</button>
+                <button type="button" data-act="save" ${state.tracker && state.tracker.isOpen() ? '' : 'disabled title="Start ComboTracker to save combos"'}>Save as combo</button>
                 <a class="subtle btn" href="${esc(safeUrl(tr.source))}" target="_blank" rel="noopener">Open transcript</a>
             </div>
         </div>`;
@@ -384,16 +371,19 @@ function saveAsCombo(teamEl) {
     const inputs = teamEl.querySelector('.as-inputs textarea').value;
     const suggested = `${t.team}${t.author ? ` (${t.author})` : ''}`;
     const name = prompt('Save this rotation as a combo named:', suggested);
-    if (!name || !state.socket) return;
-    state.socket.send(JSON.stringify({
-        type: 'save_combo',
+    if (!name || !state.tracker) return;
+    const sent = state.tracker.send('save_combo', {
         name,
         inputs,
         demo_video: safeUrl(t.video),
         target_game: 'wuthering_waves',
         as_new: true,
-    }));
-    showNotice(`Saved "${name}". Open the Combo Tracker to practice it and add timings.`, 'ok');
+    });
+    if (!sent) {
+        showNotice("Couldn't reach the tracker, so nothing was saved. Is ComboTracker running?", 'warn');
+        return;
+    }
+    showNotice(`Saved "${name}". Open the Combos page to practice it and add timings.`, 'ok');
 }
 
 // ---------------------------------------------------------------------------
@@ -476,5 +466,5 @@ async function load(refresh = false) {
 
 renderFilters();
 bindEvents();
-connectTracker();
+watchTracker();
 load();
