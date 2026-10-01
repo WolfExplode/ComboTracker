@@ -248,6 +248,14 @@ function extractHoldWithBodyParts(oldSourceToken) {
     return { key, durPart, bodyPart };
 }
 
+// -wait:Xs (alone or after a key): the next press may cut the wait short.
+function markOptionalWait(el, s) {
+    const optionalWait = s.wait_optional || (s.type === 'wait' && s.optional);
+    if (!optionalWait) return;
+    el.classList.add('wait-optional');
+    el.title = 'Optional wait: pressing the next key early is fine';
+}
+
 function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
     const val = (newValue || '').trim().toLowerCase();
     if (!val) return null;
@@ -263,7 +271,7 @@ function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
         if (!key) return null;
         const durMs = field === 'duration' ? parseDurationToMs(val) : s.duration;
         if (!durMs) return null;
-        return [key, `wait:${formatDurationToken(durMs)}`];
+        return [`${s.optional ? '-' : ''}${key}`, `${s.wait_optional ? '-' : ''}wait:${formatDurationToken(durMs)}`];
     }
 
     if (s.type === 'hold') {
@@ -312,7 +320,7 @@ function reconstructTokensForEdit(s, field, newValue, oldSourceToken) {
         // Standalone soft/hard wait: one token wait:Xs
         const durMs = parseDurationToMs(val);
         if (!durMs) return null;
-        return [`wait:${formatDurationToken(durMs)}`];
+        return [`${s.optional ? '-' : ''}wait:${formatDurationToken(durMs)}`];
     }
 
     return null;
@@ -426,11 +434,11 @@ function buildRuntimeToSourceMap(tokens) {
         if (!tok) { i++; continue; }
 
         // press + following soft/hard wait -> one runtime SequenceNode (press_wait tile)
-        if (!tok.startsWith('wait') && !tok.startsWith('hold(') && !tok.startsWith('spam(') && !tok.startsWith('[') && !tok.startsWith('{')) {
+        if (!tok.startsWith('wait') && !tok.startsWith('-wait') && !tok.startsWith('hold(') && !tok.startsWith('spam(') && !tok.startsWith('[') && !tok.startsWith('{')) {
             // Could be a plain press followed by wait:Xs
             if (i + 1 < tokens.length) {
                 const nxt = tokens[i + 1].trim().toLowerCase();
-                if (nxt.startsWith('wait:')) {
+                if (nxt.startsWith('wait:') || nxt.startsWith('-wait:')) {
                     srcMap.push([i, i + 1]);
                     i += 2;
                     continue;
@@ -741,6 +749,7 @@ function updateTimeline(steps, opts) {
         }
         if (it.optional) el.classList.add('optional');
         if (it.optional && it.completed && !it.was_skipped) el.classList.add('was-pressed');
+        markOptionalWait(el, it);
 
         if (it.active) el.classList.add('active');
         if (it.completed) el.classList.add('completed');
@@ -848,6 +857,7 @@ function updateTimeline(steps, opts) {
             itEl.className = 'step sequence-item';
             if (it.optional) itEl.classList.add('optional');
             if (it.optional && it.completed && !it.was_skipped) itEl.classList.add('was-pressed');
+            markOptionalWait(itEl, it);
             if (it.active) itEl.classList.add('active');
             if (it.completed) itEl.classList.add('completed');
             appendStepContent(itEl, it, nextChar, ctx);
@@ -889,6 +899,7 @@ function updateTimeline(steps, opts) {
         if (s.type) tile.classList.add(s.type.replace(/_/g, '-'));
         if (s.optional) tile.classList.add('optional');
         if (s.optional && s.completed && !s.was_skipped) tile.classList.add('was-pressed');
+        markOptionalWait(tile, s);
         let pct = (s.progress !== undefined) ? s.progress : (s.completed ? 100 : 0);
         if (s.type === 'wait' || s.type === 'press_wait' || s.type === 'spam') {
             tile.style.setProperty('--wait-pct', `${pct}%`);

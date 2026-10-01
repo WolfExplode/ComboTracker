@@ -50,6 +50,7 @@ class WaitNode:
     duration_ms: int
     mode: Literal["soft", "hard", "mandatory"]
     wait_for: str | None = None  # for mandatory waits
+    optional: bool = False  # -wait:Xs: any key press during the wait ends it early (no fail)
 
 
 @dataclass(frozen=True)
@@ -273,11 +274,13 @@ def parse_step(token: str) -> StepNode | None:
                     return GroupNode(tuple(items))
 
     # Wait gate: wait:0.1 (only form; use after a key e.g. f, wait:0.23s)
-    if tl.startswith("wait:"):
-        dur = tl[len("wait:"):].strip()
+    # Optional wait: -wait:0.15s, which the next press may cut short.
+    optional_wait = tl.startswith("-wait:")
+    if tl.startswith("wait:") or optional_wait:
+        dur = tl[tl.index(":") + 1:].strip()
         wait_ms = _parse_duration(dur)
         if wait_ms is not None:
-            return WaitNode(wait_ms, "soft", None)
+            return WaitNode(wait_ms, "soft", None, optional=optional_wait)
 
     # Repeated taps over a duration: spam(lmb, 4.4s)
     if tl.startswith("spam(") and tl.endswith(")"):

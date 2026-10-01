@@ -41,6 +41,10 @@ Prefix a key with `-` to make it optional: `-e` means you may skip that key. If 
 
 - Example: `f, wait:0.3s, -e, wait:0.80s, r, wait:1.8s` — you can do `f`, wait, then `r` (skipping `e`) or `f`, wait, `e`, wait, `r`. In the timeline, optional steps use a dashed border; skipped ones show a subtle “skipped” style, pressed ones show “was-pressed”.
 
+### Optional waits
+
+Prefix a wait with `-` to make it optional: `-wait:0.15s`. Pressing any key during that wait ends it early and the press counts for the next step, so you can either wait it out or go straight on. Like `wait:`, right after a key it joins that key's tile (`e, -wait:0.15s, r`: press `e`, then `r` whenever you like), and elsewhere it is its own tile (`hold(lmb, 0.5s), -wait:0.2s, e`). Plain `wait:` is unchanged. In the timeline, an optional wait has a dashed right edge.
+
 ### Any-order groups (order interchangeable)
 
 Use brackets to indicate that multiple inputs can be pressed in **any order**, but all must be completed before the combo continues:

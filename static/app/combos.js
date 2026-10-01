@@ -407,10 +407,10 @@ function tokenizeComboInput(text) {
             tokens.push({ type: 'hold', text: text.slice(start, i) });
             continue;
         }
-        // wait:duration (soft wait)
-        if (text.slice(i).match(/^wait\s*:/)) {
+        // wait:duration (soft wait), -wait:duration (optional wait)
+        if (text.slice(i).match(/^-?wait\s*:/)) {
             const start = i;
-            i += text.slice(i).match(/^wait\s*:/)[0].length;
+            i += text.slice(i).match(/^-?wait\s*:/)[0].length;
             while (i < len && /[^\s,\[\]\{\}]/.test(text[i])) i++;
             tokens.push({ type: 'wait', text: text.slice(start, i) });
             continue;

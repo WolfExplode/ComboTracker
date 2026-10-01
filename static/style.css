@@ -1483,6 +1483,12 @@ button.danger:hover {
     opacity: 0.6;
 }
 
+/* Optional wait (-wait:Xs, or key + -wait:Xs): dashed edge where the wait can be cut short */
+.step.wait-optional {
+    border-right-style: dashed;
+    border-right-color: var(--text-secondary);
+}
+
 /* Tables */
 .results-table {
     max-height: 300px;
