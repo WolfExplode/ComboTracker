@@ -82,17 +82,16 @@ class ParseTests(unittest.TestCase):
         groups = parse_rotation_sheet(SHEET_CSV)
         self.assertEqual([g["character"] for g in groups], ["Zani", "Cartethyia"])
         zani = groups[0]
-        self.assertEqual(zani["thoughts"], "Start with the 3NF quickswap rotation.")
+        self.assertNotIn("thoughts", zani)  # strategy and damage commentary is out of scope
         self.assertEqual(len(zani["teams"]), 2)
         top = zani["teams"][0]
         self.assertEqual(top["members"], ["Zani", "Phoebe", "Rover"])
         self.assertEqual(top["style"], "Advanced Quickswap")
         self.assertEqual(top["author"], "Cyan")
-        self.assertAlmostEqual(top["dps"], 88269.82)
+        self.assertNotIn("dps", top)  # damage is out of scope
         self.assertTrue(top["transcript"].startswith("https://docs.google.com/document/"))
         self.assertEqual(zani["teams"][1]["author"], "")  # "—" means no author
         carte = groups[1]
-        self.assertEqual(carte["thoughts"], "For casual play, learn the optimized 123 rotation.")
         self.assertEqual(carte["teams"][0]["members"], ["Cartethyia Solo"])
 
     def test_transcript(self):
@@ -113,6 +112,8 @@ class ParseTests(unittest.TestCase):
 
 
 class LibraryCacheTests(unittest.TestCase):
+    DOC = "https://docs.google.com/document/d/ABC_1/edit"
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.calls = []
@@ -122,7 +123,7 @@ class LibraryCacheTests(unittest.TestCase):
             self.calls.append(url)
             if self.fail:
                 raise LibraryError("offline")
-            return json.dumps(KIT)
+            return TRANSCRIPT
 
         self.lib = Library(Path(self.tmp.name), fetch=fetch)
 
@@ -130,22 +131,41 @@ class LibraryCacheTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_caches_and_serves_stale_when_offline(self):
-        self.assertEqual(self.lib.kit(1507)["name"], "Zani")
-        self.lib.kit(1507)
+        self.assertEqual(self.lib.transcript(self.DOC)["sections"][0]["name"], "Opener")
+        self.lib.transcript(self.DOC)
         self.assertEqual(len(self.calls), 1)  # second read came from cache
         self.fail = True
-        stale = self.lib.kit(1507, refresh=True)
+        stale = self.lib.transcript(self.DOC, refresh=True)
         self.assertTrue(stale["stale"])
-        self.assertEqual(stale["name"], "Zani")
+        self.assertEqual(stale["sections"][0]["name"], "Opener")
 
     def test_api_routes(self):
-        status, body = handle_api(self.lib, "/api/ww/kit/1507")
-        self.assertEqual((status, body["name"]), (200, "Zani"))
+        status, body = handle_api(self.lib, "/api/ww/transcript?url=" + self.DOC)
+        self.assertEqual((status, body["sections"][0]["name"]), (200, "Opener"))
         self.assertEqual(handle_api(self.lib, "/api/ww/nope")[0], 404)
+        self.assertEqual(handle_api(self.lib, "/api/ww/kit/1507")[0], 404)  # kits come from static/data now
         self.fail = True
-        status, body = handle_api(self.lib, "/api/ww/kit/1508")
+        status, body = handle_api(self.lib, "/api/ww/transcript?url=https://docs.google.com/document/d/XYZ/edit")
         self.assertEqual(status, 502)
         self.assertIn("offline", body["error"])
+
+
+class ScrapeRawTests(unittest.TestCase):
+    def test_saves_roster_and_each_kit_unedited(self):
+        roster = {"roleList": [{"Id": 1507, "Name": "Zani"}, {"Id": 1507, "Name": "Zani"}, {"Id": 9, "Name": "Broken"}]}
+
+        def fetch(url):
+            if url.endswith("/9"):
+                raise LibraryError("404")
+            return json.dumps(KIT if url.endswith("/1507") else roster)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = ww_library.scrape_raw(Path(tmp), fetch=fetch)
+            self.assertEqual(result["saved"], 1)
+            self.assertEqual(len(result["failed"]), 1)
+            saved = json.loads((Path(tmp) / "kit_1507.json").read_text(encoding="utf-8"))
+            self.assertEqual(saved, KIT)
+            self.assertTrue((Path(tmp) / "roster.json").exists())
 
 
 if __name__ == "__main__":

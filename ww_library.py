@@ -1,15 +1,17 @@
 """
 Wuthering Waves character library: every character's moves and the community's team rotations.
 
-Sources (fetched by the app on demand, then cached on disk so the page works offline):
-  - encore.moe JSON API: character list and each character's full kit (skill text, multipliers, icons)
+Sources:
+  - encore.moe JSON API: character list and each character's full kit (skill text, multipliers, icons).
+    Downloaded only on request, as a raw snapshot (scrape_raw); the app shows the hand-checked
+    static/data/ww_characters.json that tools/ww_build_moves.py drafts from it.
       https://api.encore.moe/en/character          -> {"roleList": [{Id, Name, Element, WeaponType, RoleHeadIcon}]}
       https://api.encore.moe/en/character/<Id>     -> {..., "Skills": [{SkillType, SkillName, SkillDescribe, Icon,
                                                         SkillAttributes: [{attributeName, values: [lv1..lv10]}]}]}
-  - AntoCrasher's calc compilation (Google Sheet): one block per main DPS listing team setups with author,
-    DPS, video, and a link to a Google Doc tab holding the move-by-move rotation transcript.
+  - AntoCrasher's calc compilation (Google Sheet, fetched on demand and cached on disk): one block per main character listing team setups with author,
+    video, and a link to a Google Doc tab holding the move-by-move rotation transcript (damage columns are ignored).
 
-Served to static/characters.html by ui_server.py under /api/ww/...
+Rotations and transcripts are served to static/characters.html by ui_server.py under /api/ww/...
 """
 
 from __future__ import annotations
@@ -112,15 +114,6 @@ class Library:
             tmp.replace(path)
         return data
 
-    def roster(self, refresh: bool = False) -> dict[str, Any]:
-        return self._cached("roster", lambda: parse_roster(json.loads(self._fetch(ENCORE_API))), refresh)
-
-    def kit(self, char_id: int, refresh: bool = False) -> dict[str, Any]:
-        char_id = int(char_id)
-        return self._cached(
-            f"kit_{char_id}", lambda: parse_kit(json.loads(self._fetch(f"{ENCORE_API}/{char_id}"))), refresh
-        )
-
     def rotations(self, refresh: bool = False) -> dict[str, Any]:
         def build() -> dict[str, Any]:
             url = (
@@ -142,6 +135,48 @@ class Library:
         return self._cached(
             f"transcript_{key}", lambda: dict(parse_transcript(self._fetch(export)), source=doc_url), refresh
         )
+
+
+# ---------------------------------------------------------------------------
+# Raw snapshot (the Characters page's "Download raw data" button and tools/ww_build_moves.py)
+# ---------------------------------------------------------------------------
+
+RAW_DIR_NAME = "encore_raw"
+
+
+def scrape_raw(dest_dir: Path, fetch=None) -> dict[str, Any]:
+    """
+    Save encore.moe's unedited JSON (character list + every kit) under dest_dir.
+    This is source material only: the app reads the hand-checked static/data/ww_characters.json,
+    which tools/ww_build_moves.py drafts from these files.
+    """
+    fetch = fetch or _http_get
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    roster_text = fetch(ENCORE_API)
+    roster = json.loads(roster_text)
+    (dest / "roster.json").write_text(json.dumps(roster, ensure_ascii=False, indent=1), encoding="utf-8")
+    saved, failed = 0, []
+    seen: set[int] = set()
+    for r in roster.get("roleList") or []:
+        cid = r.get("Id")
+        if not isinstance(cid, int) or cid in seen:
+            continue
+        seen.add(cid)
+        try:
+            kit = json.loads(fetch(f"{ENCORE_API}/{cid}"))
+        except Exception as e:  # keep going; report which ones failed
+            failed.append(f"{r.get('Name') or cid}: {e}")
+            continue
+        (dest / f"kit_{cid}.json").write_text(json.dumps(kit, ensure_ascii=False, indent=1), encoding="utf-8")
+        saved += 1
+    (dest / "README.txt").write_text(
+        "Raw encore.moe data, saved as-is on "
+        + time.strftime("%Y-%m-%d %H:%M")
+        + ".\nNot read by the app. Run tools/ww_build_moves.py to draft static/data/ww_characters.json from it.\n",
+        encoding="utf-8",
+    )
+    return {"saved": saved, "failed": failed, "folder": str(dest)}
 
 
 # ---------------------------------------------------------------------------
@@ -227,19 +262,6 @@ _BLOCK_TITLE = re.compile(r"^\s*AntoCrasher Calc\s*-\s*(.+?)\s+Team\b", re.I)
 _TEAM_TAGS = re.compile(r"\s*\(([^)]*)\)\s*$")
 
 
-def _thoughts(cells: list[str]) -> str:
-    """'Personal Thoughts' text: either inside the same cell or in the next non-empty cell."""
-    for i, c in enumerate(cells):
-        if c.strip().lower().startswith("personal thoughts"):
-            rest = c.strip()[len("personal thoughts"):].strip().strip('"').strip()
-            if rest:
-                return rest
-            for nxt in cells[i + 1:]:
-                if nxt.strip():
-                    return nxt.strip()
-    return ""
-
-
 def _team_members(team: str) -> list[str]:
     """'Zani, Phoebe S0R1, Rover S6R1 (Advanced Quickswap)' -> ['Zani', 'Phoebe', 'Rover']."""
     base = _TEAM_TAGS.sub("", team)
@@ -268,10 +290,8 @@ def parse_rotation_sheet(csv_text: str) -> list[dict[str, Any]]:
         joined = " ".join(cells)
         title = next((m for m in (_BLOCK_TITLE.match(c) for c in cells) if m), None)
         if title:
-            group = {"character": title.group(1).strip(), "title": title.string.strip(), "thoughts": "", "teams": []}
+            group = {"character": title.group(1).strip(), "title": title.string.strip(), "teams": []}
             groups.append(group)
-        if group is not None and not group["thoughts"]:
-            group["thoughts"] = _thoughts(cells)
         if "Author" in cells:
             # Later blocks repeat a partial header (blank damage columns); keep earlier positions for those.
             cols = {**cols, **{c.lower(): i for i, c in enumerate(cells) if c}}
@@ -284,8 +304,9 @@ def parse_rotation_sheet(csv_text: str) -> list[dict[str, Any]]:
             return cells[i] if i is not None and i < len(cells) else ""
 
         team = next((c for c in cells[: cols.get("author", 1)] if c), "")
-        dps = _num(col("dps"))
-        if not team or dps is None:
+        # Team rows are the ones with a number in the DPS column; the number itself isn't kept
+        # (ComboTracker is about which keys to press, not damage).
+        if not team or _num(col("dps")) is None:
             continue
         tags = _TEAM_TAGS.search(team)
         author = col("author")
@@ -295,13 +316,8 @@ def parse_rotation_sheet(csv_text: str) -> list[dict[str, Any]]:
             "style": tags.group(1).strip() if tags else "",
             "author": "" if author in ("—", "-") else author,
             "setup": col("extra info"),
-            "dps": dps,
-            "total_damage": _num(col("total damage")),
-            "rotation_time": _num(col("rotation time")),
-            "relative": col("%"),
             "video": col("video showcase"),
             "transcript": col("rotation transcript"),
-            "calc_sheet": col("calc sheet"),
         })
     return [g for g in groups if g["teams"]]
 
@@ -371,8 +387,6 @@ API_PREFIX = "/api/ww/"
 def handle_api(library: Library, path: str) -> tuple[int, dict[str, Any]]:
     """
     Route one GET under /api/ww/. Add ?refresh=1 to bypass the cache.
-      roster                      -> character list
-      kit/<id>                    -> one character's moves
       rotations                   -> community team rotations grouped by main character
       transcript?url=<docs link>  -> one rotation's move-by-move transcript
     """
@@ -381,10 +395,6 @@ def handle_api(library: Library, path: str) -> tuple[int, dict[str, Any]]:
     refresh = query.get("refresh", [""])[0] in ("1", "true")
     route = parts.path[len(API_PREFIX):].strip("/")
     try:
-        if route == "roster":
-            return 200, library.roster(refresh)
-        if route.startswith("kit/") and route[4:].isdigit():
-            return 200, library.kit(int(route[4:]), refresh)
         if route == "rotations":
             return 200, library.rotations(refresh)
         if route == "transcript":

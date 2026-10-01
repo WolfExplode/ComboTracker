@@ -1,4 +1,4 @@
-// Teams page: team cards, the team editor, the character icon library, and the combo's Team dropdown.
+// Teams page: the team picker, the team editor, the character icon library, and the combo's Team dropdown.
 
 function ensureWwAbilityShape(obj) {
     const out = { "1": {}, "2": {}, "3": {} };
@@ -128,7 +128,7 @@ function makeAvatar(charKey, extraClass) {
 function renderWwTeamEditor() {
     renderTeamSelect();
     syncTeamEditFromServer();
-    renderTeamCards();
+    renderTeamPicker();
     renderTeamSlotsEditor();
 }
 
@@ -164,57 +164,75 @@ function editTeam(teamId) {
     appState.teamEdit = blankTeamEdit();
     appState.teamEdit.id = teamId || '';
     syncTeamEditFromServer();
-    renderTeamCards();
+    renderTeamPicker();
     renderTeamSlotsEditor();
 }
 
-function renderTeamCards() {
-    const wrap = getEl('teamCards');
-    if (!wrap) return;
-    wrap.replaceChildren();
+function teamComboCounts() {
     const counts = {};
     (appState.overview || []).forEach(r => { if (r.team_id) counts[r.team_id] = (counts[r.team_id] || 0) + 1; });
+    return counts;
+}
+
+function teamAvatars(slots) {
+    const wrap = document.createElement('span');
+    wrap.className = 'avatars';
+    slots.forEach(key => wrap.appendChild(makeAvatar(key, 'avatar-sm')));
+    return wrap;
+}
+
+/** The Teams page dropdown: shows the team being edited, lists every team with its portraits. */
+function renderTeamPicker() {
+    const btnAvatars = getEl('teamPickerAvatars');
+    const menu = getEl('teamMenu');
+    if (!btnAvatars || !menu) return;
+    const te = appState.teamEdit;
+    const counts = teamComboCounts();
+    const plural = (n) => (n === 1 ? '1 combo' : `${n} combos`);
+
+    btnAvatars.replaceChildren(...teamAvatars(te.slots).childNodes);
+    getEl('teamPickerName').textContent = te.id ? (te.name || 'Team') : 'New team';
+    getEl('teamPickerMeta').textContent = te.id ? plural(counts[te.id] || 0) : `${appState.wwTeams.length} teams`;
+
+    menu.replaceChildren();
     if (appState.wwTeams.length === 0) {
         const p = document.createElement('p');
-        p.className = 'muted';
+        p.className = 'muted small menu-empty';
         p.textContent = 'No teams yet. Use New team to make one.';
-        wrap.appendChild(p);
+        menu.appendChild(p);
         return;
     }
     appState.wwTeams.forEach(t => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'card team-card' + (t.id === appState.teamEdit.id ? ' on' : '');
-        card.title = `Edit ${t.name}`;
-        card.addEventListener('click', () => editTeam(t.id));
-
-        const head = document.createElement('div');
-        head.className = 'team-card-head';
-        const h = document.createElement('span');
-        h.className = 'team-card-name';
-        h.textContent = t.name;
-        const n = counts[t.id] || 0;
-        const c = document.createElement('span');
-        c.className = 'muted small';
-        c.textContent = n === 1 ? '1 combo' : `${n} combos`;
-        head.append(h, c);
-        card.appendChild(head);
-
-        [t.slot1, t.slot2, t.slot3].forEach((key, i) => {
-            const row = document.createElement('div');
-            row.className = 'team-slot';
-            const cap = document.createElement('span');
-            cap.className = 'keycap';
-            cap.textContent = String(i + 1);
-            const name = document.createElement('span');
-            name.textContent = wwCharByKey(key)?.name || (key ? key : 'Empty');
-            if (!key) name.className = 'muted';
-            row.append(cap, makeAvatar(key), name);
-            card.appendChild(row);
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'menu-item team-item' + (t.id === te.id ? ' on' : '');
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', String(t.id === te.id));
+        const left = document.createElement('span');
+        left.className = 'team-item-left';
+        const name = document.createElement('span');
+        name.textContent = t.name;
+        left.append(teamAvatars([t.slot1, t.slot2, t.slot3]), name);
+        const count = document.createElement('span');
+        count.className = 'muted small';
+        count.textContent = plural(counts[t.id] || 0);
+        item.append(left, count);
+        item.addEventListener('click', () => {
+            closePickers();
+            editTeam(t.id);
         });
-        wrap.appendChild(card);
+        menu.appendChild(item);
     });
 }
+
+getEl('teamPicker')?.addEventListener('click', () => {
+    const menu = getEl('teamMenu');
+    const open = menu.hidden;
+    closePickers();
+    menu.hidden = !open;
+    getEl('teamPicker').setAttribute('aria-expanded', String(open));
+    if (open) menu.querySelector('.menu-item.on, .menu-item')?.focus();
+});
 
 function renderTeamSlotsEditor() {
     const te = appState.teamEdit;
@@ -268,6 +286,7 @@ function renderTeamSlotsEditor() {
         sel.addEventListener('change', () => {
             te.slots[idx] = sel.value;
             wwSetSlotPortrait(portrait, sel.value ? appState.wwCharacters[sel.value] : null);
+            renderTeamPicker();
         });
 
         row.appendChild(handle);
@@ -536,7 +555,7 @@ getEl('saveTeamBtn')?.addEventListener('click', () => {
 
 getEl('newTeamBtn')?.addEventListener('click', () => {
     appState.teamEdit = blankTeamEdit();
-    renderTeamCards();
+    renderTeamPicker();
     renderTeamSlotsEditor();
     getEl('wwTeamName')?.focus();
 });

@@ -240,6 +240,15 @@ a:hover { color: var(--ct-accent-hover); }
 
 .picker { position: relative; }
 
+/* Teams page: team dropdown + New team */
+.team-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.team-bar .picker { flex: 0 1 460px; min-width: 0; }
+.team-bar .picker-btn { min-width: 0; }
+.team-bar .picker-menu { left: 0; right: auto; width: 100%; }
+.team-item-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.team-item-left > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-item .avatars .avatar { border-color: var(--ct-surface); }
+
 .picker-btn {
     display: flex;
     align-items: center;

@@ -1,4 +1,4 @@
-// App shell: page navigation, the left rail and its status card, the header combo picker,
+// App shell: page navigation, the left rail and its status card,
 // the Combos list, History, Settings, toasts, and the backend message dispatch. Loads last.
 
 const PAGES = {
@@ -27,7 +27,7 @@ function showPage(name, opts) {
     });
     getEl('pageTitle').textContent = PAGES[page].title;
     getEl('pageOverline').textContent = PAGES[page].overline;
-    closeComboMenu();
+    closePickers();
 
     if (page === 'characters') {
         const frame = getEl('charactersFrame');
@@ -117,7 +117,7 @@ function renderRailStatus() {
 });
 
 // ---------------------------------------------------------------------------
-// Combo list, header picker, Combos page list, History
+// Combo list (Practice page) and History
 // ---------------------------------------------------------------------------
 
 function setComboList(names, active, overview) {
@@ -153,82 +153,27 @@ function formatSeconds(ms) {
 
 function selectCombo(name) {
     if (!name) return;
-    closeComboMenu();
     if (name !== appState.activeCombo) sendMessage('select_combo', { name });
 }
 
 function renderComboViews() {
-    renderPicker();
-    renderComboMenu();
     renderComboList();
     renderHistory();
-    renderTeamCards();
+    renderTeamPicker();
 }
 
-function renderPicker() {
-    const avatars = getEl('pickerAvatars');
-    if (!avatars) return;
-    avatars.replaceChildren();
-    const hasCombo = !!appState.activeCombo;
-    const slots = hasCombo ? appState.wwTeamSlots : ['', '', ''];
-    slots.forEach(key => avatars.appendChild(makeAvatar(key, 'avatar-sm')));
-    const team = hasCombo ? teamById(appState.wwTeamId) : null;
-    getEl('pickerTeam').textContent = team ? team.name : (hasCombo ? 'No team' : `${appState.comboNames.length} combos`);
-    getEl('pickerName').textContent = appState.activeCombo || 'Select a combo';
-}
-
-function renderComboMenu() {
-    const menu = getEl('comboMenu');
-    if (!menu) return;
-    menu.replaceChildren();
-    if (appState.comboNames.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = 'muted small menu-empty';
-        empty.textContent = 'No combos yet. Make one on the Combos page.';
-        menu.appendChild(empty);
-        return;
-    }
-    appState.comboNames.forEach(name => {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'menu-item' + (name === appState.activeCombo ? ' on' : '');
-        item.setAttribute('role', 'option');
-        item.setAttribute('aria-selected', String(name === appState.activeCombo));
-        const label = document.createElement('span');
-        label.textContent = name;
-        const team = document.createElement('span');
-        team.className = 'muted small';
-        team.textContent = comboTeamName(name);
-        item.append(label, team);
-        item.addEventListener('click', () => selectCombo(name));
-        menu.appendChild(item);
+// Dropdown pickers (the Teams page's team picker): close on outside click or Esc.
+function closePickers() {
+    document.querySelectorAll('.picker-menu:not([hidden])').forEach(menu => {
+        menu.hidden = true;
+        menu.closest('.picker')?.querySelector('.picker-btn')?.setAttribute('aria-expanded', 'false');
     });
 }
-
-function openComboMenu() {
-    const menu = getEl('comboMenu');
-    if (!menu) return;
-    menu.hidden = false;
-    getEl('comboPicker').setAttribute('aria-expanded', 'true');
-    menu.querySelector('.menu-item.on, .menu-item')?.focus();
-}
-
-function closeComboMenu() {
-    const menu = getEl('comboMenu');
-    if (!menu || menu.hidden) return;
-    menu.hidden = true;
-    getEl('comboPicker')?.setAttribute('aria-expanded', 'false');
-}
-
-getEl('comboPicker')?.addEventListener('click', () => {
-    if (getEl('comboMenu').hidden) openComboMenu();
-    else closeComboMenu();
-});
 document.addEventListener('click', (e) => {
-    if (!e.target.closest('.picker')) closeComboMenu();
+    if (!e.target.closest('.picker')) closePickers();
 });
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeComboMenu();
+    if (e.key === 'Escape') closePickers();
 });
 
 function renderComboList() {
@@ -405,10 +350,7 @@ const MESSAGE_HANDLERS = {
         flushPendingToast();
     },
     combo_list: (msg) => setComboList(msg.combos, msg.active, msg.overview),
-    combo_data: (msg) => {
-        setEditorFields(msg);
-        renderPicker();
-    },
+    combo_data: (msg) => setEditorFields(msg),
     min_time: (msg) => updateMinTime(msg.text),
     difficulty_update: (msg) => {
         updateDifficulty(msg.text);
@@ -499,6 +441,17 @@ if (!PAGES[startPage]) {
 showPage(isTimelineView ? 'practice' : startPage, { fromHash: isTimelineView });
 renderComboViews();
 renderRailStatus();
+
+// Per-character move rules (chain length, hold behavior, follow-ups) for move names on the timeline.
+fetch('data/ww_characters.json')
+    .then(res => (res.ok ? res.json() : null))
+    .then(doc => {
+        if (!doc) return;
+        setWwCharacterData(doc);
+        refreshTimelineIfLoaded();
+        if (!isTimelineView) renderReadsAs();
+    })
+    .catch(() => { /* move names fall back to generic rules */ });
 
 tracker = connectTracker({
     onOpen: () => {

@@ -1,0 +1,6529 @@
+{
+  "about": "Key-input move data for ComboTracker, drafted from encore.moe by tools/ww_build_moves.py. Entries with \"reviewed\": true were checked by hand; edit this file directly to fix or add details.",
+  "characters": {
+    "aalto": {
+      "id": 1403,
+      "name": "Aalto",
+      "element": "Aero",
+      "weapon": "Pistols",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_12_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": null,
+        "hit_names": [],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Shift Trick",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Mist Avatar",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "r",
+          "name": "Flower in the Mist",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Feint Shot",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Dissolving Mist",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Pistols",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "aemeath": {
+      "id": 1210,
+      "name": "Aemeath",
+      "element": "Fusion",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_53_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack - Aemeath",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy Charged"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Aemeath"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Aemeath"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Aemeath"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Aemeath"
+        },
+        {
+          "input": "e",
+          "name": "Shared Voyage",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Form Switch",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Sync Strike: Armament Merge",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Sync Strike: Call of Dawn",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Mech",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Mech",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Mech",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Dodge Counter - Mech",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Seraphic Duet: Overture",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Seraphic Duet: Encore",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Tune Rupture Response - Starburst",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Starflux Thrust",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Towards the Daybreak",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Overture of Departure",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Songs Across the Universe",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Debut of Meteoric Radiance",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Silent Protection",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Unlanded Melody",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "heavy": 2,
+        "midair": 2,
+        "dodge": 4,
+        "intro": 3
+      },
+      "followups": [
+        {
+          "after": "Heavy Attack - Aemeath: Charged I",
+          "press": "lmb",
+          "gives": "Basic Attack - Aemeath Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Heavy Attack - Aemeath: Charged II",
+          "press": "lmb",
+          "gives": "Basic Attack - Aemeath Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Mid-air Attack - Aemeath",
+          "press": "lmb",
+          "gives": "Basic Attack - Aemeath Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Dodge Counter - Aemeath",
+          "press": "lmb",
+          "gives": "Basic Attack - Aemeath Stage 4",
+          "basic_stage": 4
+        },
+        {
+          "after": "Basic Attack - Aemeath Stage 2, 3 & 4",
+          "press": "e",
+          "gives": "Sync Strike: Armament Merge"
+        },
+        {
+          "after": "Basic Attack - Mech Stage 2, 3 & 4",
+          "press": "e",
+          "gives": "Sync Strike: Call of Dawn"
+        },
+        {
+          "after": "Heavy Attack - Mech: Charged I",
+          "press": "lmb",
+          "gives": "Basic Attack - Mech Stage 2"
+        },
+        {
+          "after": "Heavy Attack - Mech: Charged II",
+          "press": "lmb",
+          "gives": "Basic Attack - Mech Stage 3"
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Mech Stage 2"
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Mech Stage 4"
+        },
+        {
+          "after": "Resonance Liberation",
+          "press": "lmb",
+          "gives": "Basic Attack - Mech Stage 2"
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Aemeath Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Mech Stage 3"
+        },
+        {
+          "after": "Tune Break",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3"
+        }
+      ],
+      "notes": "Holding LMB longer goes from Charged I to Charged II; LMB after Charged I is Stage 2, after Charged II is Stage 3. E right after Basic 2-4, a Heavy or a Dodge Counter casts Sync Strike: Armament Merge and switches to the Mech, whose own 4-hit chain this file does not track separately."
+    },
+    "augusta": {
+      "id": 1306,
+      "name": "Augusta",
+      "element": "Electro",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_51_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Steelclash"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Steelclash"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Dodge Counter"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Thunderoar: Backstep"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Thunderoar: Spinslash"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Thunderoar: Uppercut"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Dodge Counter - Heavy Attack: Steelclash"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Thunderoar: Backstep"
+        },
+        {
+          "input": "e",
+          "name": "Warrior's Blade",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Undying Sunlight: Strike",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Undying Sunlight: Leap",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Undying Sunlight: Plunge",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Dodge Counter - Undying Sunlight: Strike",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Sunward Conquest",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Liberation - Sword of Eternal Oath",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Liberation - Sublime is the Sun",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Sublime is the Sun - Sunborne",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Sublime is the Sun - Everbright Protector",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Stride of Goldenflare",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Battlesong of the Unyielding",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "heavy": 2
+      },
+      "followups": [],
+      "notes": "With full Prowess, the Heavy becomes Thunderoar: Backstep, then press or release LMB for Spinslash and Uppercut."
+    },
+    "baizhi": {
+      "id": 1103,
+      "name": "Baizhi",
+      "element": "Glacio",
+      "weapon": "Rectifier",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_6_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Emergency Plan",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Concentration",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Momentary Union",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Remnant Entities",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Overflowing Frost",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Rejuvinating Flow",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "brant": {
+      "id": 1206,
+      "name": "Brant",
+      "element": "Fusion",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_44_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Rhapsodic Riff"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Anchors Aweigh!",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Plunging Attack",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Waves of Acclaims",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Returned from Ashes",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "To the Horizon",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Aflame",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Applaud for Me!",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "The Course is Set!",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "buling": {
+      "id": 1307,
+      "name": "Buling",
+      "element": "Electro",
+      "weapon": "Rectifier",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_58_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Mountain Over Thunder"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Thunder Over Mountain"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Twin Mountains"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Twin Thunders"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Ghost Gate Omen"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "In Shadow Thunder Stirs",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Flashing Thunder Spell - Harmony",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Flashing Thunder Spell",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Summon and Smite",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Exorcism Spell",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "calcharo": {
+      "id": 1301,
+      "name": "Calcharo",
+      "element": "Electro",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_18_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Extermination Order",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: \"Mercy\"",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Phantom Etching",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Deathblade Gear",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack: Hounds Roar",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Wanted Outlaw",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Shadowy Raid",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "camellya": {
+      "id": 1603,
+      "name": "Camellya",
+      "element": "Havoc",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_29_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Pruning"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Valse of Bloom and Blight",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Crimson Blossom",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Budding Mode",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Fervor Efflorescent",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Everblooming",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Twining",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "cantarella": {
+      "id": 1607,
+      "name": "Cantarella",
+      "element": "Havoc",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_34_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Delusive Dive"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Dance with Shadows",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Graceful Step",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Flickering Reverie",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Mirage",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Beneath the Sea",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Flowing Suffocation",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Diffusion",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Cruise",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Ripple",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Tidal Surge",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Gentle Tentacles",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "carlotta": {
+      "id": 1107,
+      "name": "Carlotta",
+      "element": "Glacio",
+      "weapon": "Pistols",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_32_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": null,
+        "hit_names": [],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Necessary Measures"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Containment Tactics"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Customary Greetings"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Art of Violence",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Chromatic Splendor",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Imminent Oblivion",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Moldable Crystal",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Era of New Wave",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Deconstruction",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Twilight Tango",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Death Knell",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Fatal Finale",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Wintertime Aria",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Closing Remark",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Pistols",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "cartethyia": {
+      "id": 1409,
+      "name": "Cartethyia",
+      "element": "Aero",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_40_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack - Cartethyia",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Cartethyia"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Cartethyia"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Cartethyia"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Cartethyia"
+        },
+        {
+          "input": "e",
+          "name": "Sword to Bear Their Names",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Cartethyia",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Fleurdelys",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Fleurdelys",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Fleurdelys",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Upward Cut - Fleurdelys",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Dodge Counter - Fleurdelys",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Sword to Answer Waves' Call",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - May Tempest Break the Tides",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "A Knight's Heartfelt Prayers",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Liberation - A Knight's Heartfelt Prayers",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Liberation - Blade of Howling Squall",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Sword to Mark Tide's Trace",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Wind's Divine Blessing",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "changli": {
+      "id": 1205,
+      "name": "Changli",
+      "element": "Fusion",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_26_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Mid-air Heavy Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Tripartite Flames",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "True Sight: Capture",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack: True Sight - Conquest",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack: True Sight - Charge",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Flaming Sacrifice",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Radiance of Fealty",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Obedience of Rules",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Strategy of Duality",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "chisa": {
+      "id": 1508,
+      "name": "Chisa",
+      "element": "Havoc",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_57_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 2,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Rending Lunge"
+        },
+        {
+          "input": "lmb",
+          "name": "Death Snip"
+        },
+        {
+          "input": "lmb",
+          "name": "Thread Withdrawn"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Severed Facet"
+        },
+        {
+          "input": "lmb",
+          "name": "Hanging Finality"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Eye of Unraveling: Retraction"
+        },
+        {
+          "input": "e",
+          "name": "Fractured Composition",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Eye of Unraveling",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Serrated Loop",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Chainsaw Mode",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Sawring - Blitz",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Chainsaw Mode - Dodge Counter",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Sawring - Eradication",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Lifethread - Glide",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Moment of Nihility",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Reverberance - Return",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Unraveling - Law Zero",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "liberation": 2,
+        "intro": 2
+      },
+      "followups": [
+        {
+          "after": "Basic Attack Stage 2",
+          "press": "lmb",
+          "gives": "Rending Lunge"
+        },
+        {
+          "after": "Rending Lunge",
+          "press": "lmb",
+          "gives": "Death Snip"
+        },
+        {
+          "after": "Rending Lunge",
+          "press": "lmb",
+          "gives": "Hanging Finality"
+        },
+        {
+          "after": "Death Snip",
+          "press": "lmb",
+          "gives": "Thread Withdrawn"
+        },
+        {
+          "after": "Hanging Finality",
+          "press": "lmb",
+          "gives": "Death Snip"
+        },
+        {
+          "after": "Dodge Counter",
+          "press": "lmb",
+          "gives": "Rending Lunge"
+        },
+        {
+          "after": "Dodge Counter - Eye of Unraveling: Retraction",
+          "press": "lmb",
+          "gives": "Sawring - Blitz Stage 3"
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Sawring - Blitz Stage 2"
+        },
+        {
+          "after": "Sawring - Blitz Stage 2: Discordance",
+          "press": "lmb",
+          "gives": "Sawring - Blitz Stage 3"
+        },
+        {
+          "after": "Resonance Liberation",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Sawring - Blitz Stage 2"
+        }
+      ],
+      "notes": "LMB after Basic Stage 2 is Rending Lunge, then Death Snip (on the ground) or Hanging Finality (mid-air). In Chainsaw Mode, LMB is Sawring - Blitz instead."
+    },
+    "chixia": {
+      "id": 1202,
+      "name": "Chixia",
+      "element": "Fusion",
+      "weapon": "Pistols",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_2_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": null,
+        "hit_names": [],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Whizzing Fight Spirit",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill: DAKA DAKA!",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill: Boom Boom",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Thermobaric Bullets",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Blazing Flames",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Grand Entrance",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Leaping Flames",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Pistols",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "ciaccona": {
+      "id": 1407,
+      "name": "Ciaccona",
+      "element": "Aero",
+      "weapon": "Pistols",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_37_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Harmonic Allegro",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Quadruple Downbeat",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Singer's Triple Cadenza",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Symphonic Poem: Tonic",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Roaming with the Wind",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Windcalling Tune",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Pistols",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "danjin": {
+      "id": 1602,
+      "name": "Danjin",
+      "element": "Havoc",
+      "weapon": "Sword",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_10_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter: Ruby Shades"
+        },
+        {
+          "input": "e",
+          "name": "Crimson Fragment",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Carmine Gleam",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Crimson Erosion",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Incinerating Will",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Sanguine Pulse",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Chaoscleave",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Scatterbloom",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Crimson Bloom",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Vindication",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Duality",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "denia": {
+      "id": 1211,
+      "name": "Denia",
+      "element": "Fusion",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_64_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack - Stagecraft Form",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Stagecraft Form"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Breakdown Form"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Stagecraft Form"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Breakdown Form"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Stagecraft Form"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Breakdown Form"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Mid-air Heavy Attack - Breakdown Form"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Stagecraft Form"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Breakdown Form"
+        },
+        {
+          "input": "e",
+          "name": "Bubbles and Baits",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Phantom Bubble - Stagecraft Form",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Beckon - Breakdown Form",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Banish - Breakdown Form",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Erosion Field",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Final Act",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Final Act - Stagecraft Form",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Final Act - Breakdown Form",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Formal Greetings",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "It's Been A While!",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Knock Knock",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Unfinished Lies",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Shattered Hours",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "dodge": 4,
+        "intro": 4
+      },
+      "followups": [
+        {
+          "after": "Dodge Counter - Stagecraft Form",
+          "press": "lmb",
+          "gives": "Basic Attack - Stagecraft Form Stage 4",
+          "basic_stage": 4
+        },
+        {
+          "after": "Dodge Counter - Breakdown Form",
+          "press": "lmb",
+          "gives": "Basic Attack - Breakdown Form Stage 4"
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Stagecraft Form Stage 4",
+          "basic_stage": 4
+        }
+      ],
+      "notes": ""
+    },
+    "encore": {
+      "id": 1203,
+      "name": "Encore",
+      "element": "Fusion",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_8_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack: Wooly Strike"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Flaming Woolies",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Energetic Welcome",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Cloudy Frenzy",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Cosmos Rupture",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Cosmos Rave",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack: Cosmos - Frolicking",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Cosmos: Heavy Attack",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill: Cosmos - Rampage",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Cosmos: Dodge Counter",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Woolies Helpers",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Thermal Field",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "galbrena": {
+      "id": 1208,
+      "name": "Galbrena",
+      "element": "Fusion",
+      "weapon": "Pistols",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_55_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Volley of Death"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Ashfall Barrage"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Blood for Blood"
+        },
+        {
+          "input": "e",
+          "name": "Edge Transcended",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Encroach",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Ascent of Malice",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Seraphic Execution",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Flamewing Verdict",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Hellsent Barrage",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Dodge Counter - Purgatory Scourge",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Ravage",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Hellstride",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Hellfire Absolution",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Hellflare Overload",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Ashen Pursuit",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Pistols",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "heavy": 2,
+        "dodge": 4,
+        "intro": 2
+      },
+      "followups": [
+        {
+          "after": "Basic Attack Stage 4",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Heavy Attack - Volley of Death Stage 1",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Heavy Attack - Volley of Death Stage 2 or 3",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Dodge Counter - Blood for Blood",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 4",
+          "basic_stage": 4
+        },
+        {
+          "after": "Basic Attack - Seraphic Execution Stage 5",
+          "press": "lmb",
+          "gives": "Basic Attack - Seraphic Execution Stage 3"
+        },
+        {
+          "after": "Heavy Attack - Flamewing Verdict Stage 1",
+          "press": "lmb",
+          "gives": "Basic Attack - Seraphic Execution Stage 2"
+        },
+        {
+          "after": "Heavy Attack - Flamewing Verdict Stage 2 & 3",
+          "press": "lmb",
+          "gives": "Basic Attack - Seraphic Execution Stage 3"
+        },
+        {
+          "after": "Dodge Counter - Purgatory Scourge",
+          "press": "lmb",
+          "gives": "Basic Attack - Seraphic Execution Stage 4"
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Heavy Attack - Volley of Death Stage 2"
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        }
+      ],
+      "notes": ""
+    },
+    "hiyuki": {
+      "id": 1108,
+      "name": "Hiyuki",
+      "element": "Glacio",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_67_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack - Present Self",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "chain",
+        "hold_label": ""
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Present Self"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Frost Splinter: Present Self"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Present Self"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Present Self"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Foreclaimed Self"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Foreclaimed Self"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Bitterfrost: Foreclaimed Self"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Foreclaimed Self"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Foreclaimed Self"
+        },
+        {
+          "input": "e",
+          "name": "Frostblight",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Present Self",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Frostblight: Jade Cleave",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Frostblight: Petalfall",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Iai Stance",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Iai",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Foreclaiming",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Foreclaiming: Inward Vision",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Foreclaiming: Blade Liberation",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Frostedge",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Snowlight Blessing",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "dodge": 3,
+        "skill": 3,
+        "intro": 3,
+        "tune_break": 3
+      },
+      "followups": [
+        {
+          "after": "Dodge Counter - Present Self",
+          "press": "lmb",
+          "gives": "Basic Attack - Present Self Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Heavy Attack - Foreclaimed Self",
+          "press": "lmb",
+          "gives": "Basic Attack - Foreclaimed Self Stage 2"
+        },
+        {
+          "after": "Dodge Counter - Foreclaimed Self",
+          "press": "lmb",
+          "gives": "Basic Attack - Foreclaimed Self Stage 3"
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Present Self Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Present Self Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Foreclaimed Self Stage 2"
+        },
+        {
+          "after": "Tune Break",
+          "press": "lmb",
+          "gives": "Basic Attack - Present Self Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Tune Break",
+          "press": "lmb",
+          "gives": "Basic Attack - Foreclaimed Self Stage 3"
+        }
+      ],
+      "notes": "Holding LMB keeps the Basic chain going. In Foreclaimed Self the Basic chain is 5 hits and hold(lmb) is Heavy Attack - Foreclaimed Self (Hold Breath); with 300 Dedication, hold(lmb) is Frost Splinter instead."
+    },
+    "hsin": {
+      "id": 1311,
+      "name": "Hsin",
+      "element": "Electro",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_75_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack - Answering Form",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Answering Form"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Answering Form"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Answering Form"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Answering Form: Reign at Ease"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Answering Form: Reign at Ease"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Answering Form"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Illumining Form"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Illumining Form"
+        },
+        {
+          "input": "lmb",
+          "name": "Upward Cut - Illumining Form"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Illumining Form"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Illumining Form"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Illumining Form: Pillars Aligned"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Illumining Form: Pillars Aligned"
+        },
+        {
+          "input": "e",
+          "name": "Heartward by Moon",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Answering Form",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Illumining Form",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Answering Form: Realm Wanderer",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Illumining Form: Beholding All Horizons",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Illumining Form: Pillars Aligned",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Nexus Alight",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Formshift",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Pillars Across Heaven",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Invoked Form: Answering",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Invoked Form: Illumining",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Glance on a Whim",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Intro Skill - Answering Form",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Intro Skill - Answering Form: Manifold Unison",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Intro Skill - Illumining Form",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Intro Skill - Illumining Form: Manifold Unison",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Herself a Thousand Lanterns",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "iuno": {
+      "id": 1410,
+      "name": "Iuno",
+      "element": "Aero",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_48_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Moonring - Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Moonring - Basic Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Moonring - Dodge Counter"
+        },
+        {
+          "input": "lmb",
+          "name": "Moonbow - Basic Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Moonbow - Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Foresight Fugue",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Pulse of Origins",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Closing Refrain",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Unfinished Refrain",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Arc Beyond the Edge",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Lunar Cycle",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Absolute Fullness",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Full Moon Domain",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Beneath Lunar Tides",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Illuminated Manifestation",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "From Gloom to Gleam",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "dodge": 3
+      },
+      "followups": [
+        {
+          "after": "Moonring - Dodge Counter",
+          "press": "lmb",
+          "gives": "Moonring - Basic Attack Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Moonbow - Dodge Counter",
+          "press": "lmb",
+          "gives": "Moonbow - Basic Attack Stage 3"
+        }
+      ],
+      "notes": "Heavy Attack - Flux: Moonring enters Lunar Cycle - New Moon, where LMB becomes the 3-hit Moonbow chain."
+    },
+    "jianxin": {
+      "id": 1405,
+      "name": "Jianxin",
+      "element": "Aero",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_23_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Calming Air",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Chi Counter",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Chi Parry",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Primordial Chi Spiral",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Zhoutian Progress",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Purification Force Field",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Essence of Tao",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Transcendence",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "jingran": {
+      "id": 1212,
+      "name": "Jingran",
+      "element": "Fusion",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_74_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack - Drink Soul",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Drink Soul"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Devil's Bane"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Nether Dive"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Light Watch"
+        },
+        {
+          "input": "lmb",
+          "name": "Shadow Step"
+        },
+        {
+          "input": "e",
+          "name": "Malevolent Encounter",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Encroaching Yin",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Scorching Yang",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Netherworld Traverse",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Afterlife's Guide",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Soul Raid",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Stardome Meander",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Burial of Thousand Souls",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Question the Tombs",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Rising Fortune and Ebbing Evil",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "midair": 2,
+        "dodge": 4,
+        "skill": 2,
+        "heavy": 2,
+        "intro": 2
+      },
+      "followups": [
+        {
+          "after": "Mid-air Attack",
+          "press": "lmb",
+          "gives": "Basic Attack - Drink Soul Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Mid-air Attack",
+          "press": "lmb",
+          "gives": "Basic Attack - Devil's Bane Stage 2"
+        },
+        {
+          "after": "Dodge Counter - Nether Dive",
+          "press": "lmb",
+          "gives": "Basic Attack - Drink Soul Stage 4",
+          "basic_stage": 4
+        },
+        {
+          "after": "Dodge Counter - Light Watch",
+          "press": "lmb",
+          "gives": "Basic Attack - Devil's Bane Stage 4"
+        },
+        {
+          "after": "Shadow Step",
+          "press": "lmb",
+          "gives": "Basic Attack - Drink Soul Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Shadow Step",
+          "press": "lmb",
+          "gives": "Basic Attack - Devil's Bane Stage 2"
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Drink Soul Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Devil's Bane Stage 2"
+        },
+        {
+          "after": "Heavy Attack - Soul Raid",
+          "press": "lmb",
+          "gives": "Basic Attack - Devil's Bane Stage 2"
+        },
+        {
+          "after": "Heavy Attack - Stardome Meander",
+          "press": "lmb",
+          "gives": "Basic Attack - Drink Soul Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Drink Soul Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Devil's Bane Stage 2"
+        }
+      ],
+      "notes": ""
+    },
+    "jinhsi": {
+      "id": 1304,
+      "name": "Jinhsi",
+      "element": "Spectro",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_24_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": null,
+        "hit_names": [],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Trailing Lights of Eons",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Incarnation",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Illuminous Epiphany",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Unison",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Purge of Light",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Loong's Halo",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Temporal Bender",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "jiyan": {
+      "id": 1404,
+      "name": "Jiyan",
+      "element": "Aero",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_11_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack: Windborne Strike"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack: Abyssal Slash"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-Air Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-Air Attack: Banner of Triumph"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Windqueller",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Liberation: Emerald Storm - Finale",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Emerald Storm - Prelude",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Qingloong Mode",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Lance of Qingloong",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Tactical Strike",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Discipline",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "lingyang": {
+      "id": 1104,
+      "name": "Lingyang",
+      "element": "Glacio",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_14_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack: Feral Roars"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Ancient Arts",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Furious Punches",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Glorious Plunge",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack: Tail Strike",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Strive: Lion's Vigor",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Lion's Vigor",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Lion Awakens",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Frosty Marks",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "lucilla": {
+      "id": 1109,
+      "name": "Lucilla",
+      "element": "Glacio",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_66_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3 - Unremarkable / Commendable"
+        ],
+        "hold_lmb": "chain",
+        "hold_label": ""
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Phantom Frame",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Compensate",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Spotlight",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Oblivion",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Clear As Day",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Tracing Forms",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Letting It Go",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Reminiscence",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Dodge Counter - Reminiscence",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Clip It",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Clip It: Hard Cut",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Montage",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "midair": 2,
+        "dodge": 3,
+        "skill": 2
+      },
+      "followups": [
+        {
+          "after": "Mid-air Attack",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Resonance Liberation",
+          "press": "lmb",
+          "gives": "Basic Attack - Tracing Forms Stage 2"
+        },
+        {
+          "after": "Resonance Liberation",
+          "press": "lmb",
+          "gives": "Basic Attack - Tracing Forms Stage 3"
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Tracing Forms Stage 3"
+        }
+      ],
+      "notes": "Holding LMB runs Stage 1-3 and deploys the Focus Ring on Stage 3: release inside Perfect Focus for Commendable, outside for Unremarkable. After the Liberation, LMB is the Tracing Forms chain."
+    },
+    "lucy": {
+      "id": 1511,
+      "name": "Lucy",
+      "element": "Spectro",
+      "weapon": "Pistols",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_68_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Thread Shredding"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Single Threading"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Dual Threading"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Multi-threading"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Algorithm Compaction"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Algorithm Compaction"
+        },
+        {
+          "input": "e",
+          "name": "Protocol Breach",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Payload",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Pulse Interference",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Deadlock",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Hack Response - Data Crash",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Netrunner",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Liberation - Netrunner",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Spoofing Program: Ping",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Spoofing Program: Synapse Burnout",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Spoofing Program: Cripple Movement",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Liberation - Old Net Deep Dive",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Outdated Hallucination",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Countermeasure Program",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Data Crash",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "heavy": 3,
+        "midair": 2,
+        "dodge": 4,
+        "skill": 2
+      },
+      "followups": [
+        {
+          "after": "Heavy Attack Stage 1",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Mid-air Attack",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Dodge Counter",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 4",
+          "basic_stage": 4
+        },
+        {
+          "after": "Heavy Attack - Single Threading",
+          "press": "lmb",
+          "gives": "Mid-air Attack - Algorithm Compaction"
+        },
+        {
+          "after": "Heavy Attack - Single Threading",
+          "press": "lmb",
+          "gives": "Basic Attack - Thread Shredding Stage 2"
+        },
+        {
+          "after": "Heavy Attack - Dual Threading",
+          "press": "lmb",
+          "gives": "Heavy Attack - Multi-threading"
+        },
+        {
+          "after": "Heavy Attack - Dual Threading",
+          "press": "lmb",
+          "gives": "Basic Attack - Thread Shredding Stage 2"
+        },
+        {
+          "after": "Heavy Attack - Multi-threading",
+          "press": "lmb",
+          "gives": "Basic Attack - Thread Shredding Stage 2"
+        },
+        {
+          "after": "Mid-air Attack - Algorithm Compaction",
+          "press": "lmb",
+          "gives": "Basic Attack - Thread Shredding Stage 2"
+        },
+        {
+          "after": "Dodge Counter - Algorithm Compaction",
+          "press": "lmb",
+          "gives": "Basic Attack - Thread Shredding Stage 3"
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Thread Shredding Stage 2"
+        }
+      ],
+      "notes": ""
+    },
+    "lumi": {
+      "id": 1504,
+      "name": "Lumi",
+      "element": "Electro",
+      "weapon": "Broadblade",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_30_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Yellow Light: Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Yellow Light: Basic Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Yellow Light: Plunging Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Red Light: Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Red Light: Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Red Light: Plunging Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Red Light: Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Searchlight Service",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Pounce",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Rebound",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Energized Pounce",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Energized Rebound",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Squeakie Express",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Special Delivery",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Escorting",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "lupa": {
+      "id": 1207,
+      "name": "Lupa",
+      "element": "Fusion",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_46_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Wolf's Gnawing"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Wolf's Claw"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Firestrike"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Plunging Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Starfall"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Shewolf's Hunt",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Feral Fang",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Dance With the Wolf",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Dance With the Wolf: Climax",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Set the Arena Ablaze",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Fire-Kissed Glory",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Foebreaker",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Burning Matchpoint",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Try Focusing, Eh?",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Nowhere to Run!",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Stand by Me, Warrior",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "luuk herssen": {
+      "id": 1510,
+      "name": "Luuk Herssen",
+      "element": "Spectro",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_54_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Reunion of All the Fallen",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Golden Reflux",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Aureole of Execution",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Aureole of Execution: Ring",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Aureole of Execution: Breach",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Aureole of Execution: Glare",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Golden Impale",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Ichor Deposit",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Gavel of Earthshaker",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Ichor Blade",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Rewritten in Winter's Margins",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Before Injection of Dawn",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Bow to the Last Light",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Silent Debate of Light",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "dodge": 3
+      },
+      "followups": [
+        {
+          "after": "Dodge Counter",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3",
+          "basic_stage": 3
+        }
+      ],
+      "notes": ""
+    },
+    "lynae": {
+      "id": 1509,
+      "name": "Lynae",
+      "element": "Spectro",
+      "weapon": "Pistols",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_60_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "chain",
+        "hold_label": ""
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Spark Collision"
+        },
+        {
+          "input": "lmb",
+          "name": "Kaleidoscopic Parade - Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Kaleidoscopic Parade - Ground Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Kaleidoscopic Parade - Mid-air Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Kaleidoscopic Parade - Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Kaleidoscopic Parade - Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Lynae-Style Palettes",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Additive Color",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Polychrome Leap",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Iridescent Splash",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Visual Impact",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Tune Rupture Response - Spectral Analysis",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Prismatic Overblast",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - To a Vivid Tomorrow!",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Time to Show Some Colors!",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Let's Hit the Road!",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Spectral Analysis",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "skill": 2
+      },
+      "followups": [
+        {
+          "after": "Kaleidoscopic Parade - Dodge Counter",
+          "press": "lmb",
+          "gives": "Kaleidoscopic Parade - Basic Attack Stage 2"
+        }
+      ],
+      "notes": "Holding LMB keeps the chain going; with full Overflow it charges Spark Collision instead. In Kaleidoscopic Parade the Basic chain is 5 hits and hold(lmb) is the Ground Heavy Attack."
+    },
+    "mornye": {
+      "id": 1209,
+      "name": "Mornye",
+      "element": "Fusion",
+      "weapon": "Broadblade",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_61_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Wide Field Observation Mode"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Wide Field Observation Mode"
+        },
+        {
+          "input": "e",
+          "name": "Resolution",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Expectation Error",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Optimal Solution",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Distributed Array",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Geopotential Shift",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Wide Field Observation Mode",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Syntony Field",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Inversion",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Tune Rupture Response - Particle Jet",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Critical Protocol",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Convergence",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Recursion",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Decoupling",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "midair": 3,
+        "dodge": 2
+      },
+      "followups": [
+        {
+          "after": "Dodge Counter",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        }
+      ],
+      "notes": "In Wide Field Observation Mode the Basic chain is 3 hits. LMB during the Expectation Error parry exits it with Basic Stage 2."
+    },
+    "mortefi": {
+      "id": 1204,
+      "name": "Mortefi",
+      "element": "Fusion",
+      "weapon": "Pistols",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_13_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": null,
+        "hit_names": [],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Passionate Variation",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill: Fury Fugue",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Violent Finale",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Marcato",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Dissonance",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Rage Transposition",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Pistols",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "phoebe": {
+      "id": 1506,
+      "name": "Phoebe",
+      "element": "Spectro",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_45_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Mid-air Heavy Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "To Where Light Shines",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Ring of Mirrors",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Starflash",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Dawn of Enlightenment",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Golden Grace",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Attentive Heart",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": "Inside the Ring of Mirrors, Basic Attack becomes Chamuel's Star (also 3 hits)."
+    },
+    "phrolova": {
+      "id": 1608,
+      "name": "Phrolova",
+      "element": "Havoc",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_41_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Scarlet Coda"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Whispers in a Fleeting Dream",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Movement of Fate and Finality",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Murmurs in a Haunting Dream",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Waltz of Forsaken Depths",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Hecate",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Enhanced Attack - Hecate: Strings",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Enhanced Attack - Hecate: Winds",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Enhanced Attack - Hecate: Cadenza",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Curtain Call",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Suite of Quietus",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Suite of Immortality",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Unfinished Piece",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "heavy": 2,
+        "dodge": 3,
+        "intro": 3
+      },
+      "followups": [
+        {
+          "after": "Heavy Attack",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Dodge Counter",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3",
+          "basic_stage": 3
+        }
+      ],
+      "notes": ""
+    },
+    "qingxiao": {
+      "id": 1413,
+      "name": "Qingxiao",
+      "element": "Aero",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_73_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack - Stringblade",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "chain",
+        "hold_label": ""
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Stringblade"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Stringblade"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Stringblade"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Plunging Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Stringblade"
+        },
+        {
+          "input": "lmb",
+          "name": "Sword Glide"
+        },
+        {
+          "input": "e",
+          "name": "Severing Note",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Severing Note: Judgement",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Severing Note: Ascendant",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Ephemeral Transcendence",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Dodge Counter - Ephemeral Transcendence",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Heaven's Reckoning: Ephemeral Transcendence",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Sword Step",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Billows Beneath Heaven",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Tonality Shift",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Lingering Song",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Draw and Sunder",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "qiuyuan": {
+      "id": 1411,
+      "name": "Qiuyuan",
+      "element": "Aero",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_56_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Through the Groves",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Undaunted Wayfarer",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Thus Spoke the Blade: Inkwash",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Sundering Strike",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Attack the Must-Defend",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Strike Before Ready",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "rebecca": {
+      "id": 1308,
+      "name": "Rebecca",
+      "element": "Electro",
+      "weapon": "Pistols",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_69_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack - Huntress",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Huntress"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Huntress"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Eat Lead!: Huntress"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Plunging Attack - Huntress"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Huntress"
+        },
+        {
+          "input": "lmb",
+          "name": "Tactical Dodge - Huntress"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Guts"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Guts"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Plunging Attack - Guts"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Guts"
+        },
+        {
+          "input": "lmb",
+          "name": "Tactical Dodge - Guts"
+        },
+        {
+          "input": "e",
+          "name": "Tactical Tweaks",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - It's Big Boomin' Time!",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Come 'n' Get Me!",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Hack Response - Meltdown",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Rat-tat-tat!: Huntress",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Bang-bang-bang!: Guts",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Party 'til Dawn!",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "BOOM! Fireworks!",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "My Turn!",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Yo, It's Big Boomin' Time!",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Hey, Leadhead, Come 'n' Get Me!",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Preem Choom",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Hack - Meltdown",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "roccia": {
+      "id": 1606,
+      "name": "Roccia",
+      "element": "Havoc",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_33_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Acrobatic Trick",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Real Fantasy",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Commedia Improvviso!",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Pero, Help",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Applause, Please!",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "rover: aero": {
+      "id": 1406,
+      "name": "Rover: Aero",
+      "element": "Aero",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_4_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack - Razor Wind"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Illusion Breaker",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Awakening Gale",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Skyfall Severance",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Cloudburst Dance",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Unbound Flow",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Omega Storm",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Relentless Squall",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Storm's Echo",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [
+        {
+          "after": "Basic Attack Stage 3",
+          "press": "lmb",
+          "gives": "Razor Wind"
+        }
+      ],
+      "notes": ""
+    },
+    "rover: electro": {
+      "id": 1309,
+      "name": "Rover: Electro",
+      "element": "Electro",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_4_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Parry Stance"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Havoc"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Thunderclap",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Overshock",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Ultimate Tactics",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Thunderous Fury",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Rumbling Thunders",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break - Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [
+        {
+          "after": "Basic Attack - Riposte Strike",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Basic Attack - Riposte Strike: Crumble",
+          "press": "lmb",
+          "gives": "Mid-air Attack - Havoc"
+        },
+        {
+          "after": "Overshock",
+          "press": "lmb",
+          "gives": "Normal Attack Stage 4"
+        }
+      ],
+      "notes": ""
+    },
+    "rover: havoc": {
+      "id": 1604,
+      "name": "Rover: Havoc",
+      "element": "Havoc",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_5_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Wingblade",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Devastation",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Umbra",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Deadening Abyss",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Instant of Annihilation",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Soundweaver",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "rover: spectro": {
+      "id": 1501,
+      "name": "Rover: Spectro",
+      "element": "Spectro",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_4_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack: Resonance"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack: Aftertune"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Resonating Slashes",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill: Resonating Spin",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack: Resonating Echoes",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Echoing Orchestra",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Waveshock",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Instant",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "sanhua": {
+      "id": 1102,
+      "name": "Sanhua",
+      "element": "Glacio",
+      "weapon": "Sword",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_7_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Eternal Frost",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Detonate",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Glacial Gaze",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Freezing Thorns",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Silversnow",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "shorekeeper": {
+      "id": 1505,
+      "name": "Shorekeeper",
+      "element": "Spectro",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_28_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Chaos Theory",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Flare Star Butterfly",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Illation",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Transmutation",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "End Loop",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Proof of Existence",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Enlightenment",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Discernment",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Binary Butterfly",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "midair": 2
+      },
+      "followups": [],
+      "notes": "Holding LMB enters Unbound Form, which drains STA."
+    },
+    "sigrika": {
+      "id": 1412,
+      "name": "Sigrika",
+      "element": "Aero",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_65_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Elucidated"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Decipher"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Royan Close Quarters Combat",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "BOOMY BOOM!",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "BIG BOOMY BOOM!",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Soliskin to the Aid",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Schemata of Runes",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Runic Outburst",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Runic Chain Whip",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Runic Soliskin",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Forte Circuit - Learn My True Name",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Where Trust Leads Me!",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Solsworn Etymology",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "In This Very Moment",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "heavy": 2,
+        "dodge": 4,
+        "intro": 2
+      },
+      "followups": [
+        {
+          "after": "Heavy Attack",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Dodge Counter",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 4",
+          "basic_stage": 4
+        },
+        {
+          "after": "Mid-air Dodge Counter",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "BOOMY BOOM!",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        }
+      ],
+      "notes": ""
+    },
+    "suisui": {
+      "id": 1110,
+      "name": "Suisui",
+      "element": "Glacio",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_71_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack - Zephyr Stance",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "chain",
+        "hold_label": ""
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Zephyr Stance"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Zephyr Stance"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Zephyr Stance"
+        },
+        {
+          "input": "e",
+          "name": "Vernal Screen",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Zephyr Stance",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Awakening Spring",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Enrichment",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Drizzle Stance",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Dodge - Parting Mist",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Drizzle Stance",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Drizzle Stance",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Illuminating Dew",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Swallow's Cut",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Song of Thoroughfare",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Tinkling Jade",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Rippling Waters",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "dodge": 4
+      },
+      "followups": [
+        {
+          "after": "Dodge Counter - Zephyr Stance",
+          "press": "lmb",
+          "gives": "Basic Attack - Zephyr Stance Stage 4",
+          "basic_stage": 4
+        }
+      ],
+      "notes": "Zephyr Stance. Holding LMB keeps the chain going. Drizzle Stance has its own Basic and Heavy Attack."
+    },
+    "suoming": {
+      "id": 1312,
+      "name": "Suoming",
+      "element": "Electro",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_76_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "chain",
+        "hold_label": ""
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Unfurled Canopy"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Unfurled Canopy: Whirling Thunder"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Unfurled Canopy"
+        },
+        {
+          "input": "e",
+          "name": "Furled Canopy: Rift Cleaver",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Unfurled Canopy: Crimson Gleam",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Furled Canopy: Sealed Delusion",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Unfurled Canopy: Unforsaken Mind",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Basic Attack - Umbral Canopy: Engraved Heart",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Umbral Canopy: Miasma Lock",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Furled Canopy: Flash Rift",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Intro Skill - Unfurled Canopy: Thunder Rending",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Intro Skill - Furled Canopy: Sealed Delusion (Unison)",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "",
+          "name": "Intro Skill - Unfurled Canopy: Whirling Thunder (Unison)",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Canopy Rumble",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break - Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "skill": 2
+      },
+      "followups": [
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 2",
+          "basic_stage": 2
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Unfurled Canopy Stage 3"
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack Stage 3",
+          "basic_stage": 3
+        },
+        {
+          "after": "Resonance Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Unfurled Canopy Stage 4"
+        },
+        {
+          "after": "Intro Skill",
+          "press": "lmb",
+          "gives": "Basic Attack - Unfurled Canopy: Whirling Thunder Stage 2"
+        },
+        {
+          "after": "Intro Skill - Unfurled Canopy: Whirling Thunder (Unison)",
+          "press": "lmb",
+          "gives": "Basic Attack - Unfurled Canopy: Whirling Thunder Stage 2"
+        },
+        {
+          "after": "Basic Attack - Unfurled Canopy Stage 4",
+          "press": "lmb",
+          "gives": "Basic Attack - Unfurled Canopy Stage 2"
+        }
+      ],
+      "notes": ""
+    },
+    "taoqi": {
+      "id": 1601,
+      "name": "Taoqi",
+      "element": "Havoc",
+      "weapon": "Broadblade",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_9_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "lmb",
+          "name": "Strategic Parry"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-Air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Fortified Defense",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Rocksteady Shield",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Timed Counters",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Unmovable",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Defense Formation",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Iron Will",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Broadblade",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "verina": {
+      "id": 1503,
+      "name": "Verina",
+      "element": "Spectro",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_3_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Mid-air Heavy Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Botany Experiment",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Starflower Blooms",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack: Starflower Blooms",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Arboreal Flourish",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Photosynthesis Mark",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Verdant Growth",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Blossom",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "xiangli yao": {
+      "id": 1305,
+      "name": "Xiangli Yao",
+      "element": "Electro",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_25_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Deduction",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Decipher",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Law of Reigns",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Revamp",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Cogitation Model",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Principle",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Chain Rule",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "yangyang": {
+      "id": 1402,
+      "name": "Yangyang",
+      "element": "Aero",
+      "weapon": "Sword",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_1_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack: Zephyr Song"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Zephyr Domain",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack: Stormy Strike",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack: Feather Release",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Wind Spirals",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Cerulean Song",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Whispering Breeze",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "yangyang: xuanling": {
+      "id": 1610,
+      "name": "Yangyang: Xuanling",
+      "element": "Havoc",
+      "weapon": "Sword",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_70_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack - Azure Sword Stance",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "chain",
+        "hold_label": ""
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Azure Sword Stance"
+        },
+        {
+          "input": "lmb",
+          "name": "Basic Attack - Feather Sword Stance"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Azure Sword Stance"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack - Feather Sword Stance"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Azure Sword Stance"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter - Feather Sword Stance"
+        },
+        {
+          "input": "e",
+          "name": "Feather's Edge",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Sword Stance Switch",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Sword Stance Switch: Azure",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Sword Stance Switch: Feather",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Sword Stance Flow: Azure",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Sword Stance Flow: Feather",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Azure Sword Stance",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Feather Sword Stance",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Mid-air Attack - Feather Fall",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Hush of a Thousand Voices",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Skybound Feather",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "As the Wind Wills",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break - Sword",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "midair": 2,
+        "dodge": 3
+      },
+      "followups": [],
+      "notes": "Holding LMB keeps the chain going; with full Azure Plume it casts the stance Heavy Attack instead. E switches between Azure and Feather Sword Stance (each a 4-hit chain)."
+    },
+    "yinlin": {
+      "id": 1302,
+      "name": "Yinlin",
+      "element": "Electro",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_17_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": null,
+        "hit_names": [],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Magnetic Roar",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Execution Mode",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Electromagnetic Blast",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Lightning Execution",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "r",
+          "name": "Thundering Wrath",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Raging Storm",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Strategist",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [
+        {
+          "after": "Magnetic Roar",
+          "press": "e",
+          "gives": "Lightning Execution"
+        }
+      ],
+      "notes": ""
+    },
+    "youhu": {
+      "id": 1106,
+      "name": "Youhu",
+      "element": "Glacio",
+      "weapon": "Gauntlets",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_31_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack: Frostfall"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Scroll Divination",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Lucky Draw",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "r",
+          "name": "Fortune's Favor",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Scroll of Wonders",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Timeless Classics",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "yuanwu": {
+      "id": 1303,
+      "name": "Yuanwu",
+      "element": "Electro",
+      "weapon": "Gauntlets",
+      "rarity": 4,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_15_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 5,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4",
+          "Stage 5"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Leihuang Master",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Thunder Wedge",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Rumbling Spark",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Thunder Uprising",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Lightning Infused",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Blazing Might",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Thunder Bombardment",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Lightning Manipulation",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    },
+    "zani": {
+      "id": 1507,
+      "name": "Zani",
+      "element": "Spectro",
+      "weapon": "Gauntlets",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_38_UI.webp",
+      "reviewed": true,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 4,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3",
+          "Stage 4 (after Breakthrough)"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Restless Watch",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Standard Defense Protocol",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Sunburst",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heliacal Ember",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Between Dawn and Dusk",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Rekindle",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "The Last Stand",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Immediate Execution",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Beacon For the Future",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Gauntlets",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {
+        "heavy": 3,
+        "midair": 3,
+        "skill": 3
+      },
+      "followups": [],
+      "notes": "After Stage 3, LMB at the right time casts Breakthrough, then LMB again for Stage 4. With 30+ Blaze, Basic Attack is replaced by Heavy Slash - Daybreak."
+    },
+    "zhezhi": {
+      "id": 1105,
+      "name": "Zhezhi",
+      "element": "Glacio",
+      "weapon": "Rectifier",
+      "rarity": 5,
+      "icon": "https://api.encore.moe/resource/Data/Game/Aki/UI/UIResources/Common/Image/IconRoleHead80/T_IconRoleHead80_27_UI.webp",
+      "reviewed": false,
+      "basic": {
+        "name": "Basic Attack",
+        "hits": 3,
+        "hit_names": [
+          "Stage 1",
+          "Stage 2",
+          "Stage 3"
+        ],
+        "hold_lmb": "heavy",
+        "hold_label": "Heavy"
+      },
+      "moves": [
+        {
+          "input": "lmb",
+          "name": "Basic Attack"
+        },
+        {
+          "input": "hold(lmb)",
+          "name": "Heavy Attack"
+        },
+        {
+          "input": "space, lmb",
+          "name": "Mid-air Attack"
+        },
+        {
+          "input": "rmb, lmb",
+          "name": "Dodge Counter"
+        },
+        {
+          "input": "e",
+          "name": "Manifestation",
+          "type": "Resonance Skill"
+        },
+        {
+          "input": "",
+          "name": "Heavy Attack - Conjuration",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Stroke of Genius",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "",
+          "name": "Resonance Skill - Creation's Zenith",
+          "type": "Forte Circuit"
+        },
+        {
+          "input": "r",
+          "name": "Living Canvas",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "",
+          "name": "Inklit Spirit",
+          "type": "Resonance Liberation"
+        },
+        {
+          "input": "swap in",
+          "name": "Radiant Ruin",
+          "type": "Intro Skill"
+        },
+        {
+          "input": "swap out",
+          "name": "Carve and Draw",
+          "type": "Outro Skill"
+        },
+        {
+          "input": "f",
+          "name": "Tune Break: Rectifier",
+          "type": "Tune Break"
+        }
+      ],
+      "chain_entry": {},
+      "followups": [],
+      "notes": ""
+    }
+  }
+}

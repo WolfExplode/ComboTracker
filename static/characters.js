@@ -1,11 +1,12 @@
-// Characters page: every character's moves (encore.moe) and community team rotations
-// (AntoCrasher's calc compilation + rotation transcripts), served by ui_server.py under /api/ww/.
+// Characters page: each character's key-input moves (static/data/ww_characters.json, drafted from
+// encore.moe and checked by hand) and community team rotations (AntoCrasher's compilation +
+// rotation transcripts, served by ui_server.py under /api/ww/).
 
 // Shown inside the main app's Characters page: hide this page's own back link and title.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
 const ELEMENTS = ['Aero', 'Electro', 'Fusion', 'Glacio', 'Havoc', 'Spectro'];
-const MAX_SKILL_LEVEL = 10;
+const MOVES_URL = 'data/ww_characters.json';
 
 // Abbreviations from AntoCrasher's rotation hub; each rotation's own list (if any) wins.
 const DEFAULT_GLOSSARY = {
@@ -17,15 +18,14 @@ const DEFAULT_GLOSSARY = {
 
 const state = {
     roster: [],
-    rotations: [],          // [{character, thoughts, teams: [...]}]
+    rotations: [],          // [{character, teams: [...]}]
     rotationsSource: '',
     mine: [],               // nameTokens() of characters saved in the tracker
     element: '',
     query: '',
     selectedId: null,
     tab: 'moves',
-    level: MAX_SKILL_LEVEL,
-    kits: new Map(),
+    moves: new Map(),       // character id -> entry from ww_characters.json
     transcripts: new Map(),
     tracker: null,
 };
@@ -164,26 +164,16 @@ function rotationsFor(name) {
             if (t.members.slice(1).some((m) => nameKey(m) === key)) featured.push({ ...t, main: g.character });
         }
     }
-    featured.sort((a, b) => (b.dps || 0) - (a.dps || 0));
     return { main, featured };
 }
 
-async function selectCharacter(id, { pushHash = true } = {}) {
+function selectCharacter(id, { pushHash = true } = {}) {
     state.selectedId = id;
     if (pushHash) history.replaceState(null, '', `#${id}`);
     renderRoster();
-    const c = state.roster.find((x) => x.id === id);
-    if (!c) return;
-    const detail = $('detail');
-    detail.innerHTML = `${detailHeader(c)}<div class="loading">Loading ${esc(c.name)}'s kit…</div>`;
-    if (window.innerWidth < 900) detail.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    try {
-        if (!state.kits.has(id)) state.kits.set(id, await api(`kit/${id}`));
-    } catch (e) {
-        if (state.selectedId === id) detail.innerHTML = `${detailHeader(c)}<div class="error">Couldn't load the kit: ${esc(e.message)}</div>`;
-        return;
-    }
-    if (state.selectedId === id) renderDetail();
+    if (!state.roster.find((x) => x.id === id)) return;
+    renderDetail();
+    if (window.innerWidth < 900) $('detail').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 function detailHeader(c) {
@@ -206,64 +196,70 @@ function detailHeader(c) {
 function renderDetail() {
     const c = state.roster.find((x) => x.id === state.selectedId);
     if (!c) return;
-    const body = state.tab === 'moves' ? renderMoves(state.kits.get(c.id)) : renderRotations(c);
+    const body = state.tab === 'moves' ? renderMoves(c) : renderRotations(c);
     $('detail').innerHTML = detailHeader(c) + body;
 }
 
-// --- Moves ------------------------------------------------------------------
+// --- Moves (key inputs only; from static/data/ww_characters.json) --------------
 
-function formatDescription(text) {
-    return String(text || '')
-        .split(/\n+/)
-        .map((line) => {
-            const heading = line.match(/^\*\*(.+)\*\*$/);
-            if (heading) return `<h5>${esc(heading[1])}</h5>`;
-            return `<p>${esc(line).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</p>`;
-        })
-        .join('');
+const CHAIN_AFTER = {
+    intro: 'the Intro (swap in)', skill: 'the Resonance Skill (E)', liberation: 'the Liberation (R)',
+    tune_break: 'a Tune Break (F)', heavy: 'a Heavy Attack', dodge: 'a Dodge Counter', midair: 'a Mid-air Attack',
+};
+
+function keycap(input) {
+    if (!input) return '';
+    return input.split(/,\s*/).map((k) => `<span class="keycap">${esc(k.toUpperCase())}</span>`).join('<span class="plus">then</span>');
 }
 
-function renderMoves(kit) {
-    if (!kit) return '';
-    const levels = Array.from({ length: MAX_SKILL_LEVEL }, (_, i) => i + 1)
-        .map((l) => `<option value="${l}"${l === state.level ? ' selected' : ''}>Lv ${l}</option>`)
-        .join('');
-    const cards = kit.skills.map((s) => {
-        const icon = safeUrl(s.icon);
-        const rows = s.multipliers
-            .map((m) => {
-                const v = m.values[Math.min(state.level, m.values.length) - 1] ?? m.values[0] ?? '';
-                return `<tr><td>${esc(m.name)}</td><td>${esc(v)}</td></tr>`;
-            })
-            .join('');
-        const open = s.type === 'Normal Attack' || s.type === 'Resonance Skill' || s.type === 'Resonance Liberation';
-        return `<details class="skill"${open ? ' open' : ''}>
-            <summary>
-                ${icon ? `<img src="${esc(icon)}" alt="" loading="lazy">` : '<span class="noimg"></span>'}
-                <span class="skill-title"><span class="skill-type">${esc(s.type)}</span><span class="skill-name">${esc(s.name)}</span></span>
-                ${s.key ? `<span class="keycap">${esc(s.key)}</span>` : ''}
-            </summary>
-            <div class="skill-body">
-                <div class="desc">${formatDescription(s.description)}</div>
-                ${rows ? `<table class="mult"><thead><tr><th>Hit</th><th>Lv ${state.level}</th></tr></thead><tbody>${rows}</tbody></table>` : ''}
-            </div>
-        </details>`;
-    });
+function renderMoves(c) {
+    const m = state.moves.get(c.id);
+    if (!m) return '<p class="muted">No move data for this character yet.</p>';
+    const b = m.basic || {};
+    const hits = (b.hit_names || []).map((name, i) =>
+        `<li><span class="keycap hit">A${i + 1}</span><span>${esc(name)}</span></li>`).join('');
+    const hold = b.hold_lmb === 'chain'
+        ? 'keeps the Basic chain going'
+        : `${esc(b.hold_label || 'Heavy')} (Heavy Attack)`;
+    const entries = Object.entries(m.chain_entry || {})
+        .filter(([k]) => CHAIN_AFTER[k])
+        .map(([k, stage]) => `<li>LMB right after ${esc(CHAIN_AFTER[k])} starts at <strong>A${stage}</strong></li>`).join('');
+
+    const withInput = (m.moves || []).filter((x) => x.input);
+    const other = (m.moves || []).filter((x) => !x.input);
+    const moveRows = withInput.map((x) =>
+        `<tr><td class="inp">${keycap(x.input)}</td><td>${esc(x.name)}${x.type ? ` <span class="muted small">${esc(x.type)}</span>` : ''}</td></tr>`).join('');
+    const otherByType = {};
+    other.forEach((x) => { (otherByType[x.type || 'Other'] ||= []).push(x.name); });
+    const otherHtml = Object.entries(otherByType).map(([t, names]) =>
+        `<p><span class="muted">${esc(t)}:</span> ${names.map(esc).join(', ')}</p>`).join('');
+    const follow = (m.followups || []).filter((f) => !f.basic_stage).map((f) =>
+        `<li>${keycap(f.press)} right after <strong>${esc(f.after)}</strong> casts <strong>${esc(f.gives)}</strong></li>`).join('');
+
     return `<div class="toolbar">
-            <label>Skill level <select id="levelSelect">${levels}</select></label>
-            <a class="src" href="${esc(safeUrl(kit.source))}" target="_blank" rel="noopener">Source: encore.moe</a>
+            <span class="${m.reviewed ? 'badge ok' : 'badge'}">${m.reviewed ? 'Checked by hand' : 'Auto-drafted, not checked yet'}</span>
+            <span class="muted small">From encore.moe, trimmed to key inputs</span>
         </div>
-        ${cards.join('') || '<p class="muted">No skills listed for this character.</p>'}`;
+        <section class="move-card">
+            <h3>${esc(b.name || 'Basic Attack')} <span class="muted small">${b.hits ? `${b.hits}-hit chain` : 'chain length unknown'}</span></h3>
+            ${hits ? `<ol class="hits">${hits}</ol>` : ''}
+            <p><span class="keycap">HOLD LMB</span> ${hold}</p>
+            ${entries ? `<ul class="entries">${entries}</ul>` : ''}
+        </section>
+        ${m.notes ? `<section class="move-card notes"><h3>Notes</h3><p>${esc(m.notes)}</p></section>` : ''}
+        <section class="move-card">
+            <h3>Moves</h3>
+            <table class="moves"><tbody>${moveRows}</tbody></table>
+            ${otherHtml ? `<div class="other-moves"><h4>Other named moves</h4>${otherHtml}</div>` : ''}
+        </section>
+        ${follow ? `<section class="move-card"><h3>Follow-ups</h3><ul class="follow">${follow}</ul></section>` : ''}`;
 }
 
 // --- Rotations ----------------------------------------------------------------
 
 function teamRow(t, idx, showMain) {
     const video = safeUrl(t.video);
-    const calc = safeUrl(t.calc_sheet);
     const hasTranscript = !!safeUrl(t.transcript);
-    const best = teamRow.best || 1;
-    const pct = Math.max(4, Math.round(((t.dps || 0) / best) * 100));
     return `<div class="team" data-idx="${idx}">
         <div class="team-main">
             <div class="team-name">${esc(showMain ? t.team : t.team.replace(/\s*\([^)]*\)\s*$/, ''))}</div>
@@ -272,13 +268,10 @@ function teamRow(t, idx, showMain) {
                 ${t.setup ? `<span class="tag subtle">${esc(t.setup)}</span>` : ''}
                 ${t.author ? `<span class="muted">by ${esc(t.author)}</span>` : ''}
             </div>
-            <div class="dps-bar" title="${fmtNum(t.dps)} DPS over a ${t.rotation_time || '?'}s fight"><span style="width:${pct}%"></span></div>
         </div>
-        <div class="team-num"><strong>${fmtNum(t.dps)}</strong><span class="muted">DPS</span></div>
         <div class="team-actions">
             ${hasTranscript ? `<button type="button" class="subtle" data-act="transcript">Combo</button>` : ''}
             ${video ? `<a class="subtle btn" href="${esc(video)}" target="_blank" rel="noopener">Video</a>` : ''}
-            ${calc ? `<a class="subtle btn" href="${esc(calc)}" target="_blank" rel="noopener">Calc</a>` : ''}
         </div>
         <div class="transcript hidden"></div>
     </div>`;
@@ -288,11 +281,9 @@ function renderRotations(c) {
     const { main, featured } = rotationsFor(c.name);
     state.visibleTeams = [...(main ? main.teams : []), ...featured];
     const all = state.visibleTeams;
-    teamRow.best = Math.max(1, ...all.map((t) => t.dps || 0));
     let html = '';
     if (main) {
         html += `<h3>${esc(c.name)} teams</h3>`;
-        if (main.thoughts) html += `<blockquote class="thoughts">${esc(main.thoughts)}</blockquote>`;
         html += main.teams.map((t, i) => teamRow(t, i, false)).join('');
     }
     if (featured.length) {
@@ -302,7 +293,7 @@ function renderRotations(c) {
     }
     if (!html) html = `<p class="muted">The rotation sheet has no teams with ${esc(c.name)} yet.</p>`;
     const src = safeUrl(state.rotationsSource);
-    return `${html}<p class="src-line">Teams, DPS and rotation transcripts from ${src ? `<a href="${esc(src)}" target="_blank" rel="noopener">AntoCrasher's calc compilation</a>` : "AntoCrasher's calc compilation"} (2-minute fight). The "Combo" button shows the move-by-move rotation.</p>`;
+    return `${html}<p class="src-line">Teams and rotation transcripts from ${src ? `<a href="${esc(src)}" target="_blank" rel="noopener">AntoCrasher's rotation compilation</a>` : "AntoCrasher's rotation compilation"}. The "Combo" button shows the move-by-move rotation.</p>`;
 }
 
 function renderTranscript(t, tr) {
@@ -425,43 +416,60 @@ function bindEvents() {
             );
         } else if (act.dataset.act === 'save') saveAsCombo(teamEl);
     });
-    $('detail').addEventListener('change', (e) => {
-        if (e.target.id === 'levelSelect') {
-            state.level = Number(e.target.value);
-            renderDetail();
-        }
-    });
-    $('refreshBtn').addEventListener('click', () => load(true));
+    $('rawBtn').addEventListener('click', downloadRaw);
     window.addEventListener('hashchange', () => {
         const id = Number(location.hash.slice(1));
         if (id && id !== state.selectedId) selectCharacter(id, { pushHash: false });
     });
 }
 
-async function load(refresh = false) {
-    showNotice(refresh ? 'Downloading fresh data…' : '');
-    if (refresh) {
-        state.kits.clear();
-        state.transcripts.clear();
-    }
-    const [roster, rotations] = await Promise.allSettled([api('roster', refresh), api('rotations', refresh)]);
-    if (roster.status === 'rejected') {
-        showNotice(`Couldn't load the character list: ${roster.reason.message}`, 'warn');
+async function load() {
+    showNotice('');
+    let moves;
+    try {
+        const res = await fetch(MOVES_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        moves = await res.json();
+    } catch (e) {
+        showNotice(`Couldn't load the character list: ${e.message}`, 'warn');
         return;
     }
-    state.roster = roster.value.characters;
-    if (rotations.status === 'fulfilled') {
-        state.rotations = rotations.value.groups;
-        state.rotationsSource = rotations.value.source;
-    } else {
-        showNotice(`Couldn't load team rotations: ${rotations.reason.message}`, 'warn');
-    }
-    if (refresh && roster.status === 'fulfilled' && rotations.status === 'fulfilled' && !roster.value.stale) {
-        showNotice('Data refreshed.', 'ok');
-    }
+    const chars = Object.values(moves.characters || {});
+    chars.sort((a, b) => a.name.localeCompare(b.name));
+    state.roster = chars;
+    state.moves = new Map(chars.map((c) => [c.id, c]));
     renderRoster();
     const id = Number(location.hash.slice(1)) || state.selectedId;
     if (id) selectCharacter(id, { pushHash: false });
+
+    try {
+        const rot = await api('rotations');
+        state.rotations = rot.groups;
+        state.rotationsSource = rot.source;
+        if (state.selectedId) renderDetail();
+    } catch (e) {
+        showNotice(`Couldn't load team rotations: ${e.message}`, 'warn');
+    }
+}
+
+// Saves encore.moe's unedited data to data/encore_raw/ next to the app, for re-drafting the move file
+// with tools/ww_build_moves.py. It doesn't change what this page shows.
+async function downloadRaw() {
+    if (!confirm('Download the raw encore.moe data for every character? It is saved as-is in data/encore_raw/ and does not change the moves shown here.')) return;
+    const btn = $('rawBtn');
+    btn.disabled = true;
+    showNotice('Downloading raw data for every character…');
+    try {
+        const res = await fetch(`/api/ww/scrape-raw`, { method: 'POST' });
+        const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        const failed = data.failed && data.failed.length ? ` ${data.failed.length} failed.` : '';
+        showNotice(`Saved raw data for ${data.saved} characters in ${data.folder}.${failed} Run tools/ww_build_moves.py to draft new characters from it.`, failed ? 'warn' : 'ok');
+    } catch (e) {
+        showNotice(`Couldn't download the raw data: ${e.message}`, 'warn');
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 renderFilters();

@@ -118,18 +118,18 @@ you can set custom CSS to zoom in
 
 A built-in, NohBoard-style key display for streams and recordings: WASD, Shift, Space, 1/2/3, Q/E/R/F and both mouse buttons light up as you press them. The swap keys show your selected team's character names and portraits, and macro playback shows up too.
 
-- Open it with the keyboard button above **Combo Steps**, or add `http://localhost:8737/keys.html` as an OBS **Browser Source**. The background is transparent.
+- Open it from **Settings > Stream overlays**, or add `http://localhost:8737/keys.html` as an OBS **Browser Source**. The background is transparent.
 - It reconnects on its own if you restart ComboTracker.
 - Only these keys are ever sent to the page, so other typing stays private.
 
 ## Characters: moves and team rotations
 
-`http://localhost:8737/characters.html` (the book button above **Combo Steps**, or **Moves & rotations** under Team & Characters) lists every Wuthering Waves character with:
+The **Characters** page (in the sidebar, or `http://localhost:8737/characters.html`) shows what each Wuthering Waves character's buttons do. It covers inputs only: no damage numbers.
 
-- **Moves**: each skill's text and damage multipliers at any skill level, with the key it's on (LMB, E, R...). From the [encore.moe](https://encore.moe) API.
-- **Team rotations**: the community's team setups for that character with DPS, author, video and calc sheet, from [AntoCrasher's calc compilation](https://docs.google.com/spreadsheets/d/1mdl9J08N-0_j-U2zNP5OTHGBKprwmJEmz_Iy4IOJfPk/edit). **Combo** opens the move-by-move rotation transcript, converts it to tracker inputs (swaps use the team's slot order; no timings), and **Save as combo** adds it to your combos with the video attached.
+- **Moves**: the Basic Attack chain (A1, A2, ...), what holding LMB does, which hit LMB lands on after the Intro, Skill, Liberation, a Heavy, a Dodge Counter or a Mid-air Attack, and each move with its key. The timeline's move names use the same data.
+- **Team rotations**: the community's team setups for that character with author and video, from [AntoCrasher's rotation compilation](https://docs.google.com/spreadsheets/d/1mdl9J08N-0_j-U2zNP5OTHGBKprwmJEmz_Iy4IOJfPk/edit). **Combo** opens the move-by-move rotation transcript, converts it to tracker inputs (swaps use the team's slot order; no timings), and **Save as combo** adds it to your combos with the video attached.
 
-Data is downloaded the first time you open a page and cached in `ww_library_cache/` next to `combos.json`, so it works offline afterwards. **Refresh data** downloads it again (cached copies older than a week refresh on their own).
+The move data ships with the app in `static/data/ww_characters.json`. It was drafted from the [encore.moe](https://encore.moe) API and checked by hand for the characters marked "Checked by hand"; edit that file to fix or add details. **Download raw data** saves encore.moe's unedited files to `data/encore_raw/` without changing anything shown; `python tools/ww_build_moves.py` then drafts any new characters from them (hand-checked entries are left alone). Rotations are downloaded when you open them and cached in `ww_library_cache/`.
 
 ---
 

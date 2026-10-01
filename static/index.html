@@ -63,22 +63,11 @@
         </aside>
 
         <main class="main">
-            <!-- Page header: overline + title, and the active combo picker -->
+            <!-- Page header: overline + title -->
             <header class="head">
                 <div class="head-titles">
                     <span class="overline" id="pageOverline">Now practicing</span>
                     <h1 id="pageTitle">Practice</h1>
-                </div>
-                <div class="picker">
-                    <button type="button" id="comboPicker" class="picker-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="comboMenu" aria-label="Choose the active combo">
-                        <span class="avatars" id="pickerAvatars"></span>
-                        <span class="picker-text">
-                            <span class="picker-team" id="pickerTeam">No team</span>
-                            <span class="picker-name" id="pickerName">Select a combo</span>
-                        </span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-                    </button>
-                    <div id="comboMenu" class="picker-menu" role="listbox" aria-label="Combos" hidden></div>
                 </div>
             </header>
 
@@ -306,10 +295,21 @@
 
             <!-- ============ TEAMS ============ -->
             <section class="page" data-page="teams" aria-label="Teams" hidden>
-                <div class="page-tools">
+                <!-- Pick the team to edit (each shows its portraits), or start a new one -->
+                <div class="team-bar">
+                    <div class="picker">
+                        <button type="button" id="teamPicker" class="picker-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="teamMenu" aria-label="Choose a team to edit">
+                            <span class="avatars" id="teamPickerAvatars"></span>
+                            <span class="picker-text">
+                                <span class="picker-team" id="teamPickerMeta">Team</span>
+                                <span class="picker-name" id="teamPickerName">New team</span>
+                            </span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div id="teamMenu" class="picker-menu" role="listbox" aria-label="Teams" hidden></div>
+                    </div>
                     <button id="newTeamBtn" type="button" class="btn primary">New team</button>
                 </div>
-                <div class="cards3" id="teamCards"></div>
 
                 <div class="settings">
                     <!-- Team editor: edits the team picked above, separate from the combo's own team -->

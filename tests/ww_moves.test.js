@@ -1,7 +1,10 @@
 // Run with: node --test tests/ww_moves.test.js
 const test = require('node:test');
 const assert = require('node:assert');
-const { createWwMoveLabeler } = require('../static/ww_moves.js');
+const { createWwMoveLabeler, setWwCharacterData, wwRuleFor } = require('../static/ww_moves.js');
+
+// Rules come from the hand-checked move data the app loads.
+setWwCharacterData(require('../static/data/ww_characters.json'));
 
 const names = { '1': 'Zani', '2': 'Phoebe', '3': 'Rover' };
 const press = (input) => ({ type: 'press', input });
@@ -57,4 +60,27 @@ test('swaps name the incoming character and later moves use them', () => {
 test('missing team falls back to slot numbers', () => {
     const label = createWwMoveLabeler({});
     assert.strictEqual(label(press('3'), '3'), 'Slot 3 Intro');
+});
+
+test('lmb after another move picks the chain up where the kit says', () => {
+    const label = createWwMoveLabeler({ '1': 'Zani', '2': 'Aemeath' });
+    assert.strictEqual(label(press('e'), '1'), 'Zani Skill');
+    assert.strictEqual(label(press('lmb'), '1'), 'Zani Basic 3'); // Zani's Skill -> Basic Stage 3
+    assert.strictEqual(label(press('lmb'), '1'), 'Zani Basic 4');
+    assert.strictEqual(label(press('2'), '2'), 'Aemeath Intro');
+    assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 3'); // Aemeath's Intro -> Stage 3
+    assert.strictEqual(label(press('q'), '2'), 'Aemeath Echo');
+    assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 1'); // Echo has no follow-up
+});
+
+test('hand-typed team names still find their character', () => {
+    assert.strictEqual(wwRuleFor('Agusta').hold, 'Steelclash');
+    assert.strictEqual(wwRuleFor('Pheobe').basic, 3);
+    assert.strictEqual(wwRuleFor('Yangyang Xuanling').hold, null);
+    assert.strictEqual(wwRuleFor('Nobody').basic, 0);
+});
+
+test('Lucilla holds through her Basic chain instead of a Heavy', () => {
+    const label = createWwMoveLabeler({ '1': 'Lucilla' });
+    assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 400 }, '1'), 'Lucilla Basic 1 (held)');
 });

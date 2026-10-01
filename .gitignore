@@ -19,3 +19,6 @@ combos.json
 
 # pytest
 .pytest_cache/
+
+# Raw encore.moe snapshot (Characters page "Download raw data"); source for tools/ww_build_moves.py
+/data/encore_raw/

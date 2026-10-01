@@ -9,13 +9,13 @@
 </head>
 
 <body>
-    <!-- Every character's moves (encore.moe) and community team rotations (AntoCrasher's calc compilation). -->
+    <!-- Each character's key-input moves (data/ww_characters.json) and community team rotations (AntoCrasher's rotation compilation). -->
     <header class="topbar">
         <a href="index.html" class="back" title="Back to the combo tracker">&larr; Combo Tracker</a>
         <h1>Characters</h1>
         <input type="search" id="search" placeholder="Search characters" autocomplete="off">
         <div id="elementFilter" class="chips" role="group" aria-label="Filter by element"></div>
-        <button type="button" id="refreshBtn" class="subtle" title="Download fresh data from encore.moe and the rotation sheet">Refresh data</button>
+        <button type="button" id="rawBtn" class="subtle" title="Save encore.moe's unedited data to data/encore_raw/ (doesn't change what's shown)">Download raw data</button>
     </header>
 
     <div id="notice" class="notice hidden" role="status"></div>

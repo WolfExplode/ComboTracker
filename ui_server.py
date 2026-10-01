@@ -143,7 +143,23 @@ def make_static_server() -> ThreadedHTTPServer:
             # Character library (static/characters.html) is served as JSON; everything else is a static file.
             if not self.path.startswith(ww_library.API_PREFIX):
                 return super().do_GET()
-            status, payload = ww_library.handle_api(library, self.path)
+            self._send_json(*ww_library.handle_api(library, self.path))
+
+        def do_POST(self) -> None:
+            # Characters page "Download raw data": saves encore.moe's unedited JSON next to the app.
+            # It only writes data/encore_raw/; the page keeps showing static/data/ww_characters.json.
+            if self.path.rstrip("/") != ww_library.API_PREFIX + "scrape-raw":
+                return self._send_json(404, {"error": "Unknown API route"})
+            origin = self.headers.get("Origin")
+            if origin and origin not in ALLOWED_WS_ORIGINS:  # other websites can't trigger downloads
+                return self._send_json(403, {"error": "Not allowed from this page"})
+            try:
+                result = ww_library.scrape_raw(engine.data_dir / "data" / ww_library.RAW_DIR_NAME)
+            except (ww_library.LibraryError, OSError, ValueError) as e:
+                return self._send_json(502, {"error": str(e)})
+            self._send_json(200, result)
+
+        def _send_json(self, status: int, payload: dict[str, Any]) -> None:
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
