@@ -2,8 +2,7 @@
 // the Combos list, History, Settings, toasts, and the backend message dispatch. Loads last.
 
 const PAGES = {
-    practice: { title: 'Practice', overline: 'Now practicing' },
-    combos: { title: 'Combos', overline: 'Edit and record' },
+    practice: { title: 'Practice', overline: 'Practice, edit and record' },
     teams: { title: 'Teams', overline: 'Your teams' },
     characters: { title: 'Characters', overline: 'Moves and rotations' },
     history: { title: 'History', overline: 'Every combo' },
@@ -17,6 +16,7 @@ const isTimelineView = document.body.classList.contains('timeline-window-view');
 // ---------------------------------------------------------------------------
 
 function showPage(name, opts) {
+    // Combos used to be its own page; old #combos links land on Practice.
     const page = PAGES[name] ? name : 'practice';
     document.querySelectorAll('.page').forEach(el => { el.hidden = el.dataset.page !== page; });
     document.querySelectorAll('.navbtn[data-page]').forEach(btn => {
@@ -57,6 +57,13 @@ getEl('railToggle')?.addEventListener('click', () => {
     appEl.classList.toggle('compact', compact);
     writeStoredFlag('ctRailCompact', compact);
 });
+
+// The Edit combo panel under the timeline remembers whether it was open
+const comboEditDetails = getEl('comboEditDetails');
+if (comboEditDetails) {
+    comboEditDetails.open = readStoredFlag('ctComboEditOpen', true);
+    comboEditDetails.addEventListener('toggle', () => writeStoredFlag('ctComboEditOpen', comboEditDetails.open));
+}
 
 // ---------------------------------------------------------------------------
 // Toast (replaces the old status text for saves)

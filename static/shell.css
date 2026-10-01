@@ -577,6 +577,14 @@ select.input { padding-right: 8px; }
 }
 
 .app .timeline-section .combo-steps-header { flex-wrap: wrap; }
+
+/* The tile for the input under the cursor in the Inputs box (see applyEditFocus in app/combos.js).
+   An outline, so the tile's own border colors keep their meaning. */
+.app .timeline-section .step-edit-focus {
+    outline: 3px solid var(--ct-accent);
+    outline-offset: 3px;
+    box-shadow: 0 0 14px rgba(46, 197, 234, .55);
+}
 .app .timeline-section .combo-steps-controls { flex-wrap: wrap; row-gap: 6px; }
 
 .attempt-card .attempt-header { margin: 0; flex-wrap: wrap; }
@@ -602,6 +610,30 @@ select.input { padding-right: 8px; }
 }
 
 .editor-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* Collapsible "Edit combo" panel under the timeline */
+.combo-edit:not([open]) { gap: 0; }
+.combo-edit-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.combo-edit-summary::-webkit-details-marker { display: none; }
+.combo-edit-summary::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--ct-muted);
+    border-bottom: 2px solid var(--ct-muted);
+    transform: rotate(-45deg);
+    transition: transform .15s ease;
+    flex: none;
+}
+.combo-edit[open] > .combo-edit-summary::before { transform: rotate(45deg); }
+.combo-edit-summary:focus-visible { outline: 2px solid var(--ct-accent); outline-offset: 4px; border-radius: 4px; }
 
 .combo-list-card { padding: 10px; gap: 4px; position: sticky; top: 22px; max-height: calc(100vh - 44px); }
 .combo-list-tools { display: flex; gap: 8px; padding: 4px 4px 8px; }
@@ -827,6 +859,9 @@ select.input { padding-right: 8px; }
 
 @media (max-width: 1100px) {
     .cards3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* Give the timeline the full width; the combo list sits above it */
+    .editor { grid-template-columns: minmax(0, 1fr); }
+    .combo-list-card { position: static; max-height: 280px; }
 }
 
 @media (max-width: 900px) {
@@ -880,7 +915,9 @@ body.timeline-window-view .rail,
 body.timeline-window-view .head,
 body.timeline-window-view .bottomnav,
 body.timeline-window-view .toast,
-body.timeline-window-view .page[data-page="practice"] > :not(.timeline-section) { display: none !important; }
+body.timeline-window-view .combo-list-card,
+body.timeline-window-view .editor-main > :not(.timeline-section) { display: none !important; }
+body.timeline-window-view .editor { display: block; }
 body.timeline-window-view .main { padding: 20px; }
 body.timeline-window-view .app .timeline-section { border: 0; border-radius: 0; }
 body.timeline-window-view #openTimelineWindowBtn { display: none !important; }

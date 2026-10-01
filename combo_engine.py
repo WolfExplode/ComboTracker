@@ -805,7 +805,7 @@ class ComboTrackerEngine:
         self._reset_hold_state()
         self._reset_wait_state()
         self._reset_group_state()
-        self.ui_adapter.reset()
+        self.ui_adapter.reset(emit=self._send)
 
     def _on_combo_completed(self, total_ms: float) -> None:
         """Record success, reset to start, and notify UI. Single place for combo completion."""
@@ -849,7 +849,7 @@ class ComboTrackerEngine:
         self._ender_cooldown_until.clear()
         self.ww.ww_active_character = None
         self._hold_max_held_ms = 0.0
-        self.ui_adapter.reset()
+        self.ui_adapter.reset(emit=self._send)
         for s in self.runtime_steps:
             s.reset()
         self._reset_hold_state()

@@ -28,10 +28,6 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
                     <span class="navlabel">Practice</span>
                 </button>
-                <button type="button" class="navbtn" data-page="combos" title="Combos">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="14" y2="13"/></svg>
-                    <span class="navlabel">Combos</span>
-                </button>
                 <button type="button" class="navbtn" data-page="teams" title="Teams">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M15 14.5c2.8 0 5 2.2 5 5"/></svg>
                     <span class="navlabel">Teams</span>
@@ -86,121 +82,8 @@
                 </div>
             </header>
 
-            <!-- ============ PRACTICE ============ -->
+            <!-- ============ PRACTICE (combo list, timeline, editor) ============ -->
             <section class="page" data-page="practice" aria-label="Practice">
-                <!-- Compact stat cards; values are filled from the backend's "Label: value" texts -->
-                <div class="stat-cards">
-                    <div class="stat-card" id="statsResult"><span class="stat-label">Success / fail</span><span class="stat-value">—</span></div>
-                    <div class="stat-card" id="statsBest"><span class="stat-label">Best</span><span class="stat-value">—</span></div>
-                    <div class="stat-card" id="statsAvg"><span class="stat-label">Average</span><span class="stat-value">—</span></div>
-                    <div class="stat-card time-display-with-help" tabindex="0" id="minTimeDisplay" aria-describedby="min-time-help-tooltip">
-                        <span class="stat-label">Fastest</span><span class="stat-value">—</span>
-                        <div id="min-time-help-tooltip" class="input-help-tooltip" role="tooltip">
-                            <p>This combo tracker is meant to track real time, timing data. not in game timing data.</p>
-                            <p>For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s</p>
-                        </div>
-                    </div>
-                    <div class="stat-card" id="difficultyDisplay"><span class="stat-label">Difficulty</span><span class="stat-value">—</span></div>
-                    <div class="stat-card" id="userDifficultyDisplay"><span class="stat-label">Your difficulty</span><span class="stat-value">—</span></div>
-                    <div class="stat-card" id="apmDisplay"><span class="stat-label">Practical APM</span><span class="stat-value">—</span></div>
-                    <div class="stat-card" id="apmMaxDisplay"><span class="stat-label">Max APM</span><span class="stat-value">—</span></div>
-                </div>
-
-                <!-- Visual Combo Timeline (kept as before; also the OBS ?view=timeline overlay) -->
-                <section class="section timeline-section">
-                    <div class="combo-steps-header">
-                        <h2 style="margin: 0;">Combo Steps</h2>
-                        <div class="combo-steps-controls">
-                            <span class="toggle-label">Images</span>
-                            <input type="checkbox" id="stepDisplayToggle" class="toggle-switch" title="Toggle custom images for combo steps">
-
-                            <span class="toggle-label">Auto scroll</span>
-                            <input type="checkbox" id="autoScrollToggle" class="toggle-switch" title="Auto scroll combo steps as you advance">
-
-                            <span class="toggle-label">Move names</span>
-                            <input type="checkbox" id="moveNamesToggle" class="toggle-switch" title="Name each step's move, like Zani Basic 2 or Phoebe Liberation">
-
-                            <span class="toggle-label">Show attempt history</span>
-                            <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
-
-                            <span class="toggle-label">Edit steps</span>
-                            <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps" checked>
-
-                            <span class="toggle-label">Collapse chains</span>
-                            <input type="checkbox" id="collapseChainsToggle" class="toggle-switch" title="Show adjacent LMB press+wait steps as one chained tile">
-
-                            <span class="toggle-label">No fail</span>
-                            <input type="checkbox" id="noFailMode" class="toggle-switch" title="No fail: missed inputs are marked red and the combo continues (no retry)">
-
-                            <button type="button" id="legendBtn" class="subtle icon-btn" title="What the colors mean" aria-label="Show color legend" aria-expanded="false" aria-controls="legendPanel">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                            </button>
-                            <button type="button" id="openTimelineWindowBtn" class="subtle icon-btn" title="Open timeline in a new window for OBS Window Capture" aria-label="Open timeline in new window">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div id="legendPanel" class="legend-panel hidden" role="region" aria-label="Color legend">
-                        <div class="legend-group">
-                            <h4>Step types</h4>
-                            <div class="legend-item"><span class="legend-swatch sw-press"></span>Tap a key</div>
-                            <div class="legend-item"><span class="legend-swatch sw-wait"></span>Tap, then wait (fills yellow as time passes)</div>
-                            <div class="legend-item"><span class="legend-swatch sw-short"></span>Short wait, 150ms or less</div>
-                            <div class="legend-item"><span class="legend-swatch sw-hold"></span>Hold the key (fills green while held)</div>
-                            <div class="legend-item"><span class="legend-swatch sw-optional"></span>Optional step, can be skipped</div>
-                            <div class="legend-item"><span class="legend-swatch sw-group"></span>Group: press these in any order</div>
-                            <div class="legend-item"><span class="legend-swatch sw-sequence"></span>Sequence inside a group, in order</div>
-                        </div>
-                        <div class="legend-group">
-                            <h4>Progress</h4>
-                            <div class="legend-item"><span class="legend-swatch sw-active"></span>Current step (pulses)</div>
-                            <div class="legend-item"><span class="legend-swatch sw-done"></span>Done</div>
-                            <div class="legend-item"><span class="legend-swatch sw-miss"></span>Missed, wrong key or too early</div>
-                        </div>
-                        <div class="legend-group">
-                            <h4>On each tile</h4>
-                            <div class="legend-item"><span class="legend-key">E</span>Corner letter: the key to press</div>
-                            <div class="legend-item"><span class="legend-key">x3</span>Chained LMB presses shown as one tile</div>
-                            <div class="legend-item"><span class="legend-key">ms</span>Wait or hold length; wider tiles last longer</div>
-                            <div class="legend-item"><span class="legend-key">Aa</span>Bottom text: the move's name</div>
-                        </div>
-                    </div>
-                    <div id="statusDisplay" class="status-ready" style="margin-bottom: 8px;">Status: Select a combo to start
-                    </div>
-                    <div id="comboTimelineViewport" class="timeline-viewport">
-                        <div id="comboTimeline" class="timeline timeline-track">
-                            <!-- Steps will be rendered here -->
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Attempt log -->
-                <section class="card attempt-card">
-                    <div class="attempt-header">
-                        <h2 class="card-title">Attempt log</h2>
-                        <div class="attempt-header-actions">
-                            <label class="attempt-log-toggle" title="When off, attempts are not added to the log below">
-                                <span class="toggle-label">Log attempts</span>
-                                <input type="checkbox" id="logAttemptsToggle" class="toggle-switch">
-                            </label>
-                            <button id="clearBtn" type="button" class="btn danger" title="Clear history and stats for this combo">Clear history</button>
-                        </div>
-                    </div>
-                    <div id="resultsTable" class="results-table">
-                        <div class="table-header">
-                            <span>Input</span>
-                            <span>Step Time (ms)</span>
-                            <span>Total Time(ms)</span>
-                            <span>Avg Step Time (ms)</span>
-                        </div>
-                        <div id="resultsBody"></div>
-                    </div>
-                    <p class="muted small" id="attemptLogOffNote">Turn on Log attempts to list each step's time here.</p>
-                </section>
-            </section>
-
-            <!-- ============ COMBOS ============ -->
-            <section class="page" data-page="combos" aria-label="Combos" hidden>
                 <div class="editor">
                     <section class="card combo-list-card">
                         <div class="combo-list-tools">
@@ -213,8 +96,96 @@
                         <div id="comboList" class="combo-list" role="listbox" aria-label="Your combos"></div>
                     </section>
 
+
                     <div class="editor-main">
-                        <section class="card">
+                        <!-- Compact stat cards; values are filled from the backend's "Label: value" texts -->
+                        <div class="stat-cards">
+                            <div class="stat-card" id="statsResult"><span class="stat-label">Success / fail</span><span class="stat-value">—</span></div>
+                            <div class="stat-card" id="statsBest"><span class="stat-label">Best</span><span class="stat-value">—</span></div>
+                            <div class="stat-card" id="statsAvg"><span class="stat-label">Average</span><span class="stat-value">—</span></div>
+                            <div class="stat-card time-display-with-help" tabindex="0" id="minTimeDisplay" aria-describedby="min-time-help-tooltip">
+                                <span class="stat-label">Fastest</span><span class="stat-value">—</span>
+                                <div id="min-time-help-tooltip" class="input-help-tooltip" role="tooltip">
+                                    <p>This combo tracker is meant to track real time, timing data. not in game timing data.</p>
+                                    <p>For example, shorekeeper's Liberation is 2.9s in real time, but has a in game freeze time of 2.83s. Therefore it has a In game time of only 0.07s but the combo tracker will display as the full 2.9s</p>
+                                </div>
+                            </div>
+                            <div class="stat-card" id="difficultyDisplay"><span class="stat-label">Difficulty</span><span class="stat-value">—</span></div>
+                            <div class="stat-card" id="userDifficultyDisplay"><span class="stat-label">Your difficulty</span><span class="stat-value">—</span></div>
+                            <div class="stat-card" id="apmDisplay"><span class="stat-label">Practical APM</span><span class="stat-value">—</span></div>
+                            <div class="stat-card" id="apmMaxDisplay"><span class="stat-label">Max APM</span><span class="stat-value">—</span></div>
+                        </div>
+
+                        <!-- Visual Combo Timeline (kept as before; also the OBS ?view=timeline overlay) -->
+                        <section class="section timeline-section">
+                            <div class="combo-steps-header">
+                                <h2 style="margin: 0;">Combo Steps</h2>
+                                <div class="combo-steps-controls">
+                                    <span class="toggle-label">Images</span>
+                                    <input type="checkbox" id="stepDisplayToggle" class="toggle-switch" title="Toggle custom images for combo steps">
+
+                                    <span class="toggle-label">Auto scroll</span>
+                                    <input type="checkbox" id="autoScrollToggle" class="toggle-switch" title="Auto scroll combo steps as you advance">
+
+                                    <span class="toggle-label">Move names</span>
+                                    <input type="checkbox" id="moveNamesToggle" class="toggle-switch" title="Name each step's move, like Zani Basic 2 or Phoebe Liberation">
+
+                                    <span class="toggle-label">Show attempt history</span>
+                                    <input type="checkbox" id="showFailCount" class="toggle-switch" title="Show attempt history overlays on combo steps">
+
+                                    <span class="toggle-label">Edit steps</span>
+                                    <input type="checkbox" id="stepEditToggle" class="toggle-switch" title="Show delete buttons on combo steps" checked>
+
+                                    <span class="toggle-label">Collapse chains</span>
+                                    <input type="checkbox" id="collapseChainsToggle" class="toggle-switch" title="Show adjacent LMB press+wait steps as one chained tile">
+
+                                    <span class="toggle-label">No fail</span>
+                                    <input type="checkbox" id="noFailMode" class="toggle-switch" title="No fail: missed inputs are marked red and the combo continues (no retry)">
+
+                                    <button type="button" id="legendBtn" class="subtle icon-btn" title="What the colors mean" aria-label="Show color legend" aria-expanded="false" aria-controls="legendPanel">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                    </button>
+                                    <button type="button" id="openTimelineWindowBtn" class="subtle icon-btn" title="Open timeline in a new window for OBS Window Capture" aria-label="Open timeline in new window">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="legendPanel" class="legend-panel hidden" role="region" aria-label="Color legend">
+                                <div class="legend-group">
+                                    <h4>Step types</h4>
+                                    <div class="legend-item"><span class="legend-swatch sw-press"></span>Tap a key</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-wait"></span>Tap, then wait (fills yellow as time passes)</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-short"></span>Short wait, 150ms or less</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-hold"></span>Hold the key (fills green while held)</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-optional"></span>Optional step, can be skipped</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-group"></span>Group: press these in any order</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-sequence"></span>Sequence inside a group, in order</div>
+                                </div>
+                                <div class="legend-group">
+                                    <h4>Progress</h4>
+                                    <div class="legend-item"><span class="legend-swatch sw-active"></span>Current step (pulses)</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-done"></span>Done</div>
+                                    <div class="legend-item"><span class="legend-swatch sw-miss"></span>Missed, wrong key or too early</div>
+                                </div>
+                                <div class="legend-group">
+                                    <h4>On each tile</h4>
+                                    <div class="legend-item"><span class="legend-key">E</span>Corner letter: the key to press</div>
+                                    <div class="legend-item"><span class="legend-key">x3</span>Chained LMB presses shown as one tile</div>
+                                    <div class="legend-item"><span class="legend-key">ms</span>Wait or hold length; wider tiles last longer</div>
+                                    <div class="legend-item"><span class="legend-key">Aa</span>Bottom text: the move's name</div>
+                                </div>
+                            </div>
+                            <div id="statusDisplay" class="status-ready" style="margin-bottom: 8px;">Status: Select a combo to start
+                            </div>
+                            <div id="comboTimelineViewport" class="timeline-viewport">
+                                <div id="comboTimeline" class="timeline timeline-track">
+                                    <!-- Steps will be rendered here -->
+                                </div>
+                            </div>
+                        </section>
+
+                        <details class="card combo-edit" id="comboEditDetails" open>
+                            <summary class="combo-edit-summary"><h2 class="card-title">Edit combo</h2></summary>
                             <div class="formgrid">
                                 <div class="field">
                                     <label for="comboName">Combo name</label>
@@ -286,11 +257,10 @@
                             <div class="form-actions">
                                 <button id="deleteBtn" type="button" class="btn danger">Delete</button>
                                 <div class="form-actions-right">
-                                    <button id="practiceBtn" type="button" class="btn">Practice it</button>
                                     <button id="saveBtn" type="button" class="btn primary" title="Save (Ctrl+S)">Save</button>
                                 </div>
                             </div>
-                        </section>
+                        </details>
 
                         <section class="card">
                             <h2 class="card-title">Record or replay</h2>
@@ -305,6 +275,30 @@
                                 </label>
                             </div>
                             <p class="muted small" id="recordHelp">Recording starts when you press your start key and stops on Esc. Macro replay has its own start and stop keys, and Esc always stops it. Keys and delays are set in <a href="#settings" data-page-link="settings" target="_self">Settings</a>.</p>
+                        </section>
+
+                        <!-- Attempt log -->
+                        <section class="card attempt-card">
+                            <div class="attempt-header">
+                                <h2 class="card-title">Attempt log</h2>
+                                <div class="attempt-header-actions">
+                                    <label class="attempt-log-toggle" title="When off, attempts are not added to the log below">
+                                        <span class="toggle-label">Log attempts</span>
+                                        <input type="checkbox" id="logAttemptsToggle" class="toggle-switch">
+                                    </label>
+                                    <button id="clearBtn" type="button" class="btn danger" title="Clear history and stats for this combo">Clear history</button>
+                                </div>
+                            </div>
+                            <div id="resultsTable" class="results-table">
+                                <div class="table-header">
+                                    <span>Input</span>
+                                    <span>Step Time (ms)</span>
+                                    <span>Total Time(ms)</span>
+                                    <span>Avg Step Time (ms)</span>
+                                </div>
+                                <div id="resultsBody"></div>
+                            </div>
+                            <p class="muted small" id="attemptLogOffNote">Turn on Log attempts to list each step's time here.</p>
                         </section>
                     </div>
                 </div>
@@ -445,7 +439,6 @@
         <!-- Phone bottom navigation (below 900px) -->
         <nav class="bottomnav" aria-label="Pages">
             <button type="button" class="navbtn" data-page="practice"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>Practice</button>
-            <button type="button" class="navbtn" data-page="combos"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="14" y2="13"/></svg>Combos</button>
             <button type="button" class="navbtn" data-page="teams"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Teams</button>
             <button type="button" class="navbtn" data-page="history"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="18" y1="20" x2="18" y2="14"/></svg>History</button>
             <button type="button" class="navbtn" data-page="settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>Settings</button>

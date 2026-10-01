@@ -1,4 +1,4 @@
-// Combos page: the combo editor, the inputs highlighter, and record (transcribe) / replay (macro) modes.
+// Combo editor (Practice page): the editor fields, the inputs highlighter, and record (transcribe) / replay (macro) modes.
 
 // UI Initialization
 function initializeUI(data) {
@@ -117,6 +117,7 @@ function setEditorFields(data) {
     const inputsEl = getEl('comboInputs');
     if (inputsEl) {
         inputsEl.value = data.inputs || '';
+        appState.savedInputs = inputsEl.value;
         if (typeof updateComboInputHighlight === 'function') updateComboInputHighlight();
     }
     getEl('comboEnders').value = data.enders || '';
@@ -236,9 +237,6 @@ if (comboDemoVideoEl) {
     comboDemoVideoEl.addEventListener('input', () => updateDemoVideoEmbed(comboDemoVideoEl.value));
     comboDemoVideoEl.addEventListener('change', () => updateDemoVideoEmbed(comboDemoVideoEl.value));
 }
-
-// Practice it: jump to the Practice page with this combo
-getEl('practiceBtn')?.addEventListener('click', () => showPage('practice'));
 
 // New combo button
 const newBtn = getEl('newBtn');
@@ -475,4 +473,75 @@ if (inputsEl) {
     });
     // Initial highlight if textarea already has content (e.g. restored state)
     updateComboInputHighlight();
+}
+
+// ---------------------------------------------------------------------------
+// Editing focus: the Combo Steps tile for the input under the text cursor gets outlined,
+// so you can see which step you're editing. The timeline shows the saved combo, so this
+// only follows tokens that still line up with it (edits after the cursor are fine).
+// ---------------------------------------------------------------------------
+
+/** Top-level tokens with their [start, end) offsets in the text (same split as splitInputsTokens). */
+function splitInputsTokenSpans(str) {
+    const spans = [];
+    let depth = 0;
+    let start = 0;
+    const push = (end) => {
+        const raw = str.slice(start, end);
+        const lead = raw.length - raw.trimStart().length;
+        const text = raw.trim();
+        if (text) spans.push({ text, start: start + lead, end: start + lead + text.length });
+    };
+    for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        if (ch === '(' || ch === '{' || ch === '[') depth++;
+        else if (ch === ')' || ch === '}' || ch === ']') depth = Math.max(0, depth - 1);
+        else if (ch === ',' && depth === 0) { push(i); start = i + 1; }
+    }
+    push(str.length);
+    return spans;
+}
+
+/** Runtime step indices for the token under the cursor, or [] when it can't be matched to the timeline. */
+function runtimeIndicesAtCursor() {
+    const ta = getEl('comboInputs');
+    if (!ta || document.activeElement !== ta) return [];
+    const text = ta.value || '';
+    const spans = splitInputsTokenSpans(text);
+    if (spans.length === 0) return [];
+    const caret = ta.selectionStart || 0;
+    // The token whose text (or trailing comma/space) holds the caret.
+    let tokIdx = spans.findIndex((sp, i) => caret <= sp.end || i === spans.length - 1 || caret < spans[i + 1].start);
+    if (tokIdx < 0) tokIdx = spans.length - 1;
+
+    // Only trust the mapping while every token up to the cursor matches the saved combo.
+    const saved = splitInputsTokens(appState.savedInputs || '');
+    for (let i = 0; i <= tokIdx; i++) {
+        if ((saved[i] || '').toLowerCase() !== spans[i].text.toLowerCase()) return [];
+    }
+    const srcMap = buildRuntimeToSourceMap(saved);
+    const out = [];
+    srcMap.forEach((src, runtimeIdx) => { if (src.includes(tokIdx)) out.push(runtimeIdx); });
+    return out;
+}
+
+function applyEditFocus() {
+    const timeline = getEl('comboTimeline');
+    if (!timeline) return;
+    const wanted = new Set(runtimeIndicesAtCursor());
+    timeline.querySelectorAll('.step-edit-focus').forEach(el => el.classList.remove('step-edit-focus'));
+    if (wanted.size === 0) return;
+    [...timeline.children].forEach(tile => {
+        const raw = (tile.dataset.stepIndices || '').trim();
+        if (!raw) return;
+        if (raw.split(',').some(v => wanted.has(Number.parseInt(v, 10)))) tile.classList.add('step-edit-focus');
+    });
+}
+
+if (inputsEl) {
+    ['click', 'keyup', 'focus', 'input', 'select'].forEach(ev => inputsEl.addEventListener(ev, applyEditFocus));
+    inputsEl.addEventListener('blur', applyEditFocus);
+    // Re-apply after every timeline re-render (live attempts, toggles, saves).
+    const timeline = getEl('comboTimeline');
+    if (timeline) new MutationObserver(() => { if (document.activeElement === inputsEl) applyEditFocus(); }).observe(timeline, { childList: true });
 }
