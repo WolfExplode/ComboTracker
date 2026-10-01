@@ -278,52 +278,6 @@ function renderComboList() {
 getEl('comboSearch')?.addEventListener('input', renderComboList);
 
 // ---------------------------------------------------------------------------
-// "Reads as": the saved combo's steps named the way the timeline names them
-// ---------------------------------------------------------------------------
-
-const READS_AS_PREVIEW = 12;
-
-function renderReadsAs() {
-    const wrap = getEl('readsAs');
-    const items = getEl('readsAsItems');
-    if (!wrap || !items) return;
-    items.replaceChildren();
-    const steps = appState.lastTimelineSteps || [];
-    const label = createWwMoveLabeler(wwSlotNames());
-    let slot = '1';
-    const named = [];
-    steps.forEach(step => {
-        const key = wwStepKey(step);
-        if (WW_SLOTS.includes(key)) slot = key;
-        const text = label(step, slot);
-        if (key && text) named.push([key, text]);
-    });
-    // Long rotations would bury the form, so show the opening moves and let the rest expand.
-    const shown = appState.readsAsExpanded ? named : named.slice(0, READS_AS_PREVIEW);
-    shown.forEach(([key, text]) => {
-        const chip = document.createElement('span');
-        chip.className = 'reads-as-item';
-        const cap = document.createElement('span');
-        cap.className = 'keycap keycap-sm';
-        cap.textContent = key.toUpperCase();
-        chip.append(cap, document.createTextNode(text));
-        items.appendChild(chip);
-    });
-    if (named.length > READS_AS_PREVIEW) {
-        const more = document.createElement('button');
-        more.type = 'button';
-        more.className = 'btn ghost reads-as-more';
-        more.textContent = appState.readsAsExpanded ? 'Show less' : `+${named.length - READS_AS_PREVIEW} more`;
-        more.addEventListener('click', () => {
-            appState.readsAsExpanded = !appState.readsAsExpanded;
-            renderReadsAs();
-        });
-        items.appendChild(more);
-    }
-    wrap.hidden = named.length === 0;
-}
-
-// ---------------------------------------------------------------------------
 // Settings: overlay URLs and data actions
 // ---------------------------------------------------------------------------
 
@@ -371,7 +325,6 @@ const MESSAGE_HANDLERS = {
     init: (msg) => {
         initializeUI(msg);
         renderComboViews();
-        renderReadsAs();
         flushPendingToast();
     },
     combo_list: (msg) => setComboList(msg.combos, msg.active, msg.overview),
@@ -417,7 +370,6 @@ const MESSAGE_HANDLERS = {
     attempt_start: (msg) => addAttemptSeparator(msg.name, msg.attempt),
     timeline_update: (msg) => {
         updateTimeline(msg.steps, { focusLatest: !!msg.focus_latest });
-        if (!isTimelineView) renderReadsAs();
     },
     fail_update: (msg) => {
         appState.lastFailByStep = msg.fail_by_step || {};
@@ -471,7 +423,6 @@ fetch('data/ww_characters.json')
         if (!doc) return;
         setWwCharacterData(doc);
         refreshTimelineIfLoaded();
-        if (!isTimelineView) renderReadsAs();
     })
     .catch(() => { /* move names fall back to generic rules */ });
 

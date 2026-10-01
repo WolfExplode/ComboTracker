@@ -758,21 +758,6 @@ select.input { padding-right: 8px; }
 
 .app .combo-input-wrap #comboInputs:focus { border-color: var(--ct-accent); box-shadow: 0 0 0 2px rgba(46, 197, 234, .2); }
 
-.reads-as { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.reads-as-label { font-size: 12px; color: var(--ct-muted); margin-right: 4px; }
-.reads-as-items { display: contents; }
-.reads-as-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px 4px 4px;
-    border-radius: 8px;
-    background: var(--ct-surface);
-    font-size: 12.5px;
-}
-
-.reads-as-more { min-height: 30px; padding: 0 10px; font-size: 12.5px; }
-
 .app .demo-video-embed-wrap { margin: 0; }
 .app .demo-video-embed-wrap iframe { max-width: 100%; border-radius: 10px; }
 
