@@ -243,14 +243,6 @@ function renderMoves(c) {
         .filter(([k]) => CHAIN_AFTER[k])
         .map(([k, stage]) => `<li>LMB right after ${esc(CHAIN_AFTER[k])} starts at <strong>A${stage}</strong></li>`).join('');
 
-    const withInput = (m.moves || []).filter((x) => x.input);
-    const other = (m.moves || []).filter((x) => !x.input);
-    const moveRows = withInput.map((x) =>
-        `<tr><td class="inp">${keycap(x.input)}</td><td>${esc(x.name)}${x.type ? ` <span class="muted small">${esc(x.type)}</span>` : ''}</td></tr>`).join('');
-    const otherByType = {};
-    other.forEach((x) => { (otherByType[x.type || 'Other'] ||= []).push(x.name); });
-    const otherHtml = Object.entries(otherByType).map(([t, names]) =>
-        `<p><span class="muted">${esc(t)}:</span> ${names.map(esc).join(', ')}</p>`).join('');
     const follow = (m.followups || []).filter((f) => !f.basic_stage).map((f) =>
         `<li>${keycap(f.press)} right after <strong>${esc(f.after)}</strong> casts <strong>${esc(f.gives)}</strong></li>`).join('');
 
@@ -266,11 +258,6 @@ function renderMoves(c) {
             ${(m.skill_chain || []).length > 1 ? `<p><span class="keycap">E</span><span class="plus">in a row</span> ${m.skill_chain.map(esc).join(' → ')}</p>` : ''}
         </section>
         ${m.notes ? `<section class="move-card notes"><h3>Notes</h3><p>${esc(m.notes)}</p></section>` : ''}
-        <section class="move-card">
-            <h3>Moves</h3>
-            <table class="moves"><tbody>${moveRows}</tbody></table>
-            ${otherHtml ? `<div class="other-moves"><h4>Other named moves</h4>${otherHtml}</div>` : ''}
-        </section>
         ${follow ? `<section class="move-card"><h3>Follow-ups</h3><ul class="follow">${follow}</ul></section>` : ''}`;
 }
 
@@ -307,6 +294,27 @@ function fmtFrames(n) {
     const fps = (state.timings && state.timings.fps) || 60;
     const text = state.timingUnit === 's' ? `${(n / fps).toFixed(2)}s` : `${n}f`;
     return n === 0 ? `<span class="zero">${text}</span>` : text;
+}
+
+// The keys that cast a WuwaLAB move, in combo-input notation: lmb1, lmb2, hold(lmb), rmb, lmb,
+// e, r, f... Worked out from the move's type and name; '' for passives and follow-on effects.
+function abilityInput(a) {
+    const name = String(a.name || '');
+    const midAir = /mid-air/i.test(name);
+    const stage = (name.match(/\s(\d+)(\s*\([^)]*\))*$/) || [])[1];
+    const held = /\bhold\b|\bheld\b|charged/i.test(name);
+    switch (a.genre) {
+    case 'BASIC': return midAir ? 'space, lmb' : `lmb${stage || ''}`;
+    case 'COUNTER': return midAir ? 'space, rmb, lmb' : 'rmb, lmb';
+    case 'HEAVY': return midAir ? 'space, hold(lmb)' : 'hold(lmb)';
+    case 'SKILL': return held ? 'hold(e)' : 'e';
+    case 'LIBERATION': return 'r';
+    case 'INTRO': return 'swap in';
+    case 'OUTRO': return 'swap out';
+    case 'TUNEBREAK': return 'f';
+    case 'DODGE': case 'DASH': return 'rmb';
+    default: return '';
+    }
 }
 
 function timingCell(a, col) {
@@ -357,15 +365,16 @@ function timingRow(a) {
     const open = state.openTimings.has(key);
     return `<tr class="trow${open ? ' open' : ''}" data-tkey="${esc(key)}" aria-expanded="${open}" title="Show the frame strip">
         <td class="tname"><div><span class="caret">▸</span>${esc(a.name)}</div>${tags ? `<div class="ttags">${tags}</div>` : ''}</td>
+        <td class="tinput">${abilityInput(a) ? `<code>${esc(abilityInput(a))}</code>` : '<span class="zero">—</span>'}</td>
         ${cells}
         <td class="hitf">${hitFrames || '<span class="zero">—</span>'}</td>
-    </tr>${open ? `<tr class="tstrip"><td colspan="${TIMING_COLS.length + 2}">${timingStrip(a)}</td></tr>` : ''}`;
+    </tr>${open ? `<tr class="tstrip"><td colspan="${TIMING_COLS.length + 3}">${timingStrip(a)}</td></tr>` : ''}`;
 }
 
 function timingRows(t) {
     const q = state.timingFilter.toLowerCase();
     const list = t.abilities.filter((a) => !q || a.name.toLowerCase().includes(q) || a.section.toLowerCase().includes(q));
-    const span = TIMING_COLS.length + 2;
+    const span = TIMING_COLS.length + 3;
     let html = '';
     let section = null;
     for (const a of list) {
@@ -395,7 +404,7 @@ function renderTimings(c) {
         </div>
         <div class="timings-wrap">
             <table class="timings">
-                <thead><tr><th>Name</th>${head}<th title="Frame each hit lands on">Hit frames</th></tr></thead>
+                <thead><tr><th>Name</th><th title="Keys that cast it, written like combo inputs (lmb2 = the 2nd LMB of the Basic chain)">Input</th>${head}<th title="Frame each hit lands on">Hit frames</th></tr></thead>
                 <tbody id="timingRows">${timingRows(t)}</tbody>
             </table>
         </div>

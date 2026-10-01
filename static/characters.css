@@ -209,11 +209,6 @@ input[type="search"], select, textarea {
 .hits li { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-secondary); border-radius: 8px; padding: 5px 10px 5px 6px; }
 .keycap.hit { color: var(--accent-blue); }
 .entries, .follow { margin: 8px 0 0 18px; display: flex; flex-direction: column; gap: 4px; }
-.moves { border-collapse: collapse; width: 100%; }
-.moves td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-.moves td.inp { width: 1%; white-space: nowrap; }
-.other-moves { margin-top: 12px; font-size: 13px; }
-.other-moves h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin: 0 0 4px; }
 
 /* --- Timings (WuwaLAB frame data) --- */
 .toolbar #timingFilter { width: 220px; }
@@ -243,6 +238,8 @@ input[type="search"], select, textarea {
 .timings .tname { min-width: 220px; }
 .timings .hitf { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--text-secondary); min-width: 140px; }
 .timings .sep { color: #4E5866; }
+.timings .tinput { white-space: nowrap; }
+.timings .tinput code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--accent-blue); background: #152E38; border-radius: 4px; padding: 2px 6px; }
 .timings tr.tsection td {
     font-family: ui-monospace, Consolas, monospace;
     font-size: 12px;
