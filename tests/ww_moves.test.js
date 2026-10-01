@@ -12,7 +12,7 @@ const press = (input) => ({ type: 'press', input });
 test('leading f starts the fight, later f is Tune Break', () => {
     const label = createWwMoveLabeler(names);
     assert.strictEqual(label(press('f'), '1'), 'Start fight');
-    assert.strictEqual(label(press('e'), '1'), 'Zani Skill');
+    assert.strictEqual(label(press('e'), '1'), 'Restless Watch');
     assert.strictEqual(label(press('f'), '1'), 'Tune Break');
 });
 
@@ -38,8 +38,8 @@ test('hold lmb continues the chain for Hiyuki, is a Heavy for others', () => {
     const label = createWwMoveLabeler({ '1': 'Hiyuki', '2': 'Augusta' });
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '1'), 'Hiyuki Basic 1 (held)');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '1'), 'Hiyuki Basic 2 (held)');
-    assert.strictEqual(label(press('2'), '2'), 'Augusta Intro');
-    assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '2'), 'Augusta Steelclash');
+    assert.strictEqual(label(press('2'), '2'), 'Stride of Goldenflare');
+    assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '2'), 'Steelclash');
 });
 
 test('lmb after a jump is a mid-air attack', () => {
@@ -50,9 +50,9 @@ test('lmb after a jump is a mid-air attack', () => {
 
 test('swaps name the incoming character and later moves use them', () => {
     const label = createWwMoveLabeler(names);
-    assert.strictEqual(label(press('2'), '2'), 'Phoebe Intro');
-    assert.strictEqual(label({ type: 'hold', input: 'e', duration: 800 }, '2'), 'Phoebe Held Skill');
-    assert.strictEqual(label({ type: 'wait', mode: 'mandatory', wait_for: 'r', duration: 3950 }, '2'), 'Phoebe Liberation');
+    assert.strictEqual(label(press('2'), '2'), 'Golden Grace');
+    assert.strictEqual(label({ type: 'hold', input: 'e', duration: 800 }, '2'), 'To Where Light Shines (held)');
+    assert.strictEqual(label({ type: 'wait', mode: 'mandatory', wait_for: 'r', duration: 3950 }, '2'), 'Dawn of Enlightenment');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 2300 }, '2'), 'Phoebe Heavy');
     assert.strictEqual(label(press('q'), '2'), 'Phoebe Echo');
 });
@@ -64,10 +64,10 @@ test('missing team falls back to slot numbers', () => {
 
 test('lmb after another move picks the chain up where the kit says', () => {
     const label = createWwMoveLabeler({ '1': 'Zani', '2': 'Aemeath' });
-    assert.strictEqual(label(press('e'), '1'), 'Zani Skill');
+    assert.strictEqual(label(press('e'), '1'), 'Restless Watch');
     assert.strictEqual(label(press('lmb'), '1'), 'Zani Basic 3'); // Zani's Skill -> Basic Stage 3
     assert.strictEqual(label(press('lmb'), '1'), 'Zani Basic 4');
-    assert.strictEqual(label(press('2'), '2'), 'Aemeath Intro');
+    assert.strictEqual(label(press('2'), '2'), 'Overture of Departure');
     assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 3'); // Aemeath's Intro -> Stage 3
     assert.strictEqual(label(press('q'), '2'), 'Aemeath Echo');
     assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 1'); // Echo has no follow-up
@@ -90,21 +90,30 @@ test('E pressed again in a row follows the skill chain (Augusta: Strike, Leap, P
     const revised = [];
     label.onRevise = (index, text) => revised.push([index, text]);
     assert.strictEqual(label(press('f'), '1'), 'Start fight');
-    assert.strictEqual(label(press('e'), '1'), 'Agusta Skill');
+    assert.strictEqual(label(press('e'), '1'), "Warrior's Blade");
     assert.strictEqual(label({ type: 'wait', mode: 'soft', duration: 800 }, '1'), '');
-    assert.strictEqual(label(press('e'), '1'), 'Agusta Leap');
-    assert.deepStrictEqual(revised, [[1, 'Agusta Strike']]);
-    assert.strictEqual(label(press('e'), '1'), 'Agusta Plunge');
+    assert.strictEqual(label(press('e'), '1'), 'Leap');
+    assert.deepStrictEqual(revised, [[1, 'Strike']]);
+    assert.strictEqual(label(press('e'), '1'), 'Plunge');
     // Past the end of the chain, and after any other move, E is a plain Skill again.
-    assert.strictEqual(label(press('e'), '1'), 'Agusta Skill');
+    assert.strictEqual(label(press('e'), '1'), "Warrior's Blade");
     assert.strictEqual(label(press('lmb'), '1'), 'Agusta Basic 1');
-    assert.strictEqual(label(press('e'), '1'), 'Agusta Skill');
+    assert.strictEqual(label(press('e'), '1'), "Warrior's Blade");
     assert.strictEqual(revised.length, 1);
 });
 
-test('characters without a skill chain keep naming every E "Skill"', () => {
+test('characters without a skill chain name every E by its own skill name', () => {
     const label = createWwMoveLabeler(names);
     label.onRevise = () => assert.fail('nothing to revise');
-    assert.strictEqual(label(press('e'), '1'), 'Zani Skill');
-    assert.strictEqual(label(press('e'), '1'), 'Zani Skill');
+    assert.strictEqual(label(press('e'), '1'), 'Restless Watch');
+    assert.strictEqual(label(press('e'), '1'), 'Restless Watch');
+});
+
+test('named moves drop the character; unnamed ones keep it', () => {
+    const label = createWwMoveLabeler({ '1': 'Augusta', '2': 'Somebody New' });
+    assert.strictEqual(label({ type: 'wait', mode: 'mandatory', wait_for: 'r', duration: 1600 }, '1'), 'Sunward Conquest');
+    assert.strictEqual(label(press('q'), '1'), 'Augusta Echo');
+    assert.strictEqual(label(press('2'), '2'), 'Somebody New Intro');
+    assert.strictEqual(label(press('e'), '2'), 'Somebody New Skill');
+    assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '2'), 'Somebody New Heavy');
 });
