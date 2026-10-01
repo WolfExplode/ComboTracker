@@ -118,8 +118,6 @@ input[type="search"], select, textarea {
     grid-template-columns: minmax(260px, 360px) 1fr;
     gap: 20px;
     padding: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
     align-items: start;
 }
 
