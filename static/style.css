@@ -1711,7 +1711,9 @@ body.timeline-window-view #openTimelineWindowBtn {
 
 /* Wuthering Waves move name under each step (see ww_moves.js) */
 .step-move {
-    max-width: 100%;
+    /* Never widen the tile: the name gets no say in the tile's width and is cut with "…" (full name on hover) */
+    width: 100%;
+    contain: inline-size;
     margin-top: 3px;
     font-family: system-ui, sans-serif;
     font-size: 10px;

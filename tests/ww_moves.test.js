@@ -54,7 +54,7 @@ test('swaps name the incoming character and later moves use them', () => {
     assert.strictEqual(label({ type: 'hold', input: 'e', duration: 800 }, '2'), 'To Where Light Shines (held)');
     assert.strictEqual(label({ type: 'wait', mode: 'mandatory', wait_for: 'r', duration: 3950 }, '2'), 'Dawn of Enlightenment');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 2300 }, '2'), 'Phoebe Heavy');
-    assert.strictEqual(label(press('q'), '2'), 'Phoebe Echo');
+    assert.strictEqual(label(press('q'), '2'), 'Echo');
 });
 
 test('missing team falls back to slot numbers', () => {
@@ -69,7 +69,7 @@ test('lmb after another move picks the chain up where the kit says', () => {
     assert.strictEqual(label(press('lmb'), '1'), 'Zani Basic 4');
     assert.strictEqual(label(press('2'), '2'), 'Overture of Departure');
     assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 3'); // Aemeath's Intro -> Stage 3
-    assert.strictEqual(label(press('q'), '2'), 'Aemeath Echo');
+    assert.strictEqual(label(press('q'), '2'), 'Echo');
     assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 1'); // Echo has no follow-up
 });
 
@@ -112,8 +112,13 @@ test('characters without a skill chain name every E by its own skill name', () =
 test('named moves drop the character; unnamed ones keep it', () => {
     const label = createWwMoveLabeler({ '1': 'Augusta', '2': 'Somebody New' });
     assert.strictEqual(label({ type: 'wait', mode: 'mandatory', wait_for: 'r', duration: 1600 }, '1'), 'Sunward Conquest');
-    assert.strictEqual(label(press('q'), '1'), 'Augusta Echo');
+    assert.strictEqual(label(press('q'), '1'), 'Echo');
     assert.strictEqual(label(press('2'), '2'), 'Somebody New Intro');
     assert.strictEqual(label(press('e'), '2'), 'Somebody New Skill');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '2'), 'Somebody New Heavy');
+});
+
+test("Iuno's held LMB is her Heavy, Flux", () => {
+    const label = createWwMoveLabeler({ '1': 'Iuno' });
+    assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 100 }, '1'), 'Flux');
 });

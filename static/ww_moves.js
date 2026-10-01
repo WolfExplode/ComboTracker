@@ -12,7 +12,7 @@
 //
 // Moves with their own name (Skill, Liberation, Intro, a named Heavy) show just that name, e.g.
 // "Warrior's Blade" rather than "Augusta Skill": the tile's icon and key already say what kind of
-// move it is. Unnamed moves keep the character: "Augusta Basic 2", "Augusta Echo".
+// move it is. Unnamed moves keep the character ("Augusta Basic 2"), except Echo, which is just "Echo".
 //
 // Per-character rules (chain length, what hold(lmb) does, where LMB picks the chain back up after
 // another move) come from static/data/ww_characters.json via setWwCharacterData().
@@ -203,7 +203,7 @@ function createWwMoveLabeler(slotNames) {
             const skill = rulesFor(s).names.skill;
             return skill ? `${skill} (held)` : `${n} Held Skill`;
         }
-        if (key === 'q') return `${n} Echo`;
+        if (key === 'q') return 'Echo';
         if (key === 'r') { after = 'liberation'; return own(s, 'liberation', 'Liberation'); }
         if (key === 'rmb') return 'Dodge';
         if (key === 'space') return 'Jump';
