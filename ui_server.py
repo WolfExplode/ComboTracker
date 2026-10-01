@@ -283,6 +283,10 @@ async def ws_handler(websocket: ServerConnection) -> None:
                 ok, err = engine.delete_ww_character(str(msg.get("name") or ""))
                 if not ok and err:
                     await websocket.send(json.dumps({"type": "alert_notice", "text": err}))
+            elif mtype == "save_character_note":
+                ok, err = engine.save_ww_character_note(str(msg.get("id") or ""), str(msg.get("text") or ""))
+                if not ok and err:
+                    await websocket.send(json.dumps({"type": "status", "text": err, "color": "fail"}))
             elif mtype == "update_ww_dash":
                 engine.update_ww_dash(str(msg.get("dash_image") or ""))
             elif mtype == "select_team":

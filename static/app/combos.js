@@ -630,3 +630,75 @@ function setInputMarkForTile(tile) {
     });
     getEl('comboInputs')?.addEventListener('input', () => { comboInputMark = null; });
 }
+
+// ---------------------------------------------------------------------------
+// Copy and paste tiles: Ctrl+C copies the selected tile's inputs, Ctrl+V pastes them next to
+// the tile under (or nearest) the mouse: before it on its left half, after it on its right.
+// Text boxes keep their own copy and paste.
+// ---------------------------------------------------------------------------
+
+let tileClipboard = null; // input tokens of the copied tile
+const mousePos = { x: -1, y: -1 };
+document.addEventListener('mousemove', (ev) => { mousePos.x = ev.clientX; mousePos.y = ev.clientY; }, { passive: true });
+
+/** Source token indices (in the Inputs box) behind a timeline tile, sorted, or []. */
+function tokenIndicesForTile(tile, tokens) {
+    const raw = tile ? (tile.dataset.stepIndices || '').trim() : '';
+    if (!raw) return [];
+    const srcMap = buildRuntimeToSourceMap(tokens);
+    const out = new Set();
+    raw.split(',').forEach((v) => (srcMap[Number.parseInt(v, 10)] || []).forEach((t) => out.add(t)));
+    return [...out].sort((a, b) => a - b);
+}
+
+function isTypingTarget(el) {
+    return !!(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)));
+}
+
+document.addEventListener('keydown', (ev) => {
+    if (!(ev.ctrlKey || ev.metaKey) || ev.shiftKey || ev.altKey) return;
+    const k = ev.key.toLowerCase();
+    if (k !== 'c' && k !== 'v') return;
+    if (isTypingTarget(document.activeElement)) return;
+    if (k === 'c' && String(window.getSelection?.() || '').trim()) return; // copying page text
+    const timeline = getEl('comboTimeline');
+    const inputsEl = getEl('comboInputs');
+    if (!timeline || !inputsEl) return;
+    const tokens = splitInputsTokens(inputsEl.value || '');
+
+    if (k === 'c') {
+        const tile = timeline.querySelector('.step-selected');
+        const idx = tokenIndicesForTile(tile, tokens);
+        if (!idx.length) return;
+        ev.preventDefault();
+        tileClipboard = idx.map((i) => tokens[i]);
+        navigator.clipboard?.writeText(tileClipboard.join(', ')).catch(() => {});
+        if (typeof showToast === 'function') showToast('Step copied. Point at a spot and press Ctrl+V.');
+        return;
+    }
+
+    if (!tileClipboard || !tileClipboard.length) return;
+    // The tile under the mouse, else the nearest one; else the end of the combo.
+    const tiles = [...timeline.children].filter((c) => (c.dataset.stepIndices || '').trim());
+    let target = null;
+    let best = Infinity;
+    tiles.forEach((t) => {
+        const r = t.getBoundingClientRect();
+        const dx = Math.max(r.left - mousePos.x, 0, mousePos.x - r.right);
+        const dy = Math.max(r.top - mousePos.y, 0, mousePos.y - r.bottom);
+        const d = dx * dx + dy * dy;
+        if (d < best) { best = d; target = t; }
+    });
+    let at = tokens.length;
+    if (target) {
+        const idx = tokenIndicesForTile(target, tokens);
+        if (idx.length) {
+            const r = target.getBoundingClientRect();
+            at = mousePos.x < r.left + r.width / 2 ? idx[0] : idx[idx.length - 1] + 1;
+        }
+    }
+    ev.preventDefault();
+    tokens.splice(at, 0, ...tileClipboard);
+    pushEditStepsUndoSnapshot();
+    saveComboInputs(tokens.join(', '));
+});

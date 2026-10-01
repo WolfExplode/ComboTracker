@@ -34,6 +34,7 @@ const state = {
     openTimings: new Set(),  // section|name of Timings rows whose frame strip is open
     transcripts: new Map(),
     tracker: null,
+    notes: null,            // your notes per character id, saved in the tracker (null = not loaded yet)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -116,6 +117,13 @@ function watchTracker() {
     state.tracker = connectTracker({
         onMessage: (msg) => {
             // The character list rides along in the editor payload (init and later editor updates).
+            const notes = msg.type === 'ww_character_notes' ? msg.notes
+                : ((msg.editor && msg.editor.ww_character_notes) || msg.ww_character_notes);
+            if (notes && typeof notes === 'object') {
+                state.notes = { ...notes };
+                // Don't swap the text out from under someone typing in it.
+                if (state.tab === 'moves' && document.activeElement?.id !== 'charNotes') renderDetail();
+            }
             const chars = (msg.editor && msg.editor.ww_characters) || msg.ww_characters;
             if (Array.isArray(chars)) {
                 state.mine = chars.map((c) => nameTokens(c.name || c.name_key));
@@ -257,8 +265,39 @@ function renderMoves(c) {
             ${entries ? `<ul class="entries">${entries}</ul>` : ''}
             ${(m.skill_chain || []).length > 1 ? `<p><span class="keycap">E</span><span class="plus">in a row</span> ${m.skill_chain.map(esc).join(' → ')}</p>` : ''}
         </section>
-        ${m.notes ? `<section class="move-card notes"><h3>Notes</h3><p>${esc(m.notes)}</p></section>` : ''}
+        ${renderNotes(c, m)}
         ${follow ? `<section class="move-card"><h3>Follow-ups</h3><ul class="follow">${follow}</ul></section>` : ''}`;
+}
+
+// Notes: your own, saved in the tracker when you stop typing or leave the box. Until you write
+// some, the box starts with the shipped notes from ww_characters.json.
+function renderNotes(c, m) {
+    const mine = state.notes && Object.prototype.hasOwnProperty.call(state.notes, String(c.id));
+    const text = mine ? state.notes[String(c.id)] : (m.notes || '');
+    const live = state.tracker && state.tracker.isOpen();
+    return `<section class="move-card notes">
+        <h3>Notes <span class="muted small" id="notesStatus">${live ? '' : 'Start ComboTracker to save notes'}</span></h3>
+        <textarea id="charNotes" rows="4" placeholder="Your notes on ${esc(c.name)}: rotations, cancels, things to remember…">${esc(text)}</textarea>
+    </section>`;
+}
+
+let notesTimer = null;
+function saveNotes() {
+    clearTimeout(notesTimer);
+    const ta = $('charNotes');
+    if (!ta || state.selectedId == null) return;
+    const id = String(state.selectedId);
+    const text = ta.value.trim();
+    const status = $('notesStatus');
+    const current = state.notes && Object.prototype.hasOwnProperty.call(state.notes, id) ? state.notes[id] : null;
+    if (current === text) return;
+    const sent = state.tracker && state.tracker.isOpen() && state.tracker.send('save_character_note', { id, text });
+    if (sent === false || !state.tracker || !state.tracker.isOpen()) {
+        if (status) status.textContent = 'Not saved: ComboTracker isn\'t running';
+        return;
+    }
+    state.notes = { ...(state.notes || {}), [id]: text };
+    if (status) status.textContent = 'Saved';
 }
 
 // --- Timings (frame data from WuwaLAB; static/data/ww_timings.json) ------------
@@ -640,12 +679,20 @@ function bindEvents() {
     });
     // Filtering re-renders only the table body so the filter box keeps focus.
     $('detail').addEventListener('input', (e) => {
+        if (e.target.id === 'charNotes') {
+            const status = $('notesStatus');
+            if (status) status.textContent = 'Editing…';
+            clearTimeout(notesTimer);
+            notesTimer = setTimeout(saveNotes, 1000);
+            return;
+        }
         if (e.target.id !== 'timingFilter') return;
         state.timingFilter = e.target.value.trim();
         const c = state.roster.find((x) => x.id === state.selectedId);
         const t = c && timingsFor(c);
         if (t) $('timingRows').innerHTML = timingRows(t);
     });
+    $('detail').addEventListener('focusout', (e) => { if (e.target.id === 'charNotes') saveNotes(); });
     $('rawBtn').addEventListener('click', downloadRaw);
     window.addEventListener('hashchange', () => {
         const id = Number(location.hash.slice(1));

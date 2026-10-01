@@ -205,6 +205,13 @@ input[type="search"], select, textarea {
 .move-card h3 { margin: 0 0 10px; font-size: 15px; }
 .move-card p { margin: 6px 0 0; }
 .move-card.notes p { color: #cfd5dc; }
+.move-card.notes h3 .small { font-weight: 400; margin-left: 6px; }
+#charNotes {
+    width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px;
+    background: var(--bg-primary); color: #cfd5dc; border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; font: inherit; font-size: 14px; line-height: 1.5;
+}
+#charNotes:focus { outline: none; border-color: var(--accent-blue); }
 .hits { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
 .hits li { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-secondary); border-radius: 8px; padding: 5px 10px 5px 6px; }
 .keycap.hit { color: var(--accent-blue); }
