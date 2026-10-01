@@ -2,7 +2,8 @@
 //
 // Inputs are decoded by rule, walking the timeline in order:
 //   leading f = start the fight (ToA prompt), any later f = Tune Break
-//   1/2/3 = swap in that slot (Intro)
+//   wait(1/2/3, t) = swap in that slot with its animation lock: the Intro
+//   a bare 1/2/3 = a plain swap (no Intro)
 //   lmb = Basic 1, 2, 3... (reset by any other action or a wait of 1s+; wraps at the chain length)
 //   lmb right after rmb = Dodge Counter?, right after space = Mid-air Attack
 //   hold(lmb) = Heavy, or another Basic hit for characters whose hold continues the chain
@@ -20,7 +21,8 @@
 // Concerto Energy is tracked per character as the timeline goes, from WuwaLAB's per-ability
 // Concerto (static/data/ww_timings.json via setWwTimingData()). Each move adds its base version's
 // Concerto (an estimate: forms like Iuno's Moonbow or Enhanced moves give more), everyone starts
-// at 0, and swapping out with a full bar fires the Outro and empties it. A character whose
+// at 0, and an Intro (a swap written with its animation lock) means the outgoing character's
+// Outro fired, which empties their bar. A character whose
 // basic.hold_full_concerto is set (Iuno: "Absolute Fullness") gets that Heavy instead of the usual
 // one while their bar is full.
 
@@ -272,9 +274,13 @@ function createWwMoveLabeler(slotNames) {
             return 'Tune Break';
         }
         if (WW_SLOTS.includes(key)) {
-            // Swapping out with a full bar fires the Outro, which empties it.
-            if (onField && onField !== key && isFull(onField)) concerto[onField] = 0;
+            const prev = onField;
             onField = key;
+            // Only a swap written with its animation lock, wait(2, 0.9s), is an Intro. A bare 2 is
+            // a plain swap: no Intro, no Outro, no Concerto.
+            if (!(step.type === 'wait' && step.mode === 'mandatory')) return 'Swap';
+            // The Intro comes from the outgoing character's Outro, which empties their bar.
+            if (prev && prev !== key) concerto[prev] = 0;
             gain(key, { kind: 'intro' });
             after = 'intro';
             return own(key, 'intro', 'Intro');

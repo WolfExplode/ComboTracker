@@ -8,6 +8,8 @@ setWwCharacterData(require('../static/data/ww_characters.json'));
 
 const names = { '1': 'Zani', '2': 'Phoebe', '3': 'Rover' };
 const press = (input) => ({ type: 'press', input });
+// wait(2, 0.9s): swap in with the animation lock, i.e. the Intro.
+const intro = (slot) => ({ type: 'wait', mode: 'mandatory', wait_for: slot, duration: 900 });
 
 test('leading f starts the fight, later f is Tune Break', () => {
     const label = createWwMoveLabeler(names);
@@ -38,7 +40,7 @@ test('hold lmb continues the chain for Hiyuki, is a Heavy for others', () => {
     const label = createWwMoveLabeler({ '1': 'Hiyuki', '2': 'Augusta' });
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '1'), 'Hiyuki Basic 1 (held)');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '1'), 'Hiyuki Basic 2 (held)');
-    assert.strictEqual(label(press('2'), '2'), 'Stride of Goldenflare');
+    assert.strictEqual(label(intro('2'), '2'), 'Stride of Goldenflare');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '2'), 'Steelclash');
 });
 
@@ -50,7 +52,7 @@ test('lmb after a jump is a mid-air attack', () => {
 
 test('swaps name the incoming character and later moves use them', () => {
     const label = createWwMoveLabeler(names);
-    assert.strictEqual(label(press('2'), '2'), 'Golden Grace');
+    assert.strictEqual(label(intro('2'), '2'), 'Golden Grace');
     assert.strictEqual(label({ type: 'hold', input: 'e', duration: 800 }, '2'), 'To Where Light Shines (held)');
     assert.strictEqual(label({ type: 'wait', mode: 'mandatory', wait_for: 'r', duration: 3950 }, '2'), 'Dawn of Enlightenment');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 2300 }, '2'), 'Phoebe Heavy');
@@ -59,7 +61,7 @@ test('swaps name the incoming character and later moves use them', () => {
 
 test('missing team falls back to slot numbers', () => {
     const label = createWwMoveLabeler({});
-    assert.strictEqual(label(press('3'), '3'), 'Slot 3 Intro');
+    assert.strictEqual(label(intro('3'), '3'), 'Slot 3 Intro');
 });
 
 test('lmb after another move picks the chain up where the kit says', () => {
@@ -67,7 +69,7 @@ test('lmb after another move picks the chain up where the kit says', () => {
     assert.strictEqual(label(press('e'), '1'), 'Restless Watch');
     assert.strictEqual(label(press('lmb'), '1'), 'Zani Basic 3'); // Zani's Skill -> Basic Stage 3
     assert.strictEqual(label(press('lmb'), '1'), 'Zani Basic 4');
-    assert.strictEqual(label(press('2'), '2'), 'Overture of Departure');
+    assert.strictEqual(label(intro('2'), '2'), 'Overture of Departure');
     assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 3'); // Aemeath's Intro -> Stage 3
     assert.strictEqual(label(press('q'), '2'), 'Echo');
     assert.strictEqual(label(press('lmb'), '2'), 'Aemeath Basic 1'); // Echo has no follow-up
@@ -113,7 +115,7 @@ test('named moves drop the character; unnamed ones keep it', () => {
     const label = createWwMoveLabeler({ '1': 'Augusta', '2': 'Somebody New' });
     assert.strictEqual(label({ type: 'wait', mode: 'mandatory', wait_for: 'r', duration: 1600 }, '1'), 'Sunward Conquest');
     assert.strictEqual(label(press('q'), '1'), 'Echo');
-    assert.strictEqual(label(press('2'), '2'), 'Somebody New Intro');
+    assert.strictEqual(label(intro('2'), '2'), 'Somebody New Intro');
     assert.strictEqual(label(press('e'), '2'), 'Somebody New Skill');
     assert.strictEqual(label({ type: 'hold', input: 'lmb', duration: 500 }, '2'), 'Somebody New Heavy');
 });
@@ -133,13 +135,23 @@ test('Concerto: Iuno\'s held LMB is Absolute Fullness once her bar is full, and 
 
     const label = createWwMoveLabeler({ '1': 'Iuno', '2': 'Zani' });
     const hold = { type: 'hold', input: 'lmb', duration: 100 };
-    assert.strictEqual(label(press('1'), '1'), 'Illuminated Manifestation');
+    assert.strictEqual(label(intro('1'), '1'), 'Illuminated Manifestation');
     assert.strictEqual(label.concerto('1'), 10);
     assert.strictEqual(label(hold, '1'), 'Flux');
     while (label.concerto('1') < 100) label(press('r'), '1');
     assert.strictEqual(label(hold, '1'), 'Absolute Fullness');
-    label(press('2'), '2'); // swap out with a full bar: Outro
+    label(intro('2'), '2'); // Zani's Intro comes from Iuno's Outro, emptying her bar
     assert.strictEqual(label.concerto('1'), 0);
-    label(press('1'), '1');
+    label(intro('1'), '1');
     assert.strictEqual(label(hold, '1'), 'Flux');
+});
+
+test('a bare slot key is a plain swap, not an Intro', () => {
+    const label = createWwMoveLabeler({ '1': 'Iuno', '2': 'Augusta' });
+    assert.strictEqual(label(intro('1'), '1'), 'Illuminated Manifestation');
+    const before = label.concerto('1');
+    assert.strictEqual(label(press('2'), '2'), 'Swap');
+    assert.strictEqual(label.concerto('2'), 0); // no Intro Concerto
+    assert.strictEqual(label.concerto('1'), before); // no Outro either
+    assert.strictEqual(label(press('lmb'), '2'), 'Augusta Basic 1'); // no Intro chain entry
 });
