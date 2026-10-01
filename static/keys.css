@@ -1,0 +1,86 @@
+/* Transparent by default so it composites cleanly as an OBS Browser Source. */
+:root {
+    --key-bg: rgba(20, 22, 28, 0.82);
+    --key-border: #4a4f5c;
+    --key-text: #e8eaf0;
+    --key-role: #9aa0ae;
+    --key-down-bg: #f2c14e;
+    --key-down-text: #16181d;
+    --key-size: 64px;
+}
+
+html, body {
+    margin: 0;
+    background: transparent;
+    font-family: system-ui, sans-serif;
+    user-select: none;
+}
+
+.kb {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+}
+
+.kb-row {
+    display: flex;
+    gap: 6px;
+}
+
+.gap { width: calc(var(--key-size) / 2); }
+
+.key {
+    position: relative;
+    width: var(--key-size);
+    height: var(--key-size);
+    box-sizing: border-box;
+    border: 2px solid var(--key-border);
+    border-radius: 8px;
+    background: var(--key-bg);
+    color: var(--key-text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: background 60ms, transform 60ms;
+}
+
+.key.wide { width: calc(var(--key-size) * 1.6); }
+.key.space { width: calc(var(--key-size) * 3.4); }
+.key.mouse { border-radius: 18px 18px 10px 10px; }
+
+.cap { font-size: 18px; font-weight: 700; }
+.role {
+    max-width: 100%;
+    padding: 0 3px;
+    box-sizing: border-box;
+    font-size: 10px;
+    color: var(--key-role);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.portrait {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.key.down {
+    background: var(--key-down-bg);
+    border-color: var(--key-down-bg);
+    color: var(--key-down-text);
+    transform: translateY(2px);
+}
+.key.down .role { color: var(--key-down-text); }
+.key.down .portrait { opacity: 0.2; }
+
+.key.offline { opacity: 0.4; }

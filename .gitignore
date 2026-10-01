@@ -12,3 +12,13 @@ combos.json.bak
 
 # Runtime profiler artifacts
 /logs/
+ww_library_cache/
+
+# Your saved combos, teams and stats (combos.example.json seeds it on first run)
+combos.json
+
+# pytest
+.pytest_cache/
+
+# Raw encore.moe snapshot (Characters page "Download raw data"); source for tools/ww_build_moves.py
+/data/encore_raw/

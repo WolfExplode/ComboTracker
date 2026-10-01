@@ -619,22 +619,3 @@ def runtime_source_token_indices_from_tokens(tokens: list[str]) -> list[list[int
     return source_map
 
 
-def steps_from_tokens(tokens: list[str]) -> list[dict[str, Any]]:
-    """
-    Parse tokens and build flat list of step dicts.
-    Expands composite_steps (e.g. wait(r,1.5)) inline.
-    Mirrors set_active_combo step-building logic.
-    """
-    steps: list[dict[str, Any]] = []
-    for t in tokens:
-        node = parse_step(t)
-        if node is None:
-            continue
-        d = build_state(node)
-        if d.get("composite_steps") is not None:
-            for sub in d.get("composite_steps") or []:
-                if isinstance(sub, dict) and sub:
-                    steps.append(sub)
-        else:
-            steps.append(d)
-    return steps

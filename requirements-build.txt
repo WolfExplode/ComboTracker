@@ -1,2 +1,0 @@
-# Optional: only needed to build the Windows release executable
-pyinstaller>=6.0

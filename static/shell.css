@@ -1,0 +1,946 @@
+/* App shell in the style of BetterGhub (left rail, cards, cyan accent).
+   Loaded after style.css. The Combo Steps timeline keeps style.css's look on purpose:
+   tile colors (#444 tap, #ffdd4a wait, #4a9eff hold, #4aff88 done) carry established meanings.
+   The OBS views (?view=timeline and keys.html) are untouched. */
+
+:root {
+    --ct-bg: #0B0D10;
+    --ct-rail: #101318;
+    --ct-panel: #14181E;
+    --ct-surface: #1A1F26;
+    --ct-surface2: #222832;
+    --ct-hover: #2A313C;
+    --ct-line: #232933;
+    --ct-line-strong: #343C48;
+    --ct-text: #ECEFF3;
+    --ct-muted: #8D97A5;
+    --ct-faint: #5D6673;
+    --ct-accent: #2EC5EA;
+    --ct-accent-hover: #62D6F3;
+    --ct-accent-dim: #152E38;
+    --ct-on-accent: #04141A;
+    --ct-success: #3DDC84;
+    --ct-warning: #F4B740;
+    --ct-danger: #F05A63;
+
+    --ct-font-display: 'Barlow', 'Bahnschrift', 'Segoe UI', sans-serif;
+    --ct-font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+    --ct-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+body {
+    background: var(--ct-bg);
+    color: var(--ct-text);
+    font-family: var(--ct-font-body);
+}
+
+a { color: var(--ct-accent); }
+a:hover { color: var(--ct-accent-hover); }
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.muted { color: var(--ct-muted); }
+.small { font-size: 12.5px; }
+[hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------------------
+   Layout: rail + main
+   --------------------------------------------------------------------------- */
+
+.app {
+    display: grid;
+    grid-template-columns: 256px minmax(0, 1fr);
+    min-height: 100vh;
+}
+
+.app.compact { grid-template-columns: 72px minmax(0, 1fr); }
+
+.rail {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 12px 16px;
+    background: var(--ct-rail);
+    border-right: 1px solid var(--ct-line);
+    overflow-y: auto;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 64px;
+    padding: 0 6px;
+    flex: none;
+}
+
+.brand-mark {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 8px;
+    background: var(--ct-accent);
+    color: var(--ct-on-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wordmark {
+    font: 700 18px var(--ct-font-display);
+    letter-spacing: .01em;
+    white-space: nowrap;
+}
+
+.rail-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rail-spacer { flex-grow: 1; }
+
+.navbtn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ct-muted);
+    font: 500 14px var(--ct-font-body);
+    cursor: pointer;
+    position: relative;
+    text-align: left;
+    flex: none;
+}
+
+.navbtn:hover {
+    background: var(--ct-surface);
+    color: var(--ct-text);
+    transform: none;
+}
+
+.navbtn.on {
+    background: var(--ct-accent-dim);
+    color: var(--ct-text);
+}
+
+.rail .navbtn.on::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 13px;
+    width: 3px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--ct-accent);
+}
+
+.navbtn svg { flex: none; }
+
+.navbtn:focus-visible,
+.btn:focus-visible,
+.chip:focus-within,
+.combo-item:focus-visible,
+.combo-group-head:focus-visible,
+.menu-item:focus-visible,
+.picker-btn:focus-visible,
+.team-card:focus-visible {
+    outline: 2px solid var(--ct-accent);
+    outline-offset: 2px;
+}
+
+.status-card {
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--ct-panel);
+    border: 1px solid var(--ct-line);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: none;
+}
+
+.status-card-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.status-dot {
+    width: 9px;
+    height: 9px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--ct-faint);
+}
+
+.status-dot[data-kind="success"] { background: var(--ct-success); }
+.status-dot[data-kind="warning"] { background: var(--ct-warning); }
+.status-dot[data-kind="danger"] { background: var(--ct-danger); }
+
+.status-title { font-weight: 600; }
+.status-detail { font-size: 12px; color: var(--ct-muted); padding-left: 18px; }
+
+.app.compact .navlabel,
+.app.compact .wordmark,
+.app.compact .status-text { display: none; }
+.app.compact .navbtn { justify-content: center; padding: 0; }
+.app.compact .brand { justify-content: center; padding: 0; }
+.app.compact .status-card { align-items: center; padding: 14px 0; }
+
+.main {
+    min-width: 0;
+    padding: 22px 36px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ---------------------------------------------------------------------------
+   Header: page title + active combo picker
+   --------------------------------------------------------------------------- */
+
+.head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 62px;
+}
+
+.head-titles { display: flex; flex-direction: column; min-width: 0; }
+
+.overline {
+    font: 600 11px var(--ct-font-body);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ct-muted);
+}
+
+.head h1 {
+    margin: 0;
+    font: 700 30px var(--ct-font-display);
+    color: var(--ct-text);
+}
+
+.picker { position: relative; }
+
+/* Teams page: team dropdown + New team */
+.team-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.team-bar .picker { flex: 0 1 460px; min-width: 0; }
+.team-bar .picker-btn { min-width: 0; }
+.team-bar .picker-menu { left: 0; right: auto; width: 100%; }
+.team-item-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.team-item-left > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-item .avatars .avatar { border-color: var(--ct-surface); }
+
+.picker-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 300px;
+    width: 100%;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--ct-line-strong);
+    background: var(--ct-panel);
+    color: var(--ct-text);
+    cursor: pointer;
+    text-align: left;
+    font-weight: 400;
+}
+
+.picker-btn:hover {
+    background: var(--ct-surface);
+    transform: none;
+}
+
+.picker-btn[aria-expanded="true"] { border-color: var(--ct-accent); }
+.picker-btn svg { color: var(--ct-muted); flex: none; }
+
+.picker-text {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    margin-left: 6px;
+}
+
+.picker-team {
+    font: 600 10.5px var(--ct-font-body);
+    letter-spacing: .08em;
+    color: var(--ct-muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.picker-name {
+    font-weight: 600;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.avatars { display: flex; flex: none; }
+.avatars .avatar { margin-right: -6px; border: 2px solid var(--ct-panel); }
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--ct-surface2);
+    color: var(--ct-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font: 700 12px var(--ct-font-display);
+}
+
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-sm { width: 30px; height: 30px; font-size: 11px; }
+.avatar-empty { background: var(--ct-surface); border-style: dashed !important; }
+
+.picker-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 30;
+    min-width: 100%;
+    max-height: 380px;
+    overflow: auto;
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid var(--ct-line-strong);
+    background: var(--ct-surface);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+
+.menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ct-text);
+    font: 500 14px var(--ct-font-body);
+    cursor: pointer;
+    text-align: left;
+}
+
+.menu-item:hover { background: var(--ct-hover); transform: none; }
+.menu-item.on { color: var(--ct-accent); }
+.menu-empty { padding: 10px 12px; margin: 0; }
+
+/* ---------------------------------------------------------------------------
+   Pages, cards, controls
+   --------------------------------------------------------------------------- */
+
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.card {
+    padding: 20px;
+    border-radius: 14px;
+    background: var(--ct-panel);
+    border: 1px solid var(--ct-line);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.card-title,
+.card h2.card-title {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font: 700 18px var(--ct-font-display);
+    color: var(--ct-text);
+}
+
+.card p { margin: 0; }
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 1px solid var(--ct-line-strong);
+    background: var(--ct-surface);
+    color: var(--ct-text);
+    font: 500 14px var(--ct-font-body);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn:hover { background: var(--ct-hover); color: var(--ct-text); transform: none; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--ct-accent); border-color: var(--ct-accent); color: var(--ct-on-accent); font-weight: 600; }
+.btn.primary:hover { background: var(--ct-accent-hover); }
+.btn.danger { color: var(--ct-danger); border-color: #4A2328; background: transparent; }
+.btn.danger:hover { background: rgba(240, 90, 99, .12); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ct-muted); }
+.btn.ghost:hover { color: var(--ct-text); background: var(--ct-surface); }
+.btn.icon-only { padding: 0 12px; }
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.field > label,
+.field label.label-with-input-help {
+    text-align: left;
+    padding: 0;
+    font: 600 11px var(--ct-font-body);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ct-muted);
+}
+
+.field label.label-with-input-help { justify-content: flex-start; }
+
+.input,
+.app .ww-char-editor input[type="text"],
+.app .ww-char-picker-trigger {
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid var(--ct-line-strong);
+    background: var(--ct-bg);
+    color: var(--ct-text);
+    font: 400 14px var(--ct-font-body);
+    width: 100%;
+}
+
+.input:focus,
+.app .ww-char-editor input[type="text"]:focus {
+    border-color: var(--ct-accent);
+    box-shadow: 0 0 0 2px rgba(46, 197, 234, .2);
+}
+
+select.input { padding-right: 8px; }
+
+.inline-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.formgrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.form-actions-right { display: flex; gap: 8px; flex-wrap: wrap; }
+.button-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.page-tools { display: flex; justify-content: flex-end; }
+
+.keycap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 7px;
+    border-radius: 7px;
+    border: 1px solid var(--ct-line-strong);
+    border-bottom-width: 3px;
+    background: var(--ct-surface);
+    font: 600 12px var(--ct-font-mono);
+    color: var(--ct-text);
+    flex: none;
+}
+
+.keycap-sm { min-width: 24px; height: 24px; font-size: 11px; padding: 0 5px; }
+
+/* Switch chips (Record / Replay) wrap a real checkbox */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    padding: 0 14px 0 12px;
+    border-radius: 8px;
+    border: 1px solid var(--ct-line-strong);
+    background: transparent;
+    color: var(--ct-muted);
+    font: 500 13px var(--ct-font-body);
+    cursor: pointer;
+    user-select: none;
+    text-align: left;
+}
+
+.chip-input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.chip .sw { width: 26px; height: 14px; border-radius: 7px; background: var(--ct-line-strong); position: relative; flex: none; }
+.chip .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ct-muted); transition: left .15s ease; }
+.chip:has(.chip-input:checked) { border-color: var(--ct-accent); color: var(--ct-text); background: var(--ct-accent-dim); }
+.chip:has(.chip-input:checked) .sw { background: var(--ct-accent); }
+.chip:has(.chip-input:checked) .sw::after { left: 14px; background: var(--ct-on-accent); }
+
+/* Toggles outside the timeline use the accent color */
+.card .toggle-switch:checked {
+    background: rgba(46, 197, 234, .3);
+    border-color: rgba(46, 197, 234, .6);
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%);
+    z-index: 40;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: var(--ct-surface2);
+    border: 1px solid var(--ct-line-strong);
+    font-weight: 600;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
+    max-width: calc(100vw - 32px);
+}
+
+/* ---------------------------------------------------------------------------
+   Practice
+   --------------------------------------------------------------------------- */
+
+.stat-cards {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+}
+
+.stat-card {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--ct-panel);
+    border: 1px solid var(--ct-line);
+}
+
+.stat-label {
+    font: 600 11px var(--ct-font-body);
+    letter-spacing: .08em;
+    color: var(--ct-muted);
+}
+
+.stat-value { font: 700 22px var(--ct-font-display); }
+.stat-card:not([class*="diff-"]) .stat-value { color: var(--ct-text); }
+
+/* The Combo Steps panel keeps its black OBS look; only the panel corners match the new cards. */
+.app .timeline-section {
+    margin: 0;
+    border-radius: 14px;
+    border: 1px solid var(--ct-line);
+    box-shadow: none;
+}
+
+.app .timeline-section .combo-steps-header { flex-wrap: wrap; }
+
+/* Dragging a tile's icon drags the tile (to reorder), not a copy of the image */
+.timeline-section img,
+.timeline-section svg {
+    -webkit-user-drag: none;
+    user-select: none;
+}
+
+/* The tile for the input under the cursor in the Inputs box (see applyEditFocus in app/combos.js).
+   An outline, so the tile's own border colors keep their meaning. */
+.app .timeline-section .step-edit-focus {
+    outline: 3px solid var(--ct-accent);
+    outline-offset: 3px;
+    box-shadow: 0 0 14px rgba(46, 197, 234, .55);
+}
+.app .timeline-section .combo-steps-controls { flex-wrap: wrap; row-gap: 6px; }
+
+.attempt-card .attempt-header { margin: 0; flex-wrap: wrap; }
+.attempt-card .results-table {
+    max-height: 360px;
+    overflow-y: auto;
+    border: 1px solid var(--ct-line);
+    border-radius: 10px;
+}
+.attempt-card .table-header { background: var(--ct-surface); color: var(--ct-muted); font-size: 12.5px; }
+.attempt-card .result-row { border-top-color: var(--ct-line); }
+.attempt-card .result-row:hover { background: var(--ct-surface); }
+
+/* ---------------------------------------------------------------------------
+   Combos
+   --------------------------------------------------------------------------- */
+
+.editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.editor-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* Collapsible "Edit combo" panel under the timeline */
+.combo-edit:not([open]) { gap: 0; }
+.combo-edit-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.combo-edit-summary::-webkit-details-marker { display: none; }
+.combo-edit-summary::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--ct-muted);
+    border-bottom: 2px solid var(--ct-muted);
+    transform: rotate(-45deg);
+    transition: transform .15s ease;
+    flex: none;
+}
+.combo-edit[open] > .combo-edit-summary::before { transform: rotate(45deg); }
+.combo-edit-summary:focus-visible { outline: 2px solid var(--ct-accent); outline-offset: 4px; border-radius: 4px; }
+
+/* In the rail it fills the space between the nav and the status card, scrolling on its own */
+.combo-list-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-height: 120px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ct-line);
+}
+.rail .combo-list-card + .rail-spacer { display: none; }
+/* Rail is narrow: smaller, tighter portraits and no step counts so names have room */
+.rail .combo-group-head { padding: 6px 6px; min-height: 40px; gap: 6px; font-size: 13px; }
+.rail .combo-group-head .team-item-left { gap: 8px; }
+.rail .combo-group-head .avatar { width: 22px; height: 22px; font-size: 9px; margin-right: -9px; border-width: 1.5px; }
+.rail .combo-group-head .avatars { padding-right: 9px; }
+.rail .combo-group-body { padding: 0 2px 6px 10px; }
+.rail .combo-item { min-height: 34px; padding: 5px 8px; font-size: 13px; }
+.rail .combo-item-steps { display: none; }
+.app.compact .rail .combo-list-card { display: none; }
+.app.compact .rail .combo-list-card + .rail-spacer { display: block; }
+.editor > .combo-list-card { padding: 10px; border: 1px solid var(--ct-line); border-radius: 14px; background: var(--ct-panel); max-height: 320px; margin: 0; }
+.combo-list-tools { display: flex; gap: 8px; padding: 0 0 6px; }
+.combo-list-tools .input { flex-grow: 1; min-width: 0; width: auto; }
+.combo-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; margin: 0 -4px; padding: 0 4px; }
+
+/* Combo list grouped by team (same rows as the Teams page dropdown) */
+.combo-group { border-radius: 10px; }
+.combo-group.open { background: rgba(255, 255, 255, .02); }
+.combo-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ct-text);
+    font: 600 14px var(--ct-font-body);
+    cursor: pointer;
+    text-align: left;
+}
+.combo-group-head:hover { background: var(--ct-surface); transform: none; }
+.combo-group.has-active > .combo-group-head { color: var(--ct-accent); }
+.combo-group-head .avatars .avatar { border-color: var(--ct-panel); }
+.combo-group-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: 500 12px var(--ct-font-mono);
+    color: var(--ct-muted);
+}
+.combo-group-count::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform .15s ease;
+}
+.combo-group.open .combo-group-count::after { transform: rotate(45deg); }
+.combo-group-body { display: flex; flex-direction: column; gap: 2px; padding: 0 4px 6px 18px; }
+
+.combo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 38px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ct-text);
+    font: 500 13.5px var(--ct-font-body);
+    cursor: pointer;
+    text-align: left;
+}
+
+.combo-item:hover { background: var(--ct-surface); transform: none; }
+.combo-item.on { background: var(--ct-accent-dim); }
+.combo-item-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.combo-item-steps { font: 400 12px var(--ct-font-mono); color: var(--ct-muted); white-space: nowrap; }
+
+.app .combo-input-wrap .combo-input-highlight,
+.app .combo-input-wrap #comboInputs {
+    padding: 10px 12px;
+    font: 400 13px/1.6 var(--ct-font-mono);
+    border-radius: 8px;
+}
+
+/* The highlighter sits under a transparent textarea, so the dark fill goes on the wrapper. */
+.app .combo-input-wrap { background: var(--ct-bg); border-radius: 8px; }
+
+.app .combo-input-wrap #comboInputs {
+    border: 1px solid var(--ct-line-strong);
+    min-height: 110px;
+}
+
+.app .combo-input-wrap #comboInputs:focus { border-color: var(--ct-accent); box-shadow: 0 0 0 2px rgba(46, 197, 234, .2); }
+
+.app .demo-video-embed-wrap { margin: 0; }
+.app .demo-video-embed-wrap iframe { max-width: 100%; border-radius: 10px; }
+
+.app .input-help-tooltip { text-transform: none; letter-spacing: normal; font-weight: 400; }
+
+/* ---------------------------------------------------------------------------
+   Teams
+   --------------------------------------------------------------------------- */
+
+.cards3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.team-card {
+    padding: 16px;
+    gap: 6px;
+    color: var(--ct-text);
+    font: 400 14px var(--ct-font-body);
+    text-align: left;
+    cursor: pointer;
+}
+
+.team-card:hover { background: var(--ct-surface); transform: none; border-color: var(--ct-line-strong); }
+.team-card.on { border-color: var(--ct-accent); }
+.team-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.team-card-name { font: 700 17px var(--ct-font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.team-slot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    background: var(--ct-surface);
+    font-weight: 500;
+}
+
+.app .ww-slot-row {
+    border-color: var(--ct-line);
+    border-radius: 10px;
+    background: var(--ct-surface);
+}
+
+.app .ww-slot-row.ww-drag-over { border-color: var(--ct-accent); box-shadow: 0 0 0 2px rgba(46, 197, 234, .3); }
+.app .ww-slot-portrait { border-radius: 50%; border-color: var(--ct-line-strong); width: 40px; height: 40px; flex-basis: 40px; }
+.app .ww-slot-char-select { width: auto; }
+
+.app .ww-char-picker { flex: 1 1 200px; max-width: 280px; }
+.app .ww-char-picker-trigger { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.app .ww-char-picker-trigger:hover { background: var(--ct-surface); transform: none; }
+.app .ww-char-picker-menu { background: var(--ct-surface); border-color: var(--ct-line-strong); border-radius: 10px; }
+.app .ww-char-picker-option { background: transparent; color: var(--ct-text); font-weight: 500; }
+.app .ww-char-picker-option:hover { background: var(--ct-hover); transform: none; }
+.app .ww-char-sync { margin: 0; }
+.app .ww-char-sync .input { flex: 1 1 200px; width: auto; }
+.app .ww-ability-label { color: var(--ct-muted); font-size: 12.5px; }
+
+/* Character editor buttons are built by JS without classes; match .btn */
+.app .ww-char-btn-row button {
+    min-height: 38px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 1px solid var(--ct-accent);
+    background: var(--ct-accent);
+    color: var(--ct-on-accent);
+    font: 600 14px var(--ct-font-body);
+}
+
+.app .ww-char-btn-row button:hover { background: var(--ct-accent-hover); transform: none; }
+.app .ww-char-btn-row button.danger { color: var(--ct-danger); border-color: #4A2328; background: transparent; }
+.app .ww-char-btn-row button.danger:hover { background: rgba(240, 90, 99, .12); }
+.app .ww-char-btn-row button:disabled { opacity: .45; cursor: default; }
+
+.app .ww-dash-panel { padding-top: 12px; border-top: 1px solid var(--ct-line); }
+
+/* ---------------------------------------------------------------------------
+   Characters (embedded page)
+   --------------------------------------------------------------------------- */
+
+.page-fill { flex: 1; }
+
+.characters-frame {
+    width: 100%;
+    flex: 1;
+    min-height: calc(100vh - 150px);
+    border: 1px solid var(--ct-line);
+    border-radius: 14px;
+    background: var(--ct-panel);
+}
+
+/* ---------------------------------------------------------------------------
+   Settings
+   --------------------------------------------------------------------------- */
+
+.settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.url-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 6px 12px;
+    border-radius: 8px;
+    background: var(--ct-surface);
+}
+
+.url-text {
+    flex: 1;
+    min-width: 0;
+    font: 400 12.5px var(--ct-font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Phone: the rail becomes a bottom tab bar
+   --------------------------------------------------------------------------- */
+
+.bottomnav { display: none; }
+
+@media (max-width: 1100px) {
+    .cards3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+    .app,
+    .app.compact { grid-template-columns: minmax(0, 1fr); }
+    .rail { display: none; }
+
+    .bottomnav {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        background: var(--ct-rail);
+        border-top: 1px solid var(--ct-line);
+        padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    }
+
+    .bottomnav .navbtn {
+        flex: 1;
+        flex-direction: column;
+        gap: 2px;
+        height: 52px;
+        justify-content: center;
+        padding: 0;
+        font-size: 11px;
+        text-align: center;
+    }
+
+    .main { padding: 16px 16px 96px; }
+    .head { flex-direction: column; align-items: stretch; }
+    .picker-btn { min-width: 0; }
+    .editor,
+    .formgrid,
+    .cards3,
+    .settings { grid-template-columns: minmax(0, 1fr); }
+    .hide-small { display: none !important; }
+    .toast { bottom: 90px; }
+}
+
+/* ---------------------------------------------------------------------------
+   OBS timeline view (?view=timeline): only the Combo Steps panel, as before
+   --------------------------------------------------------------------------- */
+
+body.timeline-window-view { background: var(--bg-primary); }
+body.timeline-window-view .app { display: block; }
+body.timeline-window-view .rail,
+body.timeline-window-view .head,
+body.timeline-window-view .bottomnav,
+body.timeline-window-view .toast,
+body.timeline-window-view .combo-list-card,
+body.timeline-window-view .editor-main > :not(.timeline-section) { display: none !important; }
+body.timeline-window-view .editor { display: block; }
+body.timeline-window-view .main { padding: 20px; }
+body.timeline-window-view .app .timeline-section { border: 0; border-radius: 0; }
+body.timeline-window-view #openTimelineWindowBtn { display: none !important; }

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WuWa Characters</title>
+    <link rel="stylesheet" href="characters.css">
+</head>
+
+<body>
+    <!-- Each character's key-input moves (data/ww_characters.json) and community team rotations (AntoCrasher's rotation compilation). -->
+    <header class="topbar">
+        <a href="index.html" class="back" title="Back to the combo tracker">&larr; Combo Tracker</a>
+        <h1>Characters</h1>
+        <input type="search" id="search" placeholder="Search characters" autocomplete="off">
+        <div id="elementFilter" class="chips" role="group" aria-label="Filter by element"></div>
+        <button type="button" id="rawBtn" class="subtle" title="Save encore.moe's unedited data to data/encore_raw/ (doesn't change what's shown)">Download raw data</button>
+    </header>
+
+    <div id="notice" class="notice hidden" role="status"></div>
+
+    <main class="layout">
+        <nav id="roster" class="roster" aria-label="Characters"></nav>
+
+        <section id="detail" class="detail">
+            <div class="empty">Pick a character to see their moves and team rotations.</div>
+        </section>
+    </main>
+
+    <script src="ws.js"></script>
+    <script src="ww_rotations.js"></script>
+    <script src="characters.js"></script>
+</body>
+
+</html>

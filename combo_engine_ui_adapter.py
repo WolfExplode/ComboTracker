@@ -28,7 +28,11 @@ class UIAdapter:
     wait_anim_sig: tuple | None = None
     active_step_sig: Any | None = None
 
-    def reset(self) -> None:
+    def reset(self, emit: EmitFunc | None = None) -> None:
+        # A nested wait/spam animation still running in the UI must be told to stop, or the
+        # frontend keeps animating and re-latches onto the first tile of the reset timeline.
+        if emit is not None and self.wait_anim_sig is not None:
+            emit({"type": "spam_end" if self.wait_anim_sig[0] == "spam" else "wait_end"})
         self.wait_anim_sig = None
         self.active_step_sig = None
 

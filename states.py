@@ -888,6 +888,3 @@ def build_runtime_state(node: StepNode) -> StepState:
 # Test helpers
 # ---------------------------------------------------------------------------
 
-def steps_from_ast(ast_steps: list[StepNode]) -> list[StepState]:
-    """Build runtime states from AST nodes."""
-    return [build_runtime_state(node) for node in ast_steps]
